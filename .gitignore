@@ -1,0 +1,31 @@
+node_modules
+.turbo
+dist
+.next
+.expo
+coverage
+.env
+.env.local
+*.log
+.DS_Store
+
+# API
+apps/api/prisma/*.db
+apps/api/openapi.json
+
+# Web (Angular)
+apps/web/dist
+apps/web/.angular
+
+# Mobile (Flutter)
+apps/mobile/.dart_tool
+apps/mobile/build
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/.idea
+
+# packages/api-client/openapi.json is the committed contract snapshot
+**/generated
+.idea
+.vscode

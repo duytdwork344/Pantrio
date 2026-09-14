@@ -1,0 +1,371 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/recipes": {
+      "get": {
+        "operationId": "RecipesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecipeSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List public recipes for discovery",
+        "tags": [
+          "recipes"
+        ]
+      }
+    },
+    "/api/recipes/{slug}": {
+      "get": {
+        "operationId": "RecipesController_findBySlug",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recipe not found"
+          }
+        },
+        "summary": "Get recipe detail by slug",
+        "tags": [
+          "recipes"
+        ]
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "operationId": "InventoryController_list",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "Temporary MVP user header until auth is wired",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InventoryItemResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List current user inventory batches (FEFO ordered)",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/shopping-lists": {
+      "get": {
+        "operationId": "ShoppingController_list",
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "description": "Temporary MVP user header until auth is wired",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingListSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List shopping lists for current user",
+        "tags": [
+          "shopping"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Pantrio API",
+    "description": "Cooking community + inventory API. Core loop: Recipe → Plan → Shopping → Inventory → Cook → Recommend.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "user-id": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-user-id"
+      }
+    },
+    "schemas": {
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecipeSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object"
+          },
+          "servings": {
+            "type": "number"
+          },
+          "prepTimeMin": {
+            "type": "object"
+          },
+          "cookTimeMin": {
+            "type": "object"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "imageUrl": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "servings",
+          "difficulty"
+        ]
+      },
+      "RecipeIngredientDto": {
+        "type": "object",
+        "properties": {
+          "foodId": {
+            "type": "string"
+          },
+          "foodName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "optional": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "foodId",
+          "foodName",
+          "quantity",
+          "unit",
+          "optional"
+        ]
+      },
+      "RecipeDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object"
+          },
+          "servings": {
+            "type": "number"
+          },
+          "prepTimeMin": {
+            "type": "object"
+          },
+          "cookTimeMin": {
+            "type": "object"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "imageUrl": {
+            "type": "object"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeIngredientDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "servings",
+          "difficulty",
+          "instructions",
+          "ingredients"
+        ]
+      },
+      "InventoryItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "foodId": {
+            "type": "string"
+          },
+          "foodName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "type": "object"
+          },
+          "storageLocation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "foodId",
+          "foodName",
+          "quantity",
+          "unit",
+          "confidence",
+          "storageLocation"
+        ]
+      },
+      "ShoppingListSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "itemCount": {
+            "type": "number"
+          },
+          "pendingCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "itemCount",
+          "pendingCount"
+        ]
+      }
+    }
+  }
+}

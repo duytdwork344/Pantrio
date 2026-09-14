@@ -1,0 +1,30 @@
+:root {
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-sans: "Source Sans 3", "Segoe UI", sans-serif;
+  --color-brand: #145c45;
+  --color-ink: #0f2f24;
+  --color-text: #3d4a43;
+  --color-muted: #5f6d65;
+  --color-bg-1: #f7f3ea;
+  --color-bg-2: #e8efe6;
+  --color-bg-3: #dce8e2;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background:
+    radial-gradient(ellipse at top, var(--color-bg-1), var(--color-bg-2) 55%, var(--color-bg-3));
+}

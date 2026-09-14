@@ -1,0 +1,14 @@
+<a routerLink="/" class="back">← Pantrio</a>
+
+<article>
+  <h1>{{ recipe().title }}</h1>
+  <p>{{ recipe().body }}</p>
+
+  @if (recipe().ingredients.length) {
+    <ul>
+      @for (item of recipe().ingredients; track item) {
+        <li>{{ item }}</li>
+      }
+    </ul>
+  }
+</article>

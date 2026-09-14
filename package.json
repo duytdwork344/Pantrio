@@ -1,0 +1,24 @@
+{
+  "name": "pantrio",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "dev:api": "turbo run dev --filter=@pantrio/api",
+    "dev:web": "turbo run dev --filter=@pantrio/web",
+    "db:generate": "pnpm --filter @pantrio/api exec prisma generate",
+    "db:migrate": "pnpm --filter @pantrio/api exec prisma migrate dev",
+    "db:seed": "pnpm --filter @pantrio/api db:seed",
+    "db:studio": "pnpm --filter @pantrio/api exec prisma studio",
+    "openapi:export": "pnpm --filter @pantrio/api openapi:export",
+    "openapi:generate": "pnpm --filter @pantrio/api-client generate",
+    "docker:up": "docker compose -f infra/compose.yml up -d",
+    "docker:down": "docker compose -f infra/compose.yml down"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.2"
+  }
+}

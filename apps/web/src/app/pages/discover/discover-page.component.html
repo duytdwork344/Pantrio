@@ -1,0 +1,21 @@
+<section class="hero">
+  <h1>Nhà có gì, nấu được gì?</h1>
+  <p>
+    Khám phá recipe, lên kế hoạch nấu, mua đúng nguyên liệu và quản lý tủ bếp —
+    vòng lặp cốt lõi của Pantrio.
+  </p>
+</section>
+
+<section class="discover">
+  <h2>Discover</h2>
+  <ul>
+    @for (recipe of recipes; track recipe.slug) {
+      <li>
+        <a [routerLink]="['/recipes', recipe.slug]">
+          <h3>{{ recipe.title }}</h3>
+          <p>{{ recipe.description }}</p>
+        </a>
+      </li>
+    }
+  </ul>
+</section>

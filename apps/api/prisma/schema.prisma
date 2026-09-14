@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MeasurementType {
+  COUNT
+  WEIGHT
+  VOLUME
+}
+
+enum QuantityConfidence {
+  PRESENCE
+  APPROXIMATE
+  EXACT
+}
+
+enum StorageLocation {
+  PANTRY
+  FRIDGE
+  FREEZER
+  OTHER
+}
+
+enum InventoryTransactionType {
+  PURCHASE
+  CONSUME
+  DISPOSE
+  ADJUSTMENT
+  ESTIMATED_CONSUME
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum RecipeVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum ShoppingListItemStatus {
+  PENDING
+  PURCHASED
+  SKIPPED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roles               UserRole[]
+  recipes             Recipe[]             @relation("RecipeAuthor")
+  articles            Article[]            @relation("ArticleAuthor")
+  savedRecipes        SavedRecipe[]
+  plannedRecipes      PlannedRecipe[]
+  shoppingLists       ShoppingList[]
+  inventoryItems      InventoryItem[]
+  inventoryTxns       InventoryTransaction[]
+  cookingSessions     CookingSession[]
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+/// System-wide food/ingredient master (not user-owned).
+model Food {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique
+  category        String?
+  measurementType MeasurementType
+  baseUnit        String
+  imageUrl        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  recipeIngredients RecipeIngredient[]
+  inventoryItems    InventoryItem[]
+  shoppingListItems ShoppingListItem[]
+
+  @@index([name])
+  @@index([category])
+}
+
+model Recipe {
+  id           String           @id @default(cuid())
+  authorId     String
+  title        String
+  slug         String           @unique
+  description  String?
+  servings     Int              @default(2)
+  prepTimeMin  Int?
+  cookTimeMin  Int?
+  difficulty   RecipeDifficulty @default(EASY)
+  instructions String
+  imageUrl     String?
+  visibility   RecipeVisibility @default(PUBLIC)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  author            User               @relation("RecipeAuthor", fields: [authorId], references: [id])
+  ingredients       RecipeIngredient[]
+  tags              RecipeTag[]
+  savedBy           SavedRecipe[]
+  plannedBy         PlannedRecipe[]
+  shoppingListItems ShoppingListItem[]
+  cookingSessions   CookingSession[]
+  inventoryTxns     InventoryTransaction[]
+
+  @@index([authorId])
+  @@index([title])
+}
+
+model RecipeIngredient {
+  id       String  @id @default(cuid())
+  recipeId String
+  foodId   String
+  quantity Float
+  unit     String
+  note     String?
+  optional Boolean @default(false)
+  sortOrder Int    @default(0)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  food   Food   @relation(fields: [foodId], references: [id])
+
+  @@unique([recipeId, foodId])
+  @@index([foodId])
+}
+
+model Tag {
+  id      String      @id @default(cuid())
+  name    String      @unique
+  recipes RecipeTag[]
+}
+
+model RecipeTag {
+  recipeId String
+  tagId    String
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagId])
+}
+
+model Article {
+  id          String   @id @default(cuid())
+  authorId    String
+  title       String
+  slug        String   @unique
+  summary     String?
+  body        String
+  coverUrl    String?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User @relation("ArticleAuthor", fields: [authorId], references: [id])
+
+  @@index([authorId])
+  @@index([title])
+}
+
+model SavedRecipe {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+}
+
+model PlannedRecipe {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  servings  Int
+  plannedFor DateTime?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, plannedFor])
+}
+
+model ShoppingList {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   @default("Shopping List")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ShoppingListItem[]
+
+  @@index([userId])
+}
+
+model ShoppingListItem {
+  id             String                 @id @default(cuid())
+  shoppingListId String
+  foodId         String
+  recipeId       String?
+  quantity       Float
+  unit           String
+  status         ShoppingListItemStatus @default(PENDING)
+  note           String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  food         Food         @relation(fields: [foodId], references: [id])
+  recipe       Recipe?      @relation(fields: [recipeId], references: [id])
+
+  @@index([shoppingListId, status])
+  @@index([foodId])
+}
+
+/// One inventory batch/package for a user (FEFO-friendly).
+model InventoryItem {
+  id             String             @id @default(cuid())
+  userId         String
+  foodId         String
+  quantity       Float
+  unit           String
+  confidence     QuantityConfidence @default(APPROXIMATE)
+  expiryDate     DateTime?
+  purchaseDate   DateTime?
+  storageLocation StorageLocation   @default(PANTRY)
+  opened         Boolean            @default(false)
+  notes          String?
+  lastConfirmedAt DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food         Food                   @relation(fields: [foodId], references: [id])
+  transactions InventoryTransaction[]
+
+  @@index([userId, foodId])
+  @@index([userId, expiryDate])
+}
+
+model InventoryTransaction {
+  id              String                    @id @default(cuid())
+  inventoryItemId String
+  userId          String
+  type            InventoryTransactionType
+  quantity        Float
+  unit            String
+  recipeId        String?
+  cookingSessionId String?
+  note            String?
+  estimated       Boolean                   @default(false)
+  createdAt       DateTime                  @default(now())
+
+  inventoryItem  InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe         Recipe?         @relation(fields: [recipeId], references: [id])
+  cookingSession CookingSession? @relation(fields: [cookingSessionId], references: [id])
+
+  @@index([inventoryItemId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model CookingSession {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  servings  Int
+  cookedAt  DateTime @default(now())
+  notes     String?
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe       Recipe                 @relation(fields: [recipeId], references: [id])
+  transactions InventoryTransaction[]
+
+  @@index([userId, cookedAt])
+}
