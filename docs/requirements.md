@@ -132,6 +132,56 @@ ADMIN
 
 Một user có thể phát triển từ user thông thường thành creator hoặc có thêm capability khác mà không cần thay đổi bản chất account.
 
+3b. Auth — MVP và OAuth 2.0 (phase sau)
+
+MVP (đã / đang dùng):
+
+- Email + password register/login.
+- JWT access token cho API (Web + Mobile cùng contract).
+- RBAC qua Role / Permission (không gắn chặt vào phương thức login).
+
+OAuth 2.0 (Google, Apple, …): **không triển khai ngay** — không chặn Recipe / Inventory / core loop.
+
+Khi nào làm OAuth:
+
+- Gần lên store / onboarding production.
+- Cần giảm ma sát đăng ký; trên iOS nếu có social login khác thường cần Sign in with Apple.
+
+Hướng triển khai sau (chuẩn bị schema sớm nếu refactor Auth):
+
+- Giữ **User** độc lập với cách đăng nhập.
+- Bảng liên kết identity, ví dụ `OAuthAccount` / `AuthIdentity`:
+  - userId
+  - provider          # google | apple | …
+  - providerUserId
+  - @@unique([provider, providerUserId])
+- Sau OAuth thành công: tạo hoặc tìm User → cấp **cùng loại JWT** như login password.
+- `passwordHash` trên User: cho phép **nullable** (account chỉ OAuth không có mật khẩu local).
+- Không hard-code giả định “mọi user đều login bằng password”.
+
+Không làm ở MVP:
+
+- Thay toàn bộ auth bằng OAuth trước khi có Recipe CRUD.
+- Nhiều cơ chế session song song không cần thiết — OAuth chỉ là bước xác thực đầu, token API vẫn thống nhất.
+
+3c. Lên role CREATOR — request + phê duyệt
+
+**Đã chốt:** USER không tự gắn CREATOR (không self-serve). Luồng sản phẩm:
+
+1. User gửi yêu cầu (ví dụ note / lý do ngắn) → trạng thái `PENDING`.
+2. ADMIN hoặc MODERATOR (permission `user:manage` hoặc moderation tương đương) duyệt hoặc từ chối.
+3. Approve → gán role `CREATOR` (cùng cơ chế `UserRole` / `POST /rbac/assign`); Reject → đóng request, user có thể gửi lại sau (policy cụ thể khi implement).
+4. Client sau khi được duyệt: gọi lại `GET /users/me` (hoặc login lại) để nhận permissions mới (`recipe:create`, …).
+
+Trong lúc phát triển Recipe CRUD: gán CREATOR bằng seed / `POST /rbac/assign` là đủ — không bắt buộc có CreatorRequest trước khi viết recipe API.
+
+Seed bootstrap (local): `admin@pantrio.app` (ADMIN), `creator@pantrio.app` (CREATOR), password `password123` — chạy `pnpm --filter @pantrio/api db:seed`.
+
+Không làm:
+
+- Self-serve “Become a creator” mở ngay `recipe:create` không qua duyệt.
+- Đổi bản chất account (vẫn cùng User; chỉ thêm Role).
+
 4. Content & Recipe
 
 4.1 Article
@@ -166,6 +216,31 @@ Recipe
 - ...
 
 Không nên gộp Article và Recipe thành một entity.
+
+4.2b. Kiểm duyệt nội dung Recipe (phase sau)
+
+**Đã chốt:** Role CREATOR chỉ cho phép **tạo/sửa** recipe — không đồng nghĩa nội dung được hiển thị công khai ngay. Mô tả, hướng dẫn, `imageUrl` (URL tự do) cần lớp kiểm duyệt riêng.
+
+Hai lớp duyệt khác nhau:
+
+| Lớp | Mục tiêu | Tham chiếu |
+|-----|----------|------------|
+| Duyệt **người** lên CREATOR | Ai được phép viết | **3c** |
+| Duyệt **nội dung** từng Recipe | Recipe nào được discovery | **4.2b** (mục này) |
+
+Hướng triển khai (không làm trong MVP CRUD hiện tại — MVP vẫn publish thẳng `PUBLIC` để dev/test):
+
+1. Thêm field tách biệt `visibility` (`PUBLIC | PRIVATE | UNLISTED` — đã có) và `moderationStatus` (`PENDING | APPROVED | REJECTED`).
+2. CREATOR tạo recipe mới (hoặc sửa bản đã public theo policy): mặc định `moderationStatus = PENDING` khi muốn xuất hiện discovery; bản nháp có thể `PRIVATE` + chưa submit duyệt.
+3. Discovery `GET /recipes` (và detail public): chỉ recipe `visibility = PUBLIC` **và** `moderationStatus = APPROVED`.
+4. Author luôn xem/sửa recipe của mình (kể cả PENDING / REJECTED).
+5. MODERATOR / ADMIN (`moderation:manage`): list pending → approve / reject (+ optional lý do reject).
+6. Approve → `APPROVED` (có thể giữ nguyên visibility author đã chọn); Reject → `REJECTED`, không lên discovery; author sửa rồi submit lại → `PENDING`.
+
+Không làm:
+
+- Coi CREATOR = nội dung đã tin cậy, bỏ qua duyệt khi mở production cộng đồng.
+- Gộp moderation status vào `visibility` (hai khái niệm khác nhau: ai thấy vs đã duyệt chưa).
 
 4.3 Ingredient
 
@@ -268,23 +343,29 @@ Thà có inventory tương đối chính xác nhưng người dùng thích sử 
 
 Food / Ingredient Master
 
-Dữ liệu chung của hệ thống:
+Dữ liệu chung của hệ thống (không thuộc một user):
 
 Food
 - id
-- name
-- category
+- slug                          # ổn định, không theo ngôn ngữ
 - measurementType
 - baseUnit
-- image
+- imageUrl?
+- createdByUserId?              # audit / food user tạo (hybrid)
+- visibility?                   # PUBLIC | PRIVATE (phase triển khai)
+- ...
 
-Ví dụ:
+FoodTranslation (i18n)
+- foodId
+- locale                        # vi | en (default hiển thị: vi)
+- name
+- category?
 
-Chicken
-Tomato
-Egg
-Milk
-Onion
+Ví dụ (cùng foodId, nhiều locale):
+
+slug: chicken
+  en → Chicken / protein
+  vi → Gà / protein
 
 InventoryItem
 
@@ -293,7 +374,7 @@ Dữ liệu thực phẩm thuộc user:
 InventoryItem
 - id
 - userId
-- foodId
+- foodId                        # luôn trỏ Food master hệ thống
 - quantity
 - unit
 - expiryDate?
@@ -302,7 +383,153 @@ InventoryItem
 - status
 - ...
 
-Không biến Food thành dữ liệu cá nhân của user.
+Không biến Food thành dữ liệu cá nhân tách biệt (không có “Food chỉ của user” song song master).
+
+Đồng bộ / khớp recipe–inventory chỉ qua cùng foodId — không đồng bộ theo chuỗi tên (“muối” ≈ “Salt”).
+
+7b. Quyết định triển khai: nuôi Food, RecipeIngredient và thêm vào Inventory
+
+Các quyết định đã chốt để triển khai API/UI tiếp theo.
+
+7b.1 Ai nuôi Food master?
+
+- Seed: bộ Food lõi của hệ thống.
+- CREATOR: tạo/gắn Food khi viết Recipe (RecipeIngredient.foodId). Đây là nguồn nuôi catalog chính.
+- USER: không cần (và MVP không bắt) liệt kê hết nguyên liệu thế giới.
+
+Duyệt (moderation) Food mới: không bắt buộc ở MVP. Có thể bổ sung PENDING/ACTIVE + merge trùng ở phase sau.
+
+7b.2 RecipeIngredient không ghi Inventory
+
+RecipeIngredient chỉ mô tả recipe cần gì (foodId + lượng gợi ý).
+
+RecipeIngredient không tự tạo, cộng, hay sửa InventoryItem.
+
+Lượng trên recipe ≠ lượng user đang có trong tủ.
+
+7b.3 USER thêm Food vào Inventory từ Recipe đã quan tâm
+
+Luồng:
+
+USER quan tâm / lưu Recipe (SavedRecipe)
+      ↓
+Mở danh sách nguyên liệu (RecipeIngredient)
+      ↓
+Với mỗi foodId: Inventory của user đã có foodId này chưa?
+      ├── Có  → hiển thị đang có (có thể ~quantity)
+      └── Không → option “Thêm vào tủ”
+                    ↓
+              Tạo InventoryItem { foodId từ recipe, quantity do USER nhập }
+                    ↓
+              Không tạo Food mới — tái sử dụng đúng foodId hệ thống
+
+Quantity khi thêm: USER nhập (có thể prefill gợi ý từ recipe trên UI nhưng không bắt buộc ghi đúng lượng recipe). confidence mặc định APPROXIMATE hoặc PRESENCE tùy UX.
+
+7b.4 USER tự thêm Food vào Inventory (gõ tên)
+
+Luồng bắt buộc search-first:
+
+USER nhập tên (vd. "muối")
+      ↓
+GET /foods?q=...&locale=vi   (typeahead catalog hệ thống)
+      ↓
+Có Food phù hợp? → chọn foodId → tạo InventoryItem
+      ↓
+Không có?
+      ↓
+Option “Tạo nguyên liệu mới” (hybrid trên master chung)
+  → Food visibility=PRIVATE, createdByUserId=user
+  → rồi tạo InventoryItem với foodId đó
+
+Ưu tiên luôn chọn Food có sẵn để tránh nhân bản master (hai foodId “Muối”).
+
+Khớp với recipe sau này chỉ xảy ra khi cùng foodId (user đã chọn đúng Food, hoặc phase sau: alias / merge Food trùng).
+
+7b.5 Không làm gì (MVP)
+
+- Không cộng quantity Inventory từ RecipeIngredient.
+- Không tạo bảng UserFood tách riêng làm nguồn sự thật song song.
+- Không đồng bộ inventory–recipe bằng so khớp tên string.
+- Không bắt moderator duyệt mọi Food trước khi dùng.
+
+7b.6 Gợi ý API liên quan (triển khai dần)
+
+- GET /foods?q=&locale=                          # đã có — typeahead
+- Recipe CRUD + RecipeIngredient                 # CREATOR
+- SavedRecipe                                    # USER quan tâm
+- GET recipe + cờ “inInventory” theo foodId      # UX option thêm tủ
+- POST /inventory                                # tạo InventoryItem { foodId, ... }
+- POST /foods (USER, PRIVATE)                    # chỉ khi search không đủ
+- Catalog moderation / merge Food                # MODERATOR/ADMIN — xem 7b.7
+
+7b.7 Thao tác MODERATOR / ADMIN trên Food catalog
+
+Tách biệt rõ: moderation = quản lý Food master, không phải quản lý tủ của user.
+
+MODERATOR / ADMIN được làm (catalog):
+
+- Xem danh sách Food (lọc PUBLIC / PRIVATE / PENDING nếu có), kèm metadata: createdByUserId, số reference tổng hợp (vd. bao nhiêu InventoryItem / RecipeIngredient trỏ tới) — không cần soi chi tiết từng inventory của user.
+- Ẩn / từ chối / đánh dấu spam Food rác.
+- Promote Food PRIVATE → PUBLIC khi đáng đưa vào catalog chung.
+- Merge Food trùng: chọn fromFoodId → toFoodId (thường PRIVATE → PUBLIC).
+  - Cập nhật hàng loạt FK sang toFoodId (InventoryItem, RecipeIngredient, ShoppingListItem, …).
+  - Ẩn hoặc xóa mềm fromFoodId.
+  - User không bấm merge; phía client tối đa nhận remapping trong suốt (tủ vẫn hiện đúng, foodId đổi phía sau).
+- Quản lý alias / synonym (phase sau) — xem 7b.8 FoodAlias.
+
+MODERATOR / ADMIN không làm:
+
+- Không mở / sửa InventoryItem của user (quantity, expiry, batch) như “quản lý pantries”.
+- Không bắt user approve từng lần merge.
+- User thường không tự merge Food; đó là thao tác catalog.
+
+Quyền gợi ý: catalog:manage và/hoặc moderation:manage (ADMIN có đủ; MODERATOR theo ROLE_PERMISSIONS).
+
+Privacy: Inventory là dữ liệu cá nhân. Moderator chống rác / trùng trên Food, không browse nội dung tủ từng người.
+
+7b.8 Phase sau — FoodAlias (tên miền / biến thể gọi)
+
+Vấn đề: cùng một nguyên liệu, nhiều vùng miền / thói quen gọi khác tên. Không tạo nhiều foodId.
+
+Nguyên tắc: một Food (một foodId); nhiều tên gọi qua bảng FoodAlias riêng (tách khỏi FoodTranslation).
+
+FoodTranslation = tên hiển thị chuẩn theo locale (vi, en) — đã có ở MVP.
+
+FoodAlias = biến thể tìm kiếm / tên miền (implement tách riêng khi tới phase này):
+
+FoodAlias
+- id
+- foodId
+- locale?              # vi | en | null = áp dụng mọi locale
+- region?              # bắc | trung | nam | null
+- name                 # tên gọi thay thế (vd. củ cải đường)
+- normalizedName       # lowercase, bỏ dấu — phục vụ search
+- createdByUserId?
+- @@index([normalizedName])
+- @@index([foodId])
+
+Search / typeahead (GET /foods?q=): match FoodTranslation.name HOẶC FoodAlias.name / normalizedName → luôn trả cùng foodId.
+
+Hiển thị UI: tên canonical từ FoodTranslation theo locale; tùy chọn “còn gọi là …”.
+
+Không làm:
+
+- Không tạo Food riêng theo từng miền.
+- Không thay FoodTranslation bằng locale kiểu vi-HN / vi-SG chỉ để chứa tên miền — alias linh hoạt hơn.
+
+Ai nuôi alias:
+
+- Seed / CREATOR / MODERATOR-ADMIN (cùng luồng catalog ở 7b.7).
+- Phase muộn hơn: USER đề xuất alias → moderator duyệt.
+
+Thứ tự triển khai:
+
+1. MVP: FoodTranslation + search-first (đã định hướng).
+2. Phase sau: bảng FoodAlias + mở rộng search.
+3. Rồi: region, đề xuất alias, UX “ý bạn là …?”.
+
+Khi implement: migration + model FoodAlias tách file/module catalog; không nhét alias vào JSON trên Food.
+
 
 8. Inventory Batch
 
@@ -859,8 +1086,10 @@ Phase 2
 AI Food Scan
 Expiry Notification
 Advanced Search
-Creator
+Creator (UX xin quyền CREATOR + duyệt — xem mục **3c**; assign tay vẫn dùng được từ MVP)
+Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; MVP CRUD chưa bắt buộc)
 Community
+OAuth 2.0 (Google / Apple, …) — xem mục **3b**
 
 Phase 3
 
@@ -922,10 +1151,10 @@ Các phần chưa chốt hoàn toàn:
 
 Domain Model
 
-Cần thiết kế quan hệ:
+Quan hệ cốt lõi đã định hướng; còn chi tiết API/UX:
 
 Recipe
-Ingredient
+Food + FoodTranslation
 RecipeIngredient
 SavedRecipe
 MealPlan / PlannedRecipe
@@ -936,21 +1165,33 @@ InventoryItem
 InventoryTransaction
 CookingSession
 
+Đã chốt (xem mục 7b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; không duyệt MVP.
+
 Inventory semantics
 
-Cần chốt:
+Cần chốt tiếp:
 
 InventoryItem đại diện cho một batch, một package hay một "lượng thực phẩm đang sở hữu".
 
-Khi nào merge InventoryItem.
-
-Khi nào tạo item mới.
+Khi nào tạo batch InventoryItem mới vs điều chỉnh batch đang có (do user thao tác tủ — không liên quan RecipeIngredient).
 
 Xử lý opened/unopened package.
 
 Xử lý cùng Food nhưng khác expiry.
 
 FEFO khi consume.
+
+Food catalog (phase sau) — moderator xem 7b.7; tên miền / biến thể xem 7b.8 FoodAlias
+
+FoodAlias (bảng riêng): foodId + name + normalizedName + locale? + region?; search resolve về cùng foodId.
+
+Alias / synonym (muối, salt, tên miền → cùng foodId) — không nhân bản Food.
+
+Merge Food trùng (PRIVATE → PUBLIC) do MODERATOR/ADMIN; remapping FK trong suốt với user.
+
+Moderation PENDING/ACTIVE nếu cần chống spam.
+
+List Food PRIVATE kèm createdBy + count reference — không soi Inventory chi tiết theo user.
 
 Recommendation
 

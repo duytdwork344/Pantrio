@@ -1,5 +1,20 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { RecipeDifficulty } from '@prisma/client';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { RecipeDifficulty, RecipeVisibility } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 
 export class RecipeSummaryDto {
   @ApiProperty()
@@ -43,14 +58,133 @@ export class RecipeIngredientDto {
   @ApiProperty()
   unit!: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  note?: string | null;
+
   @ApiProperty()
   optional!: boolean;
+
+  @ApiProperty()
+  sortOrder!: number;
 }
 
 export class RecipeDetailDto extends RecipeSummaryDto {
+  @ApiProperty()
+  authorId!: string;
+
+  @ApiProperty({ enum: RecipeVisibility })
+  visibility!: RecipeVisibility;
+
   @ApiProperty()
   instructions!: string;
 
   @ApiProperty({ type: [RecipeIngredientDto] })
   ingredients!: RecipeIngredientDto[];
 }
+
+export class RecipeIngredientInputDto {
+  @ApiProperty({ description: 'Existing Food.id from catalog search' })
+  @IsString()
+  @MinLength(1)
+  foodId!: string;
+
+  @ApiProperty({ example: 200 })
+  @IsNumber()
+  @Min(0)
+  quantity!: number;
+
+  @ApiProperty({ example: 'g' })
+  @IsString()
+  @MinLength(1)
+  unit!: string;
+
+  @ApiPropertyOptional({ example: 'pancetta if available' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  optional?: boolean;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
+
+export class CreateRecipeDto {
+  @ApiProperty({ example: 'Classic Carbonara' })
+  @IsString()
+  @MinLength(2)
+  title!: string;
+
+  @ApiPropertyOptional({
+    example: 'classic-carbonara',
+    description: 'Stable slug; auto-generated from title if omitted',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: 2, default: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  servings?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  prepTimeMin?: number;
+
+  @ApiPropertyOptional({ example: 15 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cookTimeMin?: number;
+
+  @ApiPropertyOptional({
+    enum: RecipeDifficulty,
+    default: RecipeDifficulty.EASY,
+  })
+  @IsOptional()
+  @IsEnum(RecipeDifficulty)
+  difficulty?: RecipeDifficulty;
+
+  @ApiProperty({ example: '1. Boil pasta...\n2. Mix eggs and cheese...' })
+  @IsString()
+  @MinLength(1)
+  instructions!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({
+    enum: RecipeVisibility,
+    default: RecipeVisibility.PUBLIC,
+  })
+  @IsOptional()
+  @IsEnum(RecipeVisibility)
+  visibility?: RecipeVisibility;
+
+  @ApiProperty({ type: [RecipeIngredientInputDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RecipeIngredientInputDto)
+  ingredients!: RecipeIngredientInputDto[];
+}
+
+export class UpdateRecipeDto extends PartialType(CreateRecipeDto) {}

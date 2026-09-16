@@ -109,23 +109,34 @@ model RolePermission {
 }
 
 /// System-wide food/ingredient master (not user-owned).
+/// Display strings live in FoodTranslation (i18n).
 model Food {
-  id              String          @id @default(cuid())
-  name            String
-  slug            String          @unique
-  category        String?
+  id              String            @id @default(cuid())
+  slug            String            @unique
   measurementType MeasurementType
   baseUnit        String
   imageUrl        String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
+  translations      FoodTranslation[]
   recipeIngredients RecipeIngredient[]
   inventoryItems    InventoryItem[]
   shoppingListItems ShoppingListItem[]
+}
 
-  @@index([name])
-  @@index([category])
+model FoodTranslation {
+  id       String  @id @default(cuid())
+  foodId   String
+  locale   String
+  name     String
+  category String?
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId, locale])
+  @@index([locale, name])
+  @@index([locale, category])
 }
 
 model Recipe {

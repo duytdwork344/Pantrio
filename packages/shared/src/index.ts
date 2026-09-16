@@ -38,6 +38,7 @@ export enum Permission {
   ARTICLE_CREATE = 'article:create',
   INVENTORY_MANAGE = 'inventory:manage',
   SHOPPING_MANAGE = 'shopping:manage',
+  CATALOG_MANAGE = 'catalog:manage',
   USER_MANAGE = 'user:manage',
   MODERATION = 'moderation:manage',
   SYSTEM_MANAGE = 'system:manage',
@@ -65,8 +66,16 @@ export const ROLE_PERMISSIONS = {
     Permission.RECIPE_READ,
     Permission.MODERATION,
     Permission.USER_MANAGE,
+    Permission.CATALOG_MANAGE,
   ],
   ADMIN: Object.values(Permission),
 } as const;
 
 export type RoleName = keyof typeof ROLE_PERMISSIONS;
+
+/** Default content locale for catalog / future recipe translations */
+export const DEFAULT_LOCALE = 'vi' as const;
+
+export const SUPPORTED_LOCALES = ['vi', 'en'] as const;
+
+export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];

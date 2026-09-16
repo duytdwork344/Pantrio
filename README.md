@@ -50,7 +50,10 @@ pnpm docker:up
 # 3) Generate Prisma client + run migrations
 pnpm --filter @pantrio/api exec prisma migrate dev --name init
 
-# 4) Run API + Web
+# 4) Seed roles, foods, bootstrap users
+pnpm --filter @pantrio/api db:seed
+
+# 5) Run API + Web
 pnpm dev:api
 pnpm dev:web
 ```
@@ -58,6 +61,13 @@ pnpm dev:web
 - API: http://localhost:3001/api/health
 - Swagger: http://localhost:3001/docs
 - Web: http://localhost:4200
+
+Bootstrap login (local only, password `password123`):
+
+| Email | Role |
+|-------|------|
+| `admin@pantrio.app` | ADMIN |
+| `creator@pantrio.app` | CREATOR |
 
 Mobile:
 
@@ -88,3 +98,5 @@ Bounded contexts under `apps/api/src`:
 - placeholders for `auth`, `users`, `rbac`, `catalog`, `articles`, `planning`, `recommendation`, `media`
 
 See [docs/requirements.md](docs/requirements.md) for product principles (approximate inventory, FEFO batches, Article ≠ Recipe).
+
+Implementation progress: [docs/implementation-checklist.md](docs/implementation-checklist.md).
