@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { RecipeDifficulty, RecipeVisibility } from '@prisma/client';
+import { Unit } from '@pantrio/shared';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -15,6 +16,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { NormalizeUnit } from '../../common/transformers/normalize-unit';
 
 export class RecipeSummaryDto {
   @ApiProperty()
@@ -55,7 +57,7 @@ export class RecipeIngredientDto {
   @ApiProperty()
   quantity!: number;
 
-  @ApiProperty()
+  @ApiProperty({ enum: Unit, example: Unit.G })
   unit!: string;
 
   @ApiPropertyOptional({ nullable: true })
@@ -118,10 +120,10 @@ export class RecipeIngredientInputDto {
   @Min(0)
   quantity!: number;
 
-  @ApiProperty({ example: 'g' })
-  @IsString()
-  @MinLength(1)
-  unit!: string;
+  @ApiProperty({ enum: Unit, example: Unit.G })
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  unit!: Unit;
 
   @ApiPropertyOptional({ example: 'pancetta if available' })
   @IsOptional()

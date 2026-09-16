@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MeasurementType } from '@prisma/client';
+import { Unit } from '@pantrio/shared';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -10,6 +11,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { NormalizeUnit } from '../../common/transformers/normalize-unit';
 
 export class FoodTranslationDto {
   @ApiProperty({ example: 'vi' })
@@ -41,7 +43,7 @@ export class FoodDto {
   @ApiProperty({ enum: MeasurementType })
   measurementType!: MeasurementType;
 
-  @ApiProperty({ example: 'g' })
+  @ApiProperty({ enum: Unit, example: Unit.G })
   baseUnit!: string;
 
   @ApiPropertyOptional({ nullable: true })
@@ -88,10 +90,10 @@ export class CreateFoodDto {
   @IsEnum(MeasurementType)
   measurementType!: MeasurementType;
 
-  @ApiProperty({ example: 'g' })
-  @IsString()
-  @MinLength(1)
-  baseUnit!: string;
+  @ApiProperty({ enum: Unit, example: Unit.G })
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  baseUnit!: Unit;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -111,11 +113,11 @@ export class UpdateFoodDto {
   @IsEnum(MeasurementType)
   measurementType?: MeasurementType;
 
-  @ApiPropertyOptional({ example: 'g' })
+  @ApiPropertyOptional({ enum: Unit, example: Unit.G })
   @IsOptional()
-  @IsString()
-  @MinLength(1)
-  baseUnit?: string;
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  baseUnit?: Unit;
 
   @ApiPropertyOptional()
   @IsOptional()

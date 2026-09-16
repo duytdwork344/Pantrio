@@ -3,6 +3,7 @@ import {
   QuantityConfidence,
   StorageLocation,
 } from '@prisma/client';
+import { Unit } from '@pantrio/shared';
 import {
   IsBoolean,
   IsDateString,
@@ -13,6 +14,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { NormalizeUnit } from '../../common/transformers/normalize-unit';
 
 export class InventoryItemDto {
   @ApiProperty()
@@ -27,7 +29,7 @@ export class InventoryItemDto {
   @ApiProperty()
   quantity!: number;
 
-  @ApiProperty()
+  @ApiProperty({ enum: Unit, example: Unit.G })
   unit!: string;
 
   @ApiProperty({ enum: QuantityConfidence })
@@ -60,10 +62,10 @@ export class CreateInventoryItemDto {
   @Min(0)
   quantity!: number;
 
-  @ApiProperty({ example: 'g' })
-  @IsString()
-  @MinLength(1)
-  unit!: string;
+  @ApiProperty({ enum: Unit, example: Unit.G })
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  unit!: Unit;
 
   @ApiPropertyOptional({
     enum: QuantityConfidence,
@@ -110,6 +112,16 @@ export class UpdateInventoryItemDto {
   @IsNumber()
   @Min(0)
   quantity?: number;
+
+  @ApiPropertyOptional({
+    enum: Unit,
+    example: Unit.G,
+    description: 'Correct batch unit (e.g. after purchase override mistake)',
+  })
+  @IsOptional()
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  unit?: Unit;
 
   @ApiPropertyOptional({ enum: QuantityConfidence })
   @IsOptional()

@@ -90,27 +90,35 @@ export class InventoryService {
     id: string,
     dto: UpdateInventoryItemDto,
   ): Promise<InventoryItemDto> {
-    const existing = await this.prisma.inventoryItem.findUnique({
-      where: { id },
-    });
-    if (!existing) {
-      throw new NotFoundException(`Inventory item '${id}' not found`);
-    }
-    if (existing.userId !== userId) {
-      throw new ForbiddenException('Not your inventory item');
-    }
+    const existing = await this.assertOwned(userId, id);
+
+    const nextUnit = dto.unit?.trim();
+    const unitChanged =
+      nextUnit !== undefined && nextUnit !== existing.unit;
+    const quantityChanged =
+      dto.quantity !== undefined && dto.quantity !== existing.quantity;
 
     const item = await this.prisma.$transaction(async (tx) => {
-      if (dto.quantity !== undefined && dto.quantity !== existing.quantity) {
-        const delta = dto.quantity - existing.quantity;
+      if (quantityChanged || unitChanged) {
+        const delta = quantityChanged
+          ? (dto.quantity as number) - existing.quantity
+          : 0;
+        const noteParts: string[] = [];
+        if (quantityChanged) {
+          noteParts.push('Manual quantity update');
+        }
+        if (unitChanged) {
+          noteParts.push(`Unit ${existing.unit} → ${nextUnit}`);
+        }
+
         await tx.inventoryTransaction.create({
           data: {
             inventoryItemId: id,
             userId,
             type: InventoryTransactionType.ADJUSTMENT,
             quantity: delta,
-            unit: existing.unit,
-            note: 'Manual quantity update',
+            unit: nextUnit ?? existing.unit,
+            note: noteParts.join('; '),
             estimated: false,
           },
         });
@@ -120,6 +128,7 @@ export class InventoryService {
         where: { id },
         data: {
           ...(dto.quantity !== undefined ? { quantity: dto.quantity } : {}),
+          ...(nextUnit !== undefined ? { unit: nextUnit } : {}),
           ...(dto.confidence !== undefined
             ? { confidence: dto.confidence }
             : {}),
@@ -144,6 +153,44 @@ export class InventoryService {
     });
 
     return this.toDto(item);
+  }
+
+  async remove(userId: string, id: string) {
+    const existing = await this.assertOwned(userId, id);
+
+    await this.prisma.$transaction(async (tx) => {
+      if (existing.quantity > 0) {
+        await tx.inventoryTransaction.create({
+          data: {
+            inventoryItemId: id,
+            userId,
+            type: InventoryTransactionType.DISPOSE,
+            quantity: existing.quantity,
+            unit: existing.unit,
+            note: 'Batch removed from inventory',
+            estimated: false,
+          },
+        });
+      }
+
+      // Cascades InventoryTransaction rows for this item.
+      await tx.inventoryItem.delete({ where: { id } });
+    });
+
+    return { deleted: true, id };
+  }
+
+  private async assertOwned(userId: string, id: string) {
+    const existing = await this.prisma.inventoryItem.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Inventory item '${id}' not found`);
+    }
+    if (existing.userId !== userId) {
+      throw new ForbiddenException('Not your inventory item');
+    }
+    return existing;
   }
 
   private toDto(item: {

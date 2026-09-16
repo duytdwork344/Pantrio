@@ -131,11 +131,12 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 - [x] `GET /inventory` (list batches, JWT + `inventory:manage`)
 - [x] `POST /inventory` — tạo batch `{ foodId, quantity, unit, … }` (+ transaction PURCHASE)
-- [x] `PATCH /inventory/:id` (quantity adjust → ADJUSTMENT transaction)
+- [x] `PATCH /inventory/:id` (quantity / unit → ADJUSTMENT transaction)
+- [x] `DELETE /inventory/:id` (DISPOSE rồi xóa batch)
 - [ ] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4** (client + Food PRIVATE schema)
 - [x] Option thêm từ recipe context (foodId có sẵn qua detail / saved) — **7b.3**
 - [x] `InventoryTransaction` khi tạo / đổi số lượng (PURCHASE / ADJUSTMENT)
-- [ ] FEFO khi consume (sau khi có Cook)
+- [x] FEFO khi consume (Cook)
 - [ ] Group hiển thị theo foodId trên client (DB giữ batch riêng)
 
 ---
@@ -152,11 +153,11 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 ## 7. Cook / Consumption / Recommendation (API)
 
-- [ ] CookingSession
-- [ ] Cook → `ESTIMATED_CONSUME` (FEFO batches)
-- [ ] Undo / adjust consumption
-- [ ] Recommendation rule-based: recipe nào “đủ” / thiếu gì theo inventory approximate
-- [ ] Endpoint gợi ý “nhà có gì → nấu được gì?”
+- [x] CookingSession (`POST /cook`, `GET /cooking-sessions`, `GET /cooking-sessions/:id`)
+- [x] Cook → `ESTIMATED_CONSUME` (FEFO batches; g↔kg, ml↔l)
+- [x] Undo (`POST /cooking-sessions/:id/undo`) — hoàn trả batch + xóa session
+- [x] Recommendation rule-based (`GET /recommendations/recipes`) — canCook / missing
+- [x] Endpoint gợi ý “nhà có gì → nấu được gì?”
 
 ---
 
@@ -215,3 +216,4 @@ Note: bootstrap seed users already cover admin/creator (`pnpm db:seed`).
 - Studio: `pnpm db:studio` → http://localhost:5555  
 - Seed: `pnpm db:seed` (roles + foods + `admin@` / `creator@` — password `password123`)  
 - Khớp recipe ↔ inventory **chỉ qua `foodId`**, không qua tên string.
+- Unit MVP chuẩn: `g` | `kg` | `ml` | `l` | `pcs` (`@pantrio/shared` `Unit`).

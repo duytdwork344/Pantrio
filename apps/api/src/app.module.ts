@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CookingModule } from './cooking/cooking.module';
 import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PlanningModule } from './planning/planning.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     PlanningModule,
     InventoryModule,
     ShoppingModule,
+    CookingModule,
   ],
 })
 export class AppModule {}

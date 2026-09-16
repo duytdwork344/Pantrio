@@ -590,13 +590,23 @@ COUNT
 WEIGHT
 VOLUME
 
+**Đã chốt unit chuẩn MVP** (`@pantrio/shared` `Unit`, validate trên DTO):
+
+`g` | `kg` | `ml` | `l` | `pcs`
+
+Gợi ý theo measurement type:
+
+- WEIGHT → `g`, `kg`
+- VOLUME → `ml`, `l`
+- COUNT → `pcs`
+
 Ví dụ:
 
-Egg       → COUNT  → 6 pieces
+Egg       → COUNT  → 6 pcs
 Chicken   → WEIGHT → ~500g
 Milk      → VOLUME → ~800ml
 
-Không cố chuyển mọi thứ về một đơn vị duy nhất nếu conversion không có ý nghĩa nghiệp vụ.
+Không cố chuyển mọi thứ về một đơn vị duy nhất nếu conversion không có ý nghĩa nghiệp vụ. Mở rộng unit (tbsp, cup, …) phase sau — DB vẫn `String`.
 
 10. Inventory Precision
 

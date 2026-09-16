@@ -332,6 +332,8 @@ model CookingSession {
   servings  Int
   cookedAt  DateTime @default(now())
   notes     String?
+  /// Snapshot of consumption lines at cook time (needed / consumed / shortfall).
+  consumptionsJson Json?
 
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   recipe       Recipe                 @relation(fields: [recipeId], references: [id])

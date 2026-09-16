@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -51,7 +59,8 @@ export class InventoryController {
   @Patch(':id')
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
-    summary: 'Update inventory batch (quantity adjust writes ADJUSTMENT txn)',
+    summary:
+      'Update inventory batch (quantity/unit changes write ADJUSTMENT txn)',
   })
   @ApiOkResponse({ type: InventoryItemDto })
   update(
@@ -60,5 +69,15 @@ export class InventoryController {
     @Body() dto: UpdateInventoryItemDto,
   ): Promise<InventoryItemDto> {
     return this.inventoryService.update(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(Permission.INVENTORY_MANAGE)
+  @ApiOperation({
+    summary:
+      'Remove inventory batch (writes DISPOSE then deletes; txn history for this batch is removed)',
+  })
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.inventoryService.remove(user.id, id);
   }
 }

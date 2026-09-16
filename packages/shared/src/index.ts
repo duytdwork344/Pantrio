@@ -4,6 +4,24 @@ export enum MeasurementType {
   VOLUME = 'VOLUME',
 }
 
+/** Canonical units for MVP APIs (stored lowercase). */
+export enum Unit {
+  G = 'g',
+  KG = 'kg',
+  ML = 'ml',
+  L = 'l',
+  PCS = 'pcs',
+}
+
+export const MVP_UNITS = Object.values(Unit);
+
+export const UNITS_BY_MEASUREMENT_TYPE: Record<MeasurementType, readonly Unit[]> =
+  {
+    [MeasurementType.WEIGHT]: [Unit.G, Unit.KG],
+    [MeasurementType.VOLUME]: [Unit.ML, Unit.L],
+    [MeasurementType.COUNT]: [Unit.PCS],
+  };
+
 export enum InventoryTransactionType {
   PURCHASE = 'PURCHASE',
   CONSUME = 'CONSUME',

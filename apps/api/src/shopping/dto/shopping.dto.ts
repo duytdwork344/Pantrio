@@ -3,6 +3,7 @@ import {
   ShoppingListItemStatus,
   StorageLocation,
 } from '@prisma/client';
+import { Unit } from '@pantrio/shared';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -15,6 +16,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { NormalizeUnit } from '../../common/transformers/normalize-unit';
 
 export class ShoppingListSummaryDto {
   @ApiProperty()
@@ -46,7 +48,7 @@ export class ShoppingListItemDto {
   @ApiProperty()
   quantity!: number;
 
-  @ApiProperty()
+  @ApiProperty({ enum: Unit, example: Unit.G })
   unit!: string;
 
   @ApiProperty({ enum: ShoppingListItemStatus })
@@ -87,10 +89,10 @@ export class CreateShoppingListItemDto {
   @Min(0)
   quantity!: number;
 
-  @ApiProperty({ example: 'g' })
-  @IsString()
-  @MinLength(1)
-  unit!: string;
+  @ApiProperty({ enum: Unit, example: Unit.G })
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  unit!: Unit;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -161,12 +163,12 @@ export class PurchaseShoppingItemDto {
   storageLocation?: StorageLocation;
 
   @ApiPropertyOptional({
-    type: String,
-    example: 'g',
+    enum: Unit,
+    example: Unit.G,
     description: 'Optional override. Omit to use the shopping item unit.',
   })
   @IsOptional()
-  @IsString()
-  @MinLength(1)
-  unit?: string;
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  unit?: Unit;
 }
