@@ -1,9 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
-  ApiProperty,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -12,21 +18,18 @@ import {
   type AuthUser,
 } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import {
+  CreateShoppingListDto,
+  CreateShoppingListItemDto,
+  GenerateShoppingListDto,
+  PurchaseShoppingItemDto,
+  ShoppingListDetailDto,
+  ShoppingListItemDto,
+  ShoppingListSummaryDto,
+  UpdateShoppingListDto,
+  UpdateShoppingListItemDto,
+} from './dto/shopping.dto';
 import { ShoppingService } from './shopping.service';
-
-class ShoppingListSummaryResponseDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty()
-  name!: string;
-
-  @ApiProperty()
-  itemCount!: number;
-
-  @ApiProperty()
-  pendingCount!: number;
-}
 
 @ApiTags('shopping')
 @ApiBearerAuth()
@@ -37,10 +40,97 @@ export class ShoppingController {
   @Get()
   @RequirePermissions(Permission.SHOPPING_MANAGE)
   @ApiOperation({ summary: 'List shopping lists for current user' })
-  @ApiOkResponse({ type: [ShoppingListSummaryResponseDto] })
-  list(
-    @CurrentUser() user: AuthUser,
-  ): Promise<ShoppingListSummaryResponseDto[]> {
+  @ApiOkResponse({ type: [ShoppingListSummaryDto] })
+  list(@CurrentUser() user: AuthUser): Promise<ShoppingListSummaryDto[]> {
     return this.shoppingService.listForUser(user.id);
+  }
+
+  @Post()
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Create a shopping list' })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateShoppingListDto,
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.create(user.id, dto);
+  }
+
+  @Get(':id')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Get shopping list detail with items' })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  get(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.getDetail(user.id, id);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Rename shopping list' })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  update(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateShoppingListDto,
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.update(user.id, id, dto);
+  }
+
+  @Post(':id/items')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Add an item manually to the list' })
+  @ApiOkResponse({ type: ShoppingListItemDto })
+  addItem(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateShoppingListItemDto,
+  ): Promise<ShoppingListItemDto> {
+    return this.shoppingService.addItem(user.id, id, dto);
+  }
+
+  @Patch(':id/items/:itemId')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Update shopping item quantity / status / note' })
+  @ApiOkResponse({ type: ShoppingListItemDto })
+  updateItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateShoppingListItemDto,
+  ): Promise<ShoppingListItemDto> {
+    return this.shoppingService.updateItem(user.id, id, itemId, dto);
+  }
+
+  @Post(':id/generate-from-planned')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({
+    summary:
+      'Generate/merge PENDING items from PlannedRecipe − Inventory (by foodId+unit)',
+  })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  generate(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: GenerateShoppingListDto = {},
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.generateFromPlanned(user.id, id, dto);
+  }
+
+  @Post(':id/items/:itemId/purchase')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({
+    summary:
+      'Mark item purchased and create InventoryItem (+ PURCHASE transaction)',
+  })
+  purchase(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: PurchaseShoppingItemDto = {},
+  ) {
+    return this.shoppingService.purchaseItem(user.id, id, itemId, dto);
   }
 }

@@ -1,12 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  InventoryTransactionType,
+  QuantityConfidence,
+  ShoppingListItemStatus,
+  StorageLocation,
+} from '@prisma/client';
+import { pickTranslation } from '../common/i18n/locale';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  CreateShoppingListDto,
+  CreateShoppingListItemDto,
+  GenerateShoppingListDto,
+  PurchaseShoppingItemDto,
+  ShoppingListDetailDto,
+  ShoppingListItemDto,
+  ShoppingListSummaryDto,
+  UpdateShoppingListDto,
+  UpdateShoppingListItemDto,
+} from './dto/shopping.dto';
 
-export class ShoppingListSummaryDto {
-  id!: string;
-  name!: string;
-  itemCount!: number;
-  pendingCount!: number;
-}
+type NeedKey = string; // `${foodId}::${unit}`
 
 @Injectable()
 export class ShoppingService {
@@ -19,12 +36,395 @@ export class ShoppingService {
       orderBy: { updatedAt: 'desc' },
     });
 
-    return lists.map((list) => ({
+    return lists.map((list) => this.toSummary(list));
+  }
+
+  async getDetail(userId: string, id: string): Promise<ShoppingListDetailDto> {
+    const list = await this.getOwnedList(userId, id);
+    return this.toDetail(list);
+  }
+
+  async create(
+    userId: string,
+    dto: CreateShoppingListDto,
+  ): Promise<ShoppingListDetailDto> {
+    const list = await this.prisma.shoppingList.create({
+      data: {
+        userId,
+        name: dto.name?.trim() || 'Shopping List',
+      },
+      include: {
+        items: {
+          include: { food: { include: { translations: true } } },
+        },
+      },
+    });
+    return this.toDetail(list);
+  }
+
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateShoppingListDto,
+  ): Promise<ShoppingListDetailDto> {
+    await this.assertListOwned(userId, id);
+    const list = await this.prisma.shoppingList.update({
+      where: { id },
+      data: { name: dto.name.trim() },
+      include: {
+        items: {
+          include: { food: { include: { translations: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    return this.toDetail(list);
+  }
+
+  async addItem(
+    userId: string,
+    listId: string,
+    dto: CreateShoppingListItemDto,
+  ): Promise<ShoppingListItemDto> {
+    await this.assertListOwned(userId, listId);
+
+    const food = await this.prisma.food.findUnique({
+      where: { id: dto.foodId },
+      include: { translations: true },
+    });
+    if (!food) {
+      throw new BadRequestException(`Unknown foodId '${dto.foodId}'`);
+    }
+
+    if (dto.recipeId) {
+      const recipe = await this.prisma.recipe.findUnique({
+        where: { id: dto.recipeId },
+        select: { id: true },
+      });
+      if (!recipe) {
+        throw new BadRequestException(`Unknown recipeId '${dto.recipeId}'`);
+      }
+    }
+
+    const item = await this.prisma.shoppingListItem.create({
+      data: {
+        shoppingListId: listId,
+        foodId: dto.foodId,
+        quantity: dto.quantity,
+        unit: dto.unit.trim(),
+        recipeId: dto.recipeId ?? null,
+        note: dto.note?.trim() || null,
+      },
+      include: { food: { include: { translations: true } } },
+    });
+
+    return this.toItemDto(item);
+  }
+
+  async updateItem(
+    userId: string,
+    listId: string,
+    itemId: string,
+    dto: UpdateShoppingListItemDto,
+  ): Promise<ShoppingListItemDto> {
+    const item = await this.getOwnedItem(userId, listId, itemId);
+    const updated = await this.prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: {
+        ...(dto.quantity !== undefined ? { quantity: dto.quantity } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...(dto.note !== undefined ? { note: dto.note?.trim() || null } : {}),
+      },
+      include: { food: { include: { translations: true } } },
+    });
+    return this.toItemDto(updated);
+  }
+
+  async generateFromPlanned(
+    userId: string,
+    listId: string,
+    dto: GenerateShoppingListDto,
+  ): Promise<ShoppingListDetailDto> {
+    await this.assertListOwned(userId, listId);
+
+    const planned = await this.prisma.plannedRecipe.findMany({
+      where: {
+        userId,
+        ...(dto.plannedRecipeIds?.length
+          ? { id: { in: dto.plannedRecipeIds } }
+          : {}),
+      },
+      include: {
+        recipe: {
+          include: { ingredients: true },
+        },
+      },
+    });
+
+    if (dto.plannedRecipeIds?.length && planned.length !== dto.plannedRecipeIds.length) {
+      throw new BadRequestException(
+        'One or more plannedRecipeIds were not found for this user',
+      );
+    }
+    if (!planned.length) {
+      throw new BadRequestException('No planned recipes to generate from');
+    }
+
+    const needs = new Map<
+      NeedKey,
+      { foodId: string; unit: string; quantity: number; recipeId: string }
+    >();
+
+    for (const plan of planned) {
+      const scale = plan.servings / Math.max(plan.recipe.servings, 1);
+      for (const ing of plan.recipe.ingredients) {
+        const unit = ing.unit.trim().toLowerCase();
+        const key = `${ing.foodId}::${unit}`;
+        const scaled = ing.quantity * scale;
+        const existing = needs.get(key);
+        if (existing) {
+          existing.quantity += scaled;
+        } else {
+          needs.set(key, {
+            foodId: ing.foodId,
+            unit: ing.unit.trim(),
+            quantity: scaled,
+            recipeId: plan.recipeId,
+          });
+        }
+      }
+    }
+
+    const inventory = await this.prisma.inventoryItem.findMany({
+      where: { userId },
+      select: { foodId: true, quantity: true, unit: true },
+    });
+    const have = new Map<NeedKey, number>();
+    for (const row of inventory) {
+      const key = `${row.foodId}::${row.unit.trim().toLowerCase()}`;
+      have.set(key, (have.get(key) ?? 0) + row.quantity);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const [key, need] of needs) {
+        const available = have.get(key) ?? 0;
+        const shortage = Math.max(0, need.quantity - available);
+        if (shortage <= 0) {
+          continue;
+        }
+
+        const existing = await tx.shoppingListItem.findFirst({
+          where: {
+            shoppingListId: listId,
+            foodId: need.foodId,
+            unit: { equals: need.unit, mode: 'insensitive' },
+            status: ShoppingListItemStatus.PENDING,
+          },
+        });
+
+        if (existing) {
+          await tx.shoppingListItem.update({
+            where: { id: existing.id },
+            data: {
+              quantity: existing.quantity + shortage,
+              recipeId: existing.recipeId ?? need.recipeId,
+            },
+          });
+        } else {
+          await tx.shoppingListItem.create({
+            data: {
+              shoppingListId: listId,
+              foodId: need.foodId,
+              unit: need.unit,
+              quantity: Number(shortage.toFixed(3)),
+              recipeId: need.recipeId,
+              status: ShoppingListItemStatus.PENDING,
+            },
+          });
+        }
+      }
+    });
+
+    return this.getDetail(userId, listId);
+  }
+
+  async purchaseItem(
+    userId: string,
+    listId: string,
+    itemId: string,
+    dto: PurchaseShoppingItemDto,
+  ) {
+    const item = await this.getOwnedItem(userId, listId, itemId);
+    if (item.status === ShoppingListItemStatus.PURCHASED) {
+      throw new BadRequestException('Item already purchased');
+    }
+
+    const quantity = dto.quantity ?? item.quantity;
+    const unit = (dto.unit ?? item.unit).trim();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedItem = await tx.shoppingListItem.update({
+        where: { id: item.id },
+        data: { status: ShoppingListItemStatus.PURCHASED },
+        include: { food: { include: { translations: true } } },
+      });
+
+      const inventoryItem = await tx.inventoryItem.create({
+        data: {
+          userId,
+          foodId: item.foodId,
+          quantity,
+          unit,
+          confidence: QuantityConfidence.EXACT,
+          purchaseDate: new Date(),
+          storageLocation: dto.storageLocation ?? StorageLocation.PANTRY,
+        },
+        include: { food: { include: { translations: true } } },
+      });
+
+      await tx.inventoryTransaction.create({
+        data: {
+          inventoryItemId: inventoryItem.id,
+          userId,
+          type: InventoryTransactionType.PURCHASE,
+          quantity,
+          unit,
+          recipeId: item.recipeId,
+          estimated: false,
+          note: 'From shopping list',
+        },
+      });
+
+      return { item: updatedItem, inventoryItem };
+    });
+
+    const translation = pickTranslation(
+      result.inventoryItem.food.translations,
+    );
+
+    return {
+      shoppingItem: this.toItemDto(result.item),
+      inventoryItem: {
+        id: result.inventoryItem.id,
+        foodId: result.inventoryItem.foodId,
+        foodName: translation?.name ?? result.inventoryItem.food.slug,
+        quantity: result.inventoryItem.quantity,
+        unit: result.inventoryItem.unit,
+        storageLocation: result.inventoryItem.storageLocation,
+      },
+    };
+  }
+
+  private async getOwnedList(userId: string, id: string) {
+    const list = await this.prisma.shoppingList.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: { food: { include: { translations: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!list || list.userId !== userId) {
+      throw new NotFoundException(`Shopping list '${id}' not found`);
+    }
+
+    return list;
+  }
+
+  private async assertListOwned(userId: string, id: string) {
+    const list = await this.prisma.shoppingList.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+    if (!list || list.userId !== userId) {
+      throw new NotFoundException(`Shopping list '${id}' not found`);
+    }
+    return list;
+  }
+
+  private async getOwnedItem(userId: string, listId: string, itemId: string) {
+    const list = await this.assertListOwned(userId, listId);
+    const item = await this.prisma.shoppingListItem.findUnique({
+      where: { id: itemId },
+      include: { food: { include: { translations: true } } },
+    });
+    if (!item || item.shoppingListId !== list.id) {
+      throw new NotFoundException(`Shopping item '${itemId}' not found`);
+    }
+    return item;
+  }
+
+  private toSummary(list: {
+    id: string;
+    name: string;
+    items: Array<{ status: ShoppingListItemStatus }>;
+  }): ShoppingListSummaryDto {
+    return {
       id: list.id,
       name: list.name,
       itemCount: list.items.length,
-      pendingCount: list.items.filter((item) => item.status === 'PENDING')
-        .length,
-    }));
+      pendingCount: list.items.filter(
+        (item) => item.status === ShoppingListItemStatus.PENDING,
+      ).length,
+    };
+  }
+
+  private toDetail(list: {
+    id: string;
+    name: string;
+    items: Array<{
+      id: string;
+      foodId: string;
+      recipeId: string | null;
+      quantity: number;
+      unit: string;
+      status: ShoppingListItemStatus;
+      note: string | null;
+      food: {
+        slug: string;
+        translations: Array<{
+          locale: string;
+          name: string;
+          category: string | null;
+        }>;
+      };
+    }>;
+  }): ShoppingListDetailDto {
+    return {
+      ...this.toSummary(list),
+      items: list.items.map((item) => this.toItemDto(item)),
+    };
+  }
+
+  private toItemDto(item: {
+    id: string;
+    foodId: string;
+    recipeId: string | null;
+    quantity: number;
+    unit: string;
+    status: ShoppingListItemStatus;
+    note: string | null;
+    food: {
+      slug: string;
+      translations: Array<{
+        locale: string;
+        name: string;
+        category: string | null;
+      }>;
+    };
+  }): ShoppingListItemDto {
+    const translation = pickTranslation(item.food.translations);
+    return {
+      id: item.id,
+      foodId: item.foodId,
+      foodName: translation?.name ?? item.food.slug,
+      recipeId: item.recipeId,
+      quantity: item.quantity,
+      unit: item.unit,
+      status: item.status,
+      note: item.note,
+    };
   }
 }

@@ -116,7 +116,11 @@ export class UpdateInventoryItemDto {
   @IsEnum(QuantityConfidence)
   confidence?: QuantityConfidence;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: '2026-10-15T00:00:00.000Z',
+  })
   @IsOptional()
   @IsDateString()
   expiryDate?: string | null;
@@ -131,7 +135,11 @@ export class UpdateInventoryItemDto {
   @IsBoolean()
   opened?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Opened yesterday',
+  })
   @IsOptional()
   @IsString()
   notes?: string | null;

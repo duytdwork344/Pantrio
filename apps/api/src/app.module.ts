@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { PlanningModule } from './planning/planning.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RecipesModule } from './recipes/recipes.module';
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     CatalogModule,
     HealthModule,
     RecipesModule,
+    PlanningModule,
     InventoryModule,
     ShoppingModule,
   ],

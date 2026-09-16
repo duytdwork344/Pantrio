@@ -119,8 +119,8 @@ Tham chiếu: requirements **4.1** — tách khỏi Recipe; không chặn core l
 
 - [x] `POST /recipes/:id/save` / unsave (`SavedRecipe`)
 - [x] `GET /me/saved-recipes`
-- [ ] PlannedRecipe + servings + plannedFor (MVP tối thiểu)
-- [ ] UI/API: từ saved recipe → danh sách ingredients + option “Thêm vào tủ” nếu thiếu foodId — **7b.3**
+- [x] PlannedRecipe: `GET/POST /me/planned-recipes`, `PATCH/DELETE /me/planned-recipes/:id`
+- [x] Thêm vào tủ từ recipe: dùng `POST /inventory` với `foodId` từ ingredients (`inInventory` trên detail) — **7b.3**
   - Chỉ tạo `InventoryItem` với **cùng foodId**; không ghi quantity từ RecipeIngredient vào tủ một cách tự động bắt buộc
 
 ---
@@ -132,8 +132,8 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] `GET /inventory` (list batches, JWT + `inventory:manage`)
 - [x] `POST /inventory` — tạo batch `{ foodId, quantity, unit, … }` (+ transaction PURCHASE)
 - [x] `PATCH /inventory/:id` (quantity adjust → ADJUSTMENT transaction)
-- [ ] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4**
-- [ ] Option thêm từ recipe context (foodId có sẵn) — **7b.3**
+- [ ] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4** (client + Food PRIVATE schema)
+- [x] Option thêm từ recipe context (foodId có sẵn qua detail / saved) — **7b.3**
 - [x] `InventoryTransaction` khi tạo / đổi số lượng (PURCHASE / ADJUSTMENT)
 - [ ] FEFO khi consume (sau khi có Cook)
 - [ ] Group hiển thị theo foodId trên client (DB giữ batch riêng)
@@ -142,10 +142,11 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 ## 6. Shopping (API)
 
-- [x] `GET /shopping-lists` (summary stub)
-- [ ] Create / update shopping list + items
-- [ ] Generate list từ PlannedRecipe − Inventory (diff theo foodId)
-- [ ] Mark purchased → tạo / cộng Inventory (+ transaction PURCHASE)
+- [x] `GET /shopping-lists` (summary)
+- [x] `POST /shopping-lists`, `GET/PATCH /shopping-lists/:id`
+- [x] `POST/PATCH .../items` (thêm / sửa item tay)
+- [x] `POST .../generate-from-planned` (PlannedRecipe − Inventory theo foodId+unit)
+- [x] `POST .../items/:itemId/purchase` → InventoryItem + txn PURCHASE
 
 ---
 
