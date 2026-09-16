@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -25,6 +26,7 @@ import {
   CreateRecipeDto,
   RecipeDetailDto,
   RecipeSummaryDto,
+  SavedRecipeDto,
   UpdateRecipeDto,
 } from './dto/recipe.dto';
 import { RecipesService } from './recipes.service';
@@ -54,6 +56,28 @@ export class RecipesController {
     return this.recipesService.create(user, dto);
   }
 
+  @Post(':id/save')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Save / bookmark a recipe for the current user' })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        saved: { type: 'boolean' },
+        recipeId: { type: 'string' },
+      },
+    },
+  })
+  save(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.recipesService.saveRecipe(user.id, id);
+  }
+
+  @Delete(':id/save')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove a recipe from saved list' })
+  unsave(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.recipesService.unsaveRecipe(user.id, id);
+  }
+
   @Patch(':id')
   @ApiBearerAuth()
   @RequirePermissions(Permission.RECIPE_UPDATE)
@@ -72,14 +96,35 @@ export class RecipesController {
 
   @Public()
   @Get(':slug')
-  @ApiOperation({ summary: 'Get recipe detail by slug' })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get recipe detail by slug (optional JWT adds saved + inInventory flags)',
+  })
   @ApiOkResponse({ type: RecipeDetailDto })
   @ApiNotFoundResponse({ description: 'Recipe not found' })
-  async findBySlug(@Param('slug') slug: string): Promise<RecipeDetailDto> {
-    const recipe = await this.recipesService.findBySlug(slug);
+  async findBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser() user?: AuthUser,
+  ): Promise<RecipeDetailDto> {
+    const recipe = await this.recipesService.findBySlug(slug, user?.id);
     if (!recipe) {
       throw new NotFoundException(`Recipe '${slug}' not found`);
     }
     return recipe;
+  }
+}
+
+@ApiTags('me')
+@ApiBearerAuth()
+@Controller('me')
+export class MeController {
+  constructor(private readonly recipesService: RecipesService) {}
+
+  @Get('saved-recipes')
+  @ApiOperation({ summary: 'List recipes saved by the current user' })
+  @ApiOkResponse({ type: [SavedRecipeDto] })
+  listSaved(@CurrentUser() user: AuthUser): Promise<SavedRecipeDto[]> {
+    return this.recipesService.listSavedRecipes(user.id);
   }
 }

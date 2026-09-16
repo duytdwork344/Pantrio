@@ -66,6 +66,12 @@ export class RecipeIngredientDto {
 
   @ApiProperty()
   sortOrder!: number;
+
+  @ApiPropertyOptional({
+    description:
+      'True when the authenticated user has this foodId in inventory (any batch)',
+  })
+  inInventory?: boolean;
 }
 
 export class RecipeDetailDto extends RecipeSummaryDto {
@@ -80,6 +86,25 @@ export class RecipeDetailDto extends RecipeSummaryDto {
 
   @ApiProperty({ type: [RecipeIngredientDto] })
   ingredients!: RecipeIngredientDto[];
+
+  @ApiPropertyOptional({
+    description: 'True when the authenticated user has saved this recipe',
+  })
+  saved?: boolean;
+}
+
+export class SavedRecipeDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  recipeId!: string;
+
+  @ApiProperty()
+  savedAt!: Date;
+
+  @ApiProperty({ type: RecipeSummaryDto })
+  recipe!: RecipeSummaryDto;
 }
 
 export class RecipeIngredientInputDto {

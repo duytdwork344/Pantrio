@@ -236,11 +236,20 @@ Hướng triển khai (không làm trong MVP CRUD hiện tại — MVP vẫn pub
 4. Author luôn xem/sửa recipe của mình (kể cả PENDING / REJECTED).
 5. MODERATOR / ADMIN (`moderation:manage`): list pending → approve / reject (+ optional lý do reject).
 6. Approve → `APPROVED` (có thể giữ nguyên visibility author đã chọn); Reject → `REJECTED`, không lên discovery; author sửa rồi submit lại → `PENDING`.
+7. **Food mới kèm Recipe** (xem thêm **7b.1**, **7b.7**): Food tạo trong flow recipe (search catalog không đủ) lưu `visibility = PRIVATE`, `createdByUserId = author`. Chỉ **author** và **moderator/admin** thấy trên search/catalog. Food vốn đã `PUBLIC` giữ nguyên. Reject recipe: **không** auto-public Food.
+8. **Khi APPROVE recipe — check trùng rồi merge/promote (đã chốt):**
+   - Với mỗi Food `PRIVATE` mới gắn recipe (do author tạo kèm): hệ thống/UI moderation **kiểm tra trùng** với Food `PUBLIC` (và gợi ý PRIVATE khác nếu có) theo tên/slug gần giống.
+   - **Có trùng với Food chuẩn (`toFoodId`)** → **Moderator merge** `fromFoodId` (bản PRIVATE của recipe) → `toFoodId`: remap `RecipeIngredient` (và FK khác) sang Food chuẩn; **không** promote bản trùng thành PUBLIC thứ hai.
+   - **Không trùng** → **promote** Food đó `PRIVATE` → `PUBLIC`.
+   - Không approve “câm” promote hàng loạt nếu chưa xử lý cảnh báo trùng (tránh 10 foodId PUBLIC cho “thịt cừu”).
+9. Orphan Food PRIVATE sau reject / sau merge: **Moderator** list + xóa/merge tay; hệ thống chỉ gợi ý, không tự xóa thầm (**7b.7**).
 
 Không làm:
 
 - Coi CREATOR = nội dung đã tin cậy, bỏ qua duyệt khi mở production cộng đồng.
 - Gộp moderation status vào `visibility` (hai khái niệm khác nhau: ai thấy vs đã duyệt chưa).
+- Tạo thẳng Food `PUBLIC` từ recipe chưa duyệt (tránh rác catalog khi recipe bị reject).
+- Auto-promote mọi Food PRIVATE của recipe khi approve mà bỏ qua bước check trùng / merge.
 
 4.3 Ingredient
 
@@ -393,11 +402,18 @@ Các quyết định đã chốt để triển khai API/UI tiếp theo.
 
 7b.1 Ai nuôi Food master?
 
-- Seed: bộ Food lõi của hệ thống.
+- Seed: bộ Food lõi của hệ thống (`PUBLIC`).
 - CREATOR: tạo/gắn Food khi viết Recipe (RecipeIngredient.foodId). Đây là nguồn nuôi catalog chính.
-- USER: không cần (và MVP không bắt) liệt kê hết nguyên liệu thế giới.
+  - **Đã chốt (kèm 4.2b):** Food **mới** tạo trong flow recipe → `PRIVATE` + `createdByUserId` (chỉ author + moderator thấy). Không public ngay.
+  - Prefer gắn Food `PUBLIC` có sẵn (search-first) trước khi tạo mới — giảm nhân bản (“thịt cừu” × N).
+  - **Khi Recipe APPROVED:** không promote mù. Với từng Food PRIVATE mới của recipe: **check trùng** → nếu trùng Food PUBLIC/chuẩn thì **Moderator merge** (remap FK) ; nếu không trùng thì **promote → PUBLIC**. Chi tiết **4.2b** bước 8, thao tác **7b.7**.
+- USER: không cần (và MVP không bắt) liệt kê hết nguyên liệu thế giới; khi thiếu có thể tạo Food `PRIVATE` cho tủ (**7b.4**) — khác luồng CREATOR nuôi qua recipe.
 
-Duyệt (moderation) Food mới: không bắt buộc ở MVP. Có thể bổ sung PENDING/ACTIVE + merge trùng ở phase sau.
+Nhiều recipe song song vẫn có thể tạo nhiều row PRIVATE tạm thời; **không chấp nhận** nhiều Food `PUBLIC` khác `foodId` cho cùng khái niệm lâu dài — giải bằng merge lúc approve + merge tay (**7b.7**).
+
+Duyệt Food độc lập (PENDING/ACTIVE riêng): không bắt buộc nếu đã neo theo duyệt Recipe + check trùng như trên; moderator vẫn merge/promote/dọn orphan tay (**7b.7**).
+
+MVP CRUD hiện tại: chưa cho CREATOR tạo Food mới — chỉ gắn foodId đã seed / admin tạo.
 
 7b.2 RecipeIngredient không ghi Inventory
 
@@ -470,18 +486,24 @@ MODERATOR / ADMIN được làm (catalog):
 
 - Xem danh sách Food (lọc PUBLIC / PRIVATE / PENDING nếu có), kèm metadata: createdByUserId, số reference tổng hợp (vd. bao nhiêu InventoryItem / RecipeIngredient trỏ tới) — không cần soi chi tiết từng inventory của user.
 - Ẩn / từ chối / đánh dấu spam Food rác.
-- Promote Food PRIVATE → PUBLIC khi đáng đưa vào catalog chung.
+- Promote Food PRIVATE → PUBLIC khi đáng đưa vào catalog chung (tay; hoặc sau khi approve recipe và **không** phát hiện trùng).
 - Merge Food trùng: chọn fromFoodId → toFoodId (thường PRIVATE → PUBLIC).
   - Cập nhật hàng loạt FK sang toFoodId (InventoryItem, RecipeIngredient, ShoppingListItem, …).
   - Ẩn hoặc xóa mềm fromFoodId.
   - User không bấm merge; phía client tối đa nhận remapping trong suốt (tủ vẫn hiện đúng, foodId đổi phía sau).
+- **Đã chốt — luồng Approve Recipe (4.2b / 7b.1):** trước khi (hoặc trong lúc) approve, Moderator xử lý từng Food PRIVATE mới của recipe:
+  1. Hệ thống gợi ý ứng viên trùng (tên/slug).
+  2. Trùng → Moderator **merge** sang Food chuẩn → rồi mới hoàn tất approve (recipe trỏ đúng foodId chuẩn).
+  3. Không trùng → **promote** PRIVATE → PUBLIC cùng với approve.
+  - Không để approve tạo thêm Food PUBLIC trùng nghĩa.
+- **Orphan Food PRIVATE** (reject recipe, hoặc sau merge không còn reference hữu ích): Moderator **list + xóa/merge tay**. Hệ thống chỉ gợi ý orphan (vd. reference count = 0 hoặc chỉ trỏ recipe REJECTED); **không** auto-delete.
 - Quản lý alias / synonym (phase sau) — xem 7b.8 FoodAlias.
 
 MODERATOR / ADMIN không làm:
 
 - Không mở / sửa InventoryItem của user (quantity, expiry, batch) như “quản lý pantries”.
 - Không bắt user approve từng lần merge.
-- User thường không tự merge Food; đó là thao tác catalog.
+- User / CREATOR thường không tự merge Food; đó là thao tác catalog (Moderator).
 
 Quyền gợi ý: catalog:manage và/hoặc moderation:manage (ADMIN có đủ; MODERATOR theo ROLE_PERMISSIONS).
 
@@ -1165,7 +1187,7 @@ InventoryItem
 InventoryTransaction
 CookingSession
 
-Đã chốt (xem mục 7b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; không duyệt MVP.
+Đã chốt (xem mục 7b, 4.2b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; CREATOR tạo Food mới kèm recipe → PRIVATE; khi APPROVE recipe → check trùng rồi Moderator merge hoặc promote PUBLIC; orphan do Moderator dọn; kiểm duyệt recipe phase sau (MVP CRUD chưa bắt buộc).
 
 Inventory semantics
 

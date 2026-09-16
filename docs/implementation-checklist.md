@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.2b**, **7b**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **7b**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -68,11 +68,13 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] Seed foods EN + VI
 - [ ] Schema: `visibility` (PUBLIC \| PRIVATE), `createdByUserId`
 - [ ] `POST /foods` cho USER tạo **PRIVATE** (khi search không đủ) — **7b.4**
-- [ ] Nới quyền CREATOR tạo Food PUBLIC khi viết recipe (hoặc qua recipe flow)
-- [ ] Search: chỉ trả Food user được thấy (PUBLIC + PRIVATE của chính user)
+- [ ] CREATOR tạo Food mới trong recipe flow → **PRIVATE** (author + moderator thấy); không PUBLIC ngay — **7b.1** / **4.2b**
+- [ ] Approve recipe: **check trùng** Food PRIVATE mới → trùng thì Moderator **merge**, không trùng thì **promote → PUBLIC** — **4.2b** / **7b.7**
+- [ ] Search: chỉ trả Food user được thấy (PUBLIC + PRIVATE của chính user; moderator thấy thêm)
 - [ ] Moderator: list Food PRIVATE + reference counts — **7b.7**
 - [ ] Moderator: merge Food (`fromFoodId` → `toFoodId`) + remap FK — **7b.7**
-- [ ] Moderator: promote PRIVATE → PUBLIC — **7b.7**
+- [ ] Moderator: promote PRIVATE → PUBLIC (tay; ngoài promote sau approve khi không trùng) — **7b.7**
+- [ ] Moderator: list + dọn orphan Food PRIVATE (không auto-delete) — **7b.7**
 - [ ] **FoodAlias** (bảng riêng, search) — **7b.8** (phase sau, không làm MVP)
 
 ---
@@ -84,22 +86,39 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] `POST /recipes` (CREATOR, `recipe:create`)
 - [x] `PATCH /recipes/:id` (author / `recipe:update`; elevated moderation/system)
 - [x] Gắn `RecipeIngredient[]` (foodId + quantity + unit + optional + sortOrder)
-- [ ] Khi tạo ingredient: chọn Food có sẵn (search); CREATOR có thể tạo Food nếu thiếu
+- [ ] Khi tạo ingredient: chọn Food có sẵn (search); thiếu thì tạo Food **PRIVATE** (chưa PUBLIC) — **7b.1**
 - [ ] Tags (optional MVP)
 - [x] Seed 1–2 recipe mẫu (Carbonara, Chicken Tomato Pasta) + ingredients
-- [ ] `GET /recipes/:slug` kèm cờ `inInventory` per foodId (user đã login) — **7b.3**
+- [x] `GET /recipes/:slug` kèm cờ `inInventory` / `saved` khi có JWT — **7b.3**
 - [ ] **Kiểm duyệt nội dung Recipe** (phase sau — requirements **4.2b**; không chặn MVP CRUD)
   - [ ] Schema: `moderationStatus` PENDING \| APPROVED \| REJECTED (tách khỏi `visibility`)
   - [ ] Create/update → PENDING khi submit discovery; author vẫn xem/sửa bản mình
   - [ ] Discovery list/detail chỉ `PUBLIC` + `APPROVED`
   - [ ] Moderator API: list pending + approve/reject (`moderation:manage`)
+  - [ ] Approve recipe → check trùng Food PRIVATE mới → merge (Moderator) hoặc promote PUBLIC; reject không auto-public Food
+  - [ ] Orphan Food: Moderator list/dọn; không auto-delete
+
+---
+
+## 3a. Article (API) — Phase 2
+
+Tham chiếu: requirements **4.1** — tách khỏi Recipe; không chặn core loop MVP.
+
+- [x] Prisma model `Article` (author, title, slug, body, …)
+- [ ] `GET /articles` (public list / published)
+- [ ] `GET /articles/:slug` (detail)
+- [ ] `POST /articles`, `PATCH /articles/:id` (CREATOR, `article:create` / author)
+- [ ] Publish flow (`publishedAt` null = draft)
+- [ ] Optional: gắn / embed Recipe vào Article (schema quan hệ — chốt khi làm; Recipe vẫn độc lập)
+- [ ] Web: list + detail + creator editor (discovery/blog surface)
+- [ ] (Sau) kiểm duyệt Article nếu mở cộng đồng — có thể mirror **4.2b** hoặc đơn giản hơn
 
 ---
 
 ## 4. Planning — Saved / Planned (API)
 
-- [ ] `POST /recipes/:id/save` / unsave (`SavedRecipe`)
-- [ ] `GET /me/saved-recipes`
+- [x] `POST /recipes/:id/save` / unsave (`SavedRecipe`)
+- [x] `GET /me/saved-recipes`
 - [ ] PlannedRecipe + servings + plannedFor (MVP tối thiểu)
 - [ ] UI/API: từ saved recipe → danh sách ingredients + option “Thêm vào tủ” nếu thiếu foodId — **7b.3**
   - Chỉ tạo `InventoryItem` với **cùng foodId**; không ghi quantity từ RecipeIngredient vào tủ một cách tự động bắt buộc
@@ -111,11 +130,11 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 - [x] `GET /inventory` (list batches, JWT + `inventory:manage`)
-- [ ] `POST /inventory` — tạo batch `{ foodId, quantity, unit, … }`
-- [ ] `PATCH /inventory/:id`, adjust / dispose
+- [x] `POST /inventory` — tạo batch `{ foodId, quantity, unit, … }` (+ transaction PURCHASE)
+- [x] `PATCH /inventory/:id` (quantity adjust → ADJUSTMENT transaction)
 - [ ] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4**
 - [ ] Option thêm từ recipe context (foodId có sẵn) — **7b.3**
-- [ ] `InventoryTransaction` khi thay đổi số lượng
+- [x] `InventoryTransaction` khi tạo / đổi số lượng (PURCHASE / ADJUSTMENT)
 - [ ] FEFO khi consume (sau khi có Cook)
 - [ ] Group hiển thị theo foodId trên client (DB giữ batch riêng)
 
@@ -145,7 +164,8 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] Skeleton Discover + recipe detail (demo data)
 - [ ] Auth (register / login / lưu JWT)
 - [ ] Discover + recipe detail hydrate từ API
-- [ ] Creator: tạo/sửa recipe + ingredients
+- [ ] Creator: tạo/sửa recipe + ingredients (typeahead Food)
+- [ ] Article / blog hydrate từ API (Phase 2 — checklist **3a**)
 - [ ] Saved recipes
 - [ ] (Inventory chủ yếu Mobile; Web có thể read-only sau)
 
@@ -171,6 +191,8 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [ ] Seed admin user dev (optional)
 - [ ] E2E smoke: register → create recipe → save → add inventory foodId
 
+Note: bootstrap seed users already cover admin/creator (`pnpm db:seed`).
+
 ---
 
 ## Thứ tự đề xuất (gần → xa)
@@ -182,7 +204,7 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 5. **Shopping generate + purchase → inventory**  
 6. **Cook + estimated consume + recommendation**  
 7. **Web/Mobile hydrate** theo surface (Web discovery/creator, Mobile inventory)  
-8. Phase sau: OAuth 2.0 (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), moderator merge Food, FoodAlias, AI scan, …
+8. Phase sau: Article (**4.1** / checklist **3a**), OAuth 2.0 (requirements **3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), Moderation console (API + Web), moderator merge Food, FoodAlias, AI scan, …
 
 ---
 

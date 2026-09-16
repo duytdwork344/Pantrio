@@ -57,7 +57,10 @@ export class RecipesService {
     return recipes.map((recipe) => this.toSummary(recipe));
   }
 
-  async findBySlug(slug: string): Promise<RecipeDetailDto | null> {
+  async findBySlug(
+    slug: string,
+    viewerUserId?: string,
+  ): Promise<RecipeDetailDto | null> {
     const recipe = await this.prisma.recipe.findUnique({
       where: { slug },
       include: this.detailInclude(),
@@ -67,7 +70,49 @@ export class RecipesService {
       return null;
     }
 
-    return this.toDetail(recipe);
+    return this.toDetail(recipe, viewerUserId);
+  }
+
+  async saveRecipe(userId: string, recipeId: string) {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { id: true },
+    });
+    if (!recipe) {
+      throw new NotFoundException(`Recipe '${recipeId}' not found`);
+    }
+
+    await this.prisma.savedRecipe.upsert({
+      where: {
+        userId_recipeId: { userId, recipeId },
+      },
+      update: {},
+      create: { userId, recipeId },
+    });
+
+    return { saved: true, recipeId };
+  }
+
+  async unsaveRecipe(userId: string, recipeId: string) {
+    await this.prisma.savedRecipe.deleteMany({
+      where: { userId, recipeId },
+    });
+    return { saved: false, recipeId };
+  }
+
+  async listSavedRecipes(userId: string) {
+    const rows = await this.prisma.savedRecipe.findMany({
+      where: { userId },
+      include: { recipe: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      recipeId: row.recipeId,
+      savedAt: row.createdAt,
+      recipe: this.toSummary(row.recipe),
+    }));
   }
 
   async create(
@@ -286,12 +331,47 @@ export class RecipesService {
     };
   }
 
-  private toDetail(recipe: RecipeWithIngredients): RecipeDetailDto {
+  private async toDetail(
+    recipe: RecipeWithIngredients,
+    viewerUserId?: string,
+  ): Promise<RecipeDetailDto> {
+    let inventoryFoodIds = new Set<string>();
+    let saved = false;
+
+    if (viewerUserId) {
+      const foodIds = recipe.ingredients.map((item) => item.foodId);
+      const [inventoryRows, savedRow] = await Promise.all([
+        foodIds.length
+          ? this.prisma.inventoryItem.findMany({
+              where: {
+                userId: viewerUserId,
+                foodId: { in: foodIds },
+              },
+              select: { foodId: true },
+              distinct: ['foodId'],
+            })
+          : Promise.resolve([]),
+        this.prisma.savedRecipe.findUnique({
+          where: {
+            userId_recipeId: {
+              userId: viewerUserId,
+              recipeId: recipe.id,
+            },
+          },
+          select: { id: true },
+        }),
+      ]);
+
+      inventoryFoodIds = new Set(inventoryRows.map((row) => row.foodId));
+      saved = Boolean(savedRow);
+    }
+
     return {
       ...this.toSummary(recipe),
       authorId: recipe.authorId,
       visibility: recipe.visibility,
       instructions: recipe.instructions,
+      ...(viewerUserId ? { saved } : {}),
       ingredients: recipe.ingredients.map((item) => {
         const translation = pickTranslation(item.food.translations);
         return {
@@ -302,6 +382,9 @@ export class RecipesService {
           note: item.note,
           optional: item.optional,
           sortOrder: item.sortOrder,
+          ...(viewerUserId
+            ? { inInventory: inventoryFoodIds.has(item.foodId) }
+            : {}),
         };
       }),
     };
