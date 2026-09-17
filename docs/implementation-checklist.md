@@ -66,11 +66,10 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] `GET /foods/:slug`
 - [x] `POST /foods`, `PATCH /foods/:id` (`catalog:manage`)
 - [x] Seed foods EN + VI
-- [ ] Schema: `visibility` (PUBLIC \| PRIVATE), `createdByUserId`
-- [ ] `POST /foods` cho USER tạo **PRIVATE** (khi search không đủ) — **7b.4**
-- [ ] CREATOR tạo Food mới trong recipe flow → **PRIVATE** (author + moderator thấy); không PUBLIC ngay — **7b.1** / **4.2b**
+- [x] Schema: `visibility` (PUBLIC \| PRIVATE), `createdByUserId`
+- [x] `POST /foods` cho USER/CREATOR → **PRIVATE** (manager có thể tạo PUBLIC) — **7b.4** / **7b.1**
 - [ ] Approve recipe: **check trùng** Food PRIVATE mới → trùng thì Moderator **merge**, không trùng thì **promote → PUBLIC** — **4.2b** / **7b.7**
-- [ ] Search: chỉ trả Food user được thấy (PUBLIC + PRIVATE của chính user; moderator thấy thêm)
+- [x] Search: chỉ trả Food user được thấy (PUBLIC + PRIVATE của chính user; manager/moderator thấy thêm)
 - [ ] Moderator: list Food PRIVATE + reference counts — **7b.7**
 - [ ] Moderator: merge Food (`fromFoodId` → `toFoodId`) + remap FK — **7b.7**
 - [ ] Moderator: promote PRIVATE → PUBLIC (tay; ngoài promote sau approve khi không trùng) — **7b.7**
@@ -86,7 +85,7 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] `POST /recipes` (CREATOR, `recipe:create`)
 - [x] `PATCH /recipes/:id` (author / `recipe:update`; elevated moderation/system)
 - [x] Gắn `RecipeIngredient[]` (foodId + quantity + unit + optional + sortOrder)
-- [ ] Khi tạo ingredient: chọn Food có sẵn (search); thiếu thì tạo Food **PRIVATE** (chưa PUBLIC) — **7b.1**
+- [x] Khi tạo ingredient: chọn Food có sẵn (search); thiếu thì tạo Food **PRIVATE** qua `POST /foods` rồi gắn `foodId` — **7b.1**
 - [ ] Tags (optional MVP)
 - [x] Seed 1–2 recipe mẫu (Carbonara, Chicken Tomato Pasta) + ingredients
 - [x] `GET /recipes/:slug` kèm cờ `inInventory` / `saved` khi có JWT — **7b.3**
@@ -133,7 +132,7 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] `POST /inventory` — tạo batch `{ foodId, quantity, unit, … }` (+ transaction PURCHASE)
 - [x] `PATCH /inventory/:id` (quantity / unit → ADJUSTMENT transaction)
 - [x] `DELETE /inventory/:id` (DISPOSE rồi xóa batch)
-- [ ] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4** (client + Food PRIVATE schema)
+- [x] Typeahead add: gọi `GET /foods?q=` trước khi tạo Food mới — **7b.4** (API visibility sẵn; UI client hydrate sau)
 - [x] Option thêm từ recipe context (foodId có sẵn qua detail / saved) — **7b.3**
 - [x] `InventoryTransaction` khi tạo / đổi số lượng (PURCHASE / ADJUSTMENT)
 - [x] FEFO khi consume (Cook)

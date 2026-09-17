@@ -46,6 +46,11 @@ enum RecipeVisibility {
   UNLISTED
 }
 
+enum FoodVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 enum ShoppingListItemStatus {
   PENDING
   PURCHASED
@@ -70,6 +75,7 @@ model User {
   inventoryItems      InventoryItem[]
   inventoryTxns       InventoryTransaction[]
   cookingSessions     CookingSession[]
+  createdFoods        Food[]               @relation("FoodCreator")
 }
 
 model Role {
@@ -108,7 +114,7 @@ model RolePermission {
   @@id([roleId, permissionId])
 }
 
-/// System-wide food/ingredient master (not user-owned).
+/// Food/ingredient master (PUBLIC catalog + PRIVATE user/creator drafts).
 /// Display strings live in FoodTranslation (i18n).
 model Food {
   id              String            @id @default(cuid())
@@ -116,13 +122,19 @@ model Food {
   measurementType MeasurementType
   baseUnit        String
   imageUrl        String?
+  visibility      FoodVisibility    @default(PUBLIC)
+  createdByUserId String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
+  createdBy         User?              @relation("FoodCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   translations      FoodTranslation[]
   recipeIngredients RecipeIngredient[]
   inventoryItems    InventoryItem[]
   shoppingListItems ShoppingListItem[]
+
+  @@index([visibility])
+  @@index([createdByUserId])
 }
 
 model FoodTranslation {

@@ -14,9 +14,11 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { Permission } from '@pantrio/shared';
+import {
+  CurrentUser,
+  type AuthUser,
+} from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
-import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CatalogService } from './catalog.service';
 import { CreateFoodDto, FoodDto, UpdateFoodDto } from './dto/food.dto';
 
@@ -27,7 +29,11 @@ export class CatalogController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'List / search food master catalog' })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'List / search foods (PUBLIC; + own PRIVATE with JWT; managers see all)',
+  })
   @ApiQuery({ name: 'q', required: false, description: 'Search by name/slug' })
   @ApiQuery({ name: 'category', required: false })
   @ApiQuery({
@@ -40,46 +46,57 @@ export class CatalogController {
     @Query('q') q?: string,
     @Query('category') category?: string,
     @Query('locale') locale?: string,
+    @CurrentUser() user?: AuthUser,
   ): Promise<FoodDto[]> {
-    return this.catalogService.list({ q, category, locale });
+    return this.catalogService.list({ q, category, locale, viewer: user });
   }
 
   @Public()
   @Get(':slug')
-  @ApiOperation({ summary: 'Get food by slug' })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get food by slug (respects PUBLIC / PRIVATE visibility)',
+  })
   @ApiQuery({ name: 'locale', required: false })
   @ApiOkResponse({ type: FoodDto })
   findBySlug(
     @Param('slug') slug: string,
     @Query('locale') locale?: string,
+    @CurrentUser() user?: AuthUser,
   ): Promise<FoodDto> {
-    return this.catalogService.findBySlug(slug, locale);
+    return this.catalogService.findBySlug(slug, locale, user);
   }
 
   @Post()
   @ApiBearerAuth()
-  @RequirePermissions(Permission.CATALOG_MANAGE)
-  @ApiOperation({ summary: 'Create a food master item with translations' })
+  @ApiOperation({
+    summary:
+      'Create food. Without catalog:manage → always PRIVATE. Managers may create PUBLIC.',
+  })
   @ApiQuery({ name: 'locale', required: false })
   @ApiOkResponse({ type: FoodDto })
   create(
+    @CurrentUser() user: AuthUser,
     @Body() dto: CreateFoodDto,
     @Query('locale') locale?: string,
   ): Promise<FoodDto> {
-    return this.catalogService.create(dto, locale);
+    return this.catalogService.create(dto, user, locale);
   }
 
   @Patch(':id')
   @ApiBearerAuth()
-  @RequirePermissions(Permission.CATALOG_MANAGE)
-  @ApiOperation({ summary: 'Update food fields and/or upsert translations' })
+  @ApiOperation({
+    summary:
+      'Update food (owner of PRIVATE, or catalog/moderation manager). Promote visibility requires manager.',
+  })
   @ApiQuery({ name: 'locale', required: false })
   @ApiOkResponse({ type: FoodDto })
   update(
     @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
     @Body() dto: UpdateFoodDto,
     @Query('locale') locale?: string,
   ): Promise<FoodDto> {
-    return this.catalogService.update(id, dto, locale);
+    return this.catalogService.update(id, dto, user, locale);
   }
 }

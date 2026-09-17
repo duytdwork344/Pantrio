@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@pantrio/shared';
-import { Prisma } from '@prisma/client';
+import { DEFAULT_LOCALE, Permission, SUPPORTED_LOCALES } from '@pantrio/shared';
+import { FoodVisibility, Prisma } from '@prisma/client';
+import type { AuthUser } from '../common/decorators/current-user.decorator';
 import {
   normalizeLocale,
   pickTranslation,
@@ -40,34 +42,47 @@ export class CatalogService {
     q?: string;
     category?: string;
     locale?: string;
+    viewer?: AuthUser;
   }): Promise<FoodDto[]> {
     const locale = normalizeLocale(params.locale);
-    const where: Prisma.FoodWhereInput = {};
+    const where: Prisma.FoodWhereInput = {
+      AND: [this.visibilityFilter(params.viewer)],
+    };
 
     if (params.q?.trim()) {
       const q = params.q.trim();
-      where.OR = [
-        { slug: { contains: q, mode: 'insensitive' } },
+      where.AND = [
+        ...(where.AND as Prisma.FoodWhereInput[]),
         {
-          translations: {
-            some: {
-              name: { contains: q, mode: 'insensitive' },
+          OR: [
+            { slug: { contains: q, mode: 'insensitive' } },
+            {
+              translations: {
+                some: {
+                  name: { contains: q, mode: 'insensitive' },
+                },
+              },
             },
-          },
+          ],
         },
       ];
     }
 
     if (params.category?.trim()) {
-      where.translations = {
-        some: {
-          locale,
-          category: {
-            equals: params.category.trim(),
-            mode: 'insensitive',
+      where.AND = [
+        ...(where.AND as Prisma.FoodWhereInput[]),
+        {
+          translations: {
+            some: {
+              locale,
+              category: {
+                equals: params.category.trim(),
+                mode: 'insensitive',
+              },
+            },
           },
         },
-      };
+      ];
     }
 
     const foods = await this.prisma.food.findMany({
@@ -82,7 +97,11 @@ export class CatalogService {
       .sort((a, b) => a.name.localeCompare(b.name, locale));
   }
 
-  async findBySlug(slug: string, locale?: string): Promise<FoodDto> {
+  async findBySlug(
+    slug: string,
+    locale?: string,
+    viewer?: AuthUser,
+  ): Promise<FoodDto> {
     const food = await this.prisma.food.findUnique({
       where: { slug },
       include: { translations: true },
@@ -90,10 +109,26 @@ export class CatalogService {
     if (!food) {
       throw new NotFoundException(`Food '${slug}' not found`);
     }
+    this.assertCanView(food, viewer);
     return this.toDto(food, normalizeLocale(locale));
   }
 
-  async create(dto: CreateFoodDto, locale?: string): Promise<FoodDto> {
+  async create(
+    dto: CreateFoodDto,
+    actor: AuthUser,
+    locale?: string,
+  ): Promise<FoodDto> {
+    const canManageCatalog = this.canManageCatalog(actor);
+    const visibility = canManageCatalog
+      ? (dto.visibility ?? FoodVisibility.PUBLIC)
+      : FoodVisibility.PRIVATE;
+
+    if (!canManageCatalog && dto.visibility === FoodVisibility.PUBLIC) {
+      throw new ForbiddenException(
+        'Only catalog managers can create PUBLIC foods',
+      );
+    }
+
     const translations = this.normalizeTranslations(dto.translations);
     const primary =
       translations.find((item) => item.locale === DEFAULT_LOCALE) ??
@@ -107,8 +142,10 @@ export class CatalogService {
         data: {
           slug,
           measurementType: dto.measurementType,
-          baseUnit: dto.baseUnit.trim(),
+          baseUnit: dto.baseUnit,
           imageUrl: dto.imageUrl ?? null,
+          visibility,
+          createdByUserId: actor.id,
           translations: {
             create: translations.map((item) => ({
               locale: item.locale,
@@ -134,6 +171,7 @@ export class CatalogService {
   async update(
     id: string,
     dto: UpdateFoodDto,
+    actor: AuthUser,
     locale?: string,
   ): Promise<FoodDto> {
     const existing = await this.prisma.food.findUnique({
@@ -142,6 +180,30 @@ export class CatalogService {
     });
     if (!existing) {
       throw new NotFoundException(`Food '${id}' not found`);
+    }
+
+    const canManageCatalog = this.canManageCatalog(actor);
+    const isOwner = existing.createdByUserId === actor.id;
+
+    if (!canManageCatalog && !isOwner) {
+      throw new ForbiddenException('You cannot update this food');
+    }
+
+    if (
+      dto.visibility !== undefined &&
+      dto.visibility !== existing.visibility &&
+      !canManageCatalog
+    ) {
+      throw new ForbiddenException(
+        'Only catalog managers can change food visibility',
+      );
+    }
+
+    if (!canManageCatalog) {
+      // Owners may only edit their PRIVATE foods' content, not promote.
+      if (existing.visibility !== FoodVisibility.PRIVATE) {
+        throw new ForbiddenException('You can only edit your PRIVATE foods');
+      }
     }
 
     try {
@@ -174,7 +236,8 @@ export class CatalogService {
           where: { id },
           data: {
             measurementType: dto.measurementType,
-            baseUnit: dto.baseUnit?.trim(),
+            baseUnit: dto.baseUnit,
+            visibility: dto.visibility,
             imageUrl:
               dto.imageUrl === undefined ? undefined : dto.imageUrl || null,
           },
@@ -192,6 +255,48 @@ export class CatalogService {
       }
       throw error;
     }
+  }
+
+  private visibilityFilter(viewer?: AuthUser): Prisma.FoodWhereInput {
+    if (viewer && this.canManageCatalog(viewer)) {
+      return {};
+    }
+    if (viewer) {
+      return {
+        OR: [
+          { visibility: FoodVisibility.PUBLIC },
+          {
+            visibility: FoodVisibility.PRIVATE,
+            createdByUserId: viewer.id,
+          },
+        ],
+      };
+    }
+    return { visibility: FoodVisibility.PUBLIC };
+  }
+
+  private assertCanView(
+    food: { visibility: FoodVisibility; createdByUserId: string | null },
+    viewer?: AuthUser,
+  ) {
+    if (food.visibility === FoodVisibility.PUBLIC) {
+      return;
+    }
+    if (viewer && this.canManageCatalog(viewer)) {
+      return;
+    }
+    if (viewer && food.createdByUserId === viewer.id) {
+      return;
+    }
+    throw new NotFoundException(`Food not found`);
+  }
+
+  private canManageCatalog(user: AuthUser): boolean {
+    return (
+      user.permissions.includes(Permission.CATALOG_MANAGE) ||
+      user.permissions.includes(Permission.MODERATION) ||
+      user.permissions.includes(Permission.SYSTEM_MANAGE)
+    );
   }
 
   private normalizeTranslations(
@@ -239,6 +344,8 @@ export class CatalogService {
       locale: translation.locale,
       measurementType: food.measurementType,
       baseUnit: food.baseUnit,
+      visibility: food.visibility,
+      createdByUserId: food.createdByUserId,
       imageUrl: food.imageUrl,
       translations: food.translations.map((item) => ({
         locale: item.locale,

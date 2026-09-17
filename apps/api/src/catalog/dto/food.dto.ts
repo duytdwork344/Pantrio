@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MeasurementType } from '@prisma/client';
+import { FoodVisibility, MeasurementType } from '@prisma/client';
 import { Unit } from '@pantrio/shared';
 import { Type } from 'class-transformer';
 import {
@@ -45,6 +45,12 @@ export class FoodDto {
 
   @ApiProperty({ enum: Unit, example: Unit.G })
   baseUnit!: string;
+
+  @ApiProperty({ enum: FoodVisibility })
+  visibility!: FoodVisibility;
+
+  @ApiPropertyOptional({ nullable: true })
+  createdByUserId?: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   imageUrl?: string | null;
@@ -95,6 +101,15 @@ export class CreateFoodDto {
   @IsEnum(Unit)
   baseUnit!: Unit;
 
+  @ApiPropertyOptional({
+    enum: FoodVisibility,
+    description:
+      'Only catalog managers can set PUBLIC. Others always create PRIVATE.',
+  })
+  @IsOptional()
+  @IsEnum(FoodVisibility)
+  visibility?: FoodVisibility;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsUrl()
@@ -118,6 +133,14 @@ export class UpdateFoodDto {
   @NormalizeUnit()
   @IsEnum(Unit)
   baseUnit?: Unit;
+
+  @ApiPropertyOptional({
+    enum: FoodVisibility,
+    description: 'catalog:manage / moderation can promote PRIVATE → PUBLIC',
+  })
+  @IsOptional()
+  @IsEnum(FoodVisibility)
+  visibility?: FoodVisibility;
 
   @ApiPropertyOptional()
   @IsOptional()
