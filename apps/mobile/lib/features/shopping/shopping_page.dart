@@ -187,6 +187,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_shopping',
         onPressed: _showCreateOptions,
         child: const Icon(Icons.add),
       ),

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/models/food_item.dart';
 import 'package:pantrio_mobile/core/models/inventory_item.dart';
+import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:pantrio_mobile/core/models/shopping_list.dart';
 import 'package:pantrio_mobile/core/models/user_profile.dart';
 
@@ -64,18 +65,53 @@ class PantrioApiClient {
     required num quantity,
     required String unit,
     String storageLocation = 'PANTRY',
+    bool opened = false,
+    String? purchaseDate,
+    String? expiryDate,
+    String? notes,
   }) async {
     final data = await _post('inventory', {
       'foodId': foodId,
       'quantity': quantity,
       'unit': unit,
       'storageLocation': storageLocation,
+      'opened': opened,
+      if (purchaseDate != null) 'purchaseDate': purchaseDate,
+      if (expiryDate != null) 'expiryDate': expiryDate,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
     });
     return InventoryItem.fromJson(data);
   }
 
   Future<void> deleteInventoryItem(String id) async {
     await _delete('inventory/$id');
+  }
+
+  Future<InventoryItem> updateInventoryItem({
+    required String id,
+    num? quantity,
+    String? unit,
+    String? storageLocation,
+    String? expiryDate,
+    String? purchaseDate,
+    bool? opened,
+    String? notes,
+    bool clearExpiry = false,
+    bool clearPurchaseDate = false,
+  }) async {
+    final data = await _patch('inventory/$id', {
+      if (quantity != null) 'quantity': quantity,
+      if (unit != null) 'unit': unit,
+      if (storageLocation != null) 'storageLocation': storageLocation,
+      if (clearExpiry) 'expiryDate': null,
+      if (!clearExpiry && expiryDate != null) 'expiryDate': expiryDate,
+      if (clearPurchaseDate) 'purchaseDate': null,
+      if (!clearPurchaseDate && purchaseDate != null)
+        'purchaseDate': purchaseDate,
+      if (opened != null) 'opened': opened,
+      if (notes != null) 'notes': notes,
+    });
+    return InventoryItem.fromJson(data);
   }
 
   Future<List<FoodItem>> searchFoods({String? q, String locale = 'en'}) async {
@@ -180,10 +216,68 @@ class PantrioApiClient {
     required String listId,
     required String itemId,
     String storageLocation = 'PANTRY',
+    String? purchaseDate,
+    String? expiryDate,
   }) async {
     await _post('shopping-lists/$listId/items/$itemId/purchase', {
       'storageLocation': storageLocation,
+      if (purchaseDate != null) 'purchaseDate': purchaseDate,
+      if (expiryDate != null) 'expiryDate': expiryDate,
     });
+  }
+
+  Future<ShoppingListDetail> generateShoppingFromPlanned({
+    required String listId,
+    List<String>? plannedRecipeIds,
+  }) async {
+    final data = await _post('shopping-lists/$listId/generate-from-planned', {
+      if (plannedRecipeIds != null && plannedRecipeIds.isNotEmpty)
+        'plannedRecipeIds': plannedRecipeIds,
+    });
+    return ShoppingListDetail.fromJson(data);
+  }
+
+  Future<List<RecipeSummary>> getRecipes() async {
+    final list = await _getList('recipes');
+    return list.map(RecipeSummary.fromJson).toList();
+  }
+
+  Future<RecipeDetail> getRecipeBySlug(String slug) async {
+    final data = await _get('recipes/$slug');
+    return RecipeDetail.fromJson(data);
+  }
+
+  Future<void> saveRecipe(String recipeId) async {
+    await _post('recipes/$recipeId/save', {});
+  }
+
+  Future<void> unsaveRecipe(String recipeId) async {
+    await _delete('recipes/$recipeId/save');
+  }
+
+  Future<List<SavedRecipe>> getSavedRecipes() async {
+    final list = await _getList('me/saved-recipes');
+    return list.map(SavedRecipe.fromJson).toList();
+  }
+
+  Future<List<PlannedRecipe>> getPlannedRecipes() async {
+    final list = await _getList('me/planned-recipes');
+    return list.map(PlannedRecipe.fromJson).toList();
+  }
+
+  Future<PlannedRecipe> planRecipe({
+    required String recipeId,
+    required int servings,
+  }) async {
+    final data = await _post('me/planned-recipes', {
+      'recipeId': recipeId,
+      'servings': servings,
+    });
+    return PlannedRecipe.fromJson(data);
+  }
+
+  Future<void> removePlannedRecipe(String id) async {
+    await _delete('me/planned-recipes/$id');
   }
 
   Future<Map<String, dynamic>> _get(

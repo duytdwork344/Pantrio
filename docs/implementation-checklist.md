@@ -137,8 +137,8 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] Option thêm từ recipe context (foodId có sẵn qua detail / saved) — **7b.3**
 - [x] `InventoryTransaction` khi tạo / đổi số lượng (PURCHASE / ADJUSTMENT)
 - [x] FEFO khi consume (Cook)
-- [ ] Group hiển thị theo foodId trên client (DB giữ batch riêng)
-
+- [x] Group hiển thị theo foodId trên client (DB giữ batch riêng)
+- [x] Mobile: edit batch (qty / unit / storage / expiry / opened / notes) — `PATCH /inventory/:id`
 ---
 
 ## 6. Shopping (API)
@@ -183,10 +183,13 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] Shopping lists + detail / add item / purchase → inventory
 - [x] Merge from existing lists → new list
 - [x] Reset list to pending / delete list (UI + when all done)
-- [ ] Thêm food vào tủ từ recipe đã lưu
+- [x] Recipes: Discover / Saved / Planned + detail (save, plan, add ingredient → inventory)
+- [x] Generate shopping from planned recipes (UI)
 - [ ] Mode CREATOR/ADMIN/MODERATOR (surface theo `/users/me` permissions)
 - [ ] Notifications expiry — Phase 2
-- [ ] Generate shopping from planned recipes (UI)---
+- [ ] Cook / recommendations UI
+
+---
 
 ## 10. Docs & quality
 

@@ -31,8 +31,9 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:3001/api
 ## MVP flows
 
 - Sign in (JWT stored in `SharedPreferences`)
+- Recipes: Discover / Saved / Planned · detail (save, plan, add ingredient → inventory)
 - Inventory: list / pull-to-refresh / add (food search → batch) / swipe delete
-- Shopping: create list / open detail / add item / purchase → inventory
+- Shopping: create / merge / detail / purchase → inventory / generate from planned / reset / delete
 
 ## Notes
 

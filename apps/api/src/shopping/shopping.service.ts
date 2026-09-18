@@ -394,7 +394,10 @@ export class ShoppingService {
           quantity,
           unit,
           confidence: QuantityConfidence.EXACT,
-          purchaseDate: new Date(),
+          purchaseDate: dto.purchaseDate
+            ? new Date(dto.purchaseDate)
+            : new Date(),
+          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
           storageLocation: dto.storageLocation ?? StorageLocation.PANTRY,
         },
         include: { food: { include: { translations: true } } },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/features/auth/login_page.dart';
 import 'package:pantrio_mobile/features/inventory/inventory_page.dart';
+import 'package:pantrio_mobile/features/recipes/recipes_page.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_page.dart';
 import 'package:provider/provider.dart';
 
@@ -28,6 +29,7 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     const pages = [
+      RecipesPage(),
       InventoryPage(),
       ShoppingPage(),
     ];
@@ -61,6 +63,11 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.restaurant_menu_outlined),
+            selectedIcon: Icon(Icons.restaurant_menu),
+            label: 'Recipes',
+          ),
           NavigationDestination(
             icon: Icon(Icons.kitchen_outlined),
             selectedIcon: Icon(Icons.kitchen),

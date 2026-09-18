@@ -46,21 +46,28 @@ class _ShoppingDetailPageState extends State<ShoppingDetailPage> {
   }
 
   Future<void> _purchase(ShoppingListItem item) async {
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showDialog<_PurchaseToInventoryResult>(
+      context: context,
+      builder: (ctx) => _PurchaseToInventoryDialog(foodName: item.foodName),
+    );
+    if (result == null || !mounted) return;
     try {
-      await context.read<AuthSession>().api.purchaseShoppingItem(
-            listId: widget.listId,
-            itemId: item.id,
-          );
+      await api.purchaseShoppingItem(
+        listId: widget.listId,
+        itemId: item.id,
+        storageLocation: result.storageLocation,
+        purchaseDate: result.purchaseDate,
+        expiryDate: result.expiryDate,
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Purchased ${item.foodName} → inventory')),
       );
       await _refresh();
     } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -149,6 +156,45 @@ class _ShoppingDetailPageState extends State<ShoppingDetailPage> {
     }
   }
 
+  Future<void> _generateFromPlanned() async {
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Generate from planned?'),
+        content: const Text(
+          'Add missing ingredients from your planned recipes '
+          '(planned − inventory) as PENDING items.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final detail = await api.generateShoppingFromPlanned(listId: widget.listId);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Updated list · ${detail.pendingCount} pending / ${detail.itemCount} items',
+          ),
+        ),
+      );
+      await _refresh();
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -161,13 +207,19 @@ class _ShoppingDetailPageState extends State<ShoppingDetailPage> {
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'reset') {
+              if (value == 'generate') {
+                _generateFromPlanned();
+              } else if (value == 'reset') {
                 _reset();
               } else if (value == 'delete') {
                 _delete();
               }
             },
             itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'generate',
+                child: Text('Generate from planned'),
+              ),
               PopupMenuItem(
                 value: 'reset',
                 child: Text('Reset to pending'),
@@ -308,9 +360,149 @@ class _ShoppingDetailPageState extends State<ShoppingDetailPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_shopping_detail',
         onPressed: _addItem,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _PurchaseToInventoryResult {
+  const _PurchaseToInventoryResult({
+    required this.storageLocation,
+    required this.purchaseDate,
+    this.expiryDate,
+  });
+
+  final String storageLocation;
+  final String purchaseDate;
+  final String? expiryDate;
+}
+
+class _PurchaseToInventoryDialog extends StatefulWidget {
+  const _PurchaseToInventoryDialog({required this.foodName});
+
+  final String foodName;
+
+  @override
+  State<_PurchaseToInventoryDialog> createState() =>
+      _PurchaseToInventoryDialogState();
+}
+
+class _PurchaseToInventoryDialogState extends State<_PurchaseToInventoryDialog> {
+  static const _locations = ['PANTRY', 'FRIDGE', 'FREEZER', 'OTHER'];
+
+  String _location = 'PANTRY';
+  DateTime _purchaseDate = DateTime.now();
+  bool _hasExpiry = false;
+  DateTime? _expiryDate;
+
+  String _dayLabel(DateTime d) => d.toIso8601String().substring(0, 10);
+
+  String _dayIso(DateTime d) =>
+      DateTime.utc(d.year, d.month, d.day).toIso8601String();
+
+  Future<void> _pickPurchase() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _purchaseDate,
+      firstDate: now.subtract(const Duration(days: 365 * 2)),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _purchaseDate = picked);
+  }
+
+  Future<void> _pickExpiry() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _expiryDate ?? now.add(const Duration(days: 7)),
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
+    );
+    if (picked != null) {
+      setState(() {
+        _hasExpiry = true;
+        _expiryDate = picked;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Purchase ${widget.foodName}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: _location,
+              decoration: const InputDecoration(
+                labelText: 'Storage',
+                border: OutlineInputBorder(),
+              ),
+              items: _locations
+                  .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _location = v);
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Purchase date ${_dayLabel(_purchaseDate)}'),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: _pickPurchase,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Set expiry date'),
+              value: _hasExpiry,
+              onChanged: (v) => setState(() {
+                _hasExpiry = v;
+                if (v && _expiryDate == null) {
+                  _expiryDate = DateTime.now().add(const Duration(days: 7));
+                }
+              }),
+            ),
+            if (_hasExpiry)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  _expiryDate == null
+                      ? 'Pick expiry'
+                      : 'Expiry ${_dayLabel(_expiryDate!)}',
+                ),
+                trailing: const Icon(Icons.event),
+                onTap: _pickExpiry,
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(
+              context,
+              _PurchaseToInventoryResult(
+                storageLocation: _location,
+                purchaseDate: _dayIso(_purchaseDate),
+                expiryDate: _hasExpiry && _expiryDate != null
+                    ? _dayIso(_expiryDate!)
+                    : null,
+              ),
+            );
+          },
+          child: const Text('Add to inventory'),
+        ),
+      ],
     );
   }
 }

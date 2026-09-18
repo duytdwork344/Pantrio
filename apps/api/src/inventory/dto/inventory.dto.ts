@@ -137,6 +137,15 @@ export class UpdateInventoryItemDto {
   @IsDateString()
   expiryDate?: string | null;
 
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: '2026-09-18T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  purchaseDate?: string | null;
+
   @ApiPropertyOptional({ enum: StorageLocation })
   @IsOptional()
   @IsEnum(StorageLocation)

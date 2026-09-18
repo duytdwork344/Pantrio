@@ -51,7 +51,9 @@ export class InventoryService {
           unit: dto.unit.trim(),
           confidence: dto.confidence ?? QuantityConfidence.APPROXIMATE,
           expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
-          purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : null,
+          purchaseDate: dto.purchaseDate
+            ? new Date(dto.purchaseDate)
+            : new Date(),
           storageLocation: dto.storageLocation ?? StorageLocation.PANTRY,
           opened: dto.opened ?? false,
           notes: dto.notes?.trim() || null,
@@ -129,6 +131,14 @@ export class InventoryService {
             ? {
                 expiryDate:
                   dto.expiryDate === null ? null : new Date(dto.expiryDate),
+              }
+            : {}),
+          ...(dto.purchaseDate !== undefined
+            ? {
+                purchaseDate:
+                  dto.purchaseDate === null
+                    ? null
+                    : new Date(dto.purchaseDate),
               }
             : {}),
           ...(dto.storageLocation !== undefined

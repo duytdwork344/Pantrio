@@ -7,7 +7,7 @@ import 'package:pantrio_mobile/core/models/food_item.dart';
 import 'package:provider/provider.dart';
 
 const _units = ['g', 'kg', 'ml', 'l', 'pcs'];
-const _locations = ['PANTRY', 'FRIDGE', 'FREEZER', 'COUNTER'];
+const _locations = ['PANTRY', 'FRIDGE', 'FREEZER', 'OTHER'];
 
 class AddInventoryPage extends StatefulWidget {
   const AddInventoryPage({super.key});
@@ -19,11 +19,16 @@ class AddInventoryPage extends StatefulWidget {
 class _AddInventoryPageState extends State<AddInventoryPage> {
   final _search = TextEditingController();
   final _quantity = TextEditingController(text: '1');
+  final _notes = TextEditingController();
   Timer? _debounce;
   List<FoodItem> _results = const [];
   FoodItem? _selected;
   String _unit = 'g';
   String _location = 'PANTRY';
+  bool _opened = false;
+  bool _hasExpiry = false;
+  DateTime _purchaseDate = DateTime.now();
+  DateTime? _expiryDate;
   bool _searching = false;
   bool _saving = false;
   String? _error;
@@ -33,7 +38,43 @@ class _AddInventoryPageState extends State<AddInventoryPage> {
     _debounce?.cancel();
     _search.dispose();
     _quantity.dispose();
+    _notes.dispose();
     super.dispose();
+  }
+
+  String _dayLabel(DateTime d) =>
+      d.toIso8601String().substring(0, 10);
+
+  String _dayIso(DateTime d) =>
+      DateTime.utc(d.year, d.month, d.day).toIso8601String();
+
+  Future<void> _pickPurchaseDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _purchaseDate,
+      firstDate: now.subtract(const Duration(days: 365 * 2)),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() => _purchaseDate = picked);
+    }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _expiryDate ?? now.add(const Duration(days: 7)),
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
+    );
+    if (picked != null) {
+      setState(() {
+        _hasExpiry = true;
+        _expiryDate = picked;
+      });
+    }
   }
 
   void _onQueryChanged(String value) {
@@ -119,6 +160,11 @@ class _AddInventoryPageState extends State<AddInventoryPage> {
             quantity: qty,
             unit: _unit,
             storageLocation: _location,
+            opened: _opened,
+            purchaseDate: _dayIso(_purchaseDate),
+            expiryDate:
+                _hasExpiry && _expiryDate != null ? _dayIso(_expiryDate!) : null,
+            notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -220,6 +266,48 @@ class _AddInventoryPageState extends State<AddInventoryPage> {
             onChanged: (v) {
               if (v != null) setState(() => _location = v);
             },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Opened'),
+            value: _opened,
+            onChanged: (v) => setState(() => _opened = v),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Purchase date ${_dayLabel(_purchaseDate)}'),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: _pickPurchaseDate,
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Has expiry date'),
+            value: _hasExpiry,
+            onChanged: (v) => setState(() {
+              _hasExpiry = v;
+              if (v && _expiryDate == null) {
+                _expiryDate = DateTime.now().add(const Duration(days: 7));
+              }
+            }),
+          ),
+          if (_hasExpiry)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _expiryDate == null
+                    ? 'Pick expiry date'
+                    : 'Expiry ${_dayLabel(_expiryDate!)}',
+              ),
+              trailing: const Icon(Icons.event),
+              onTap: _pickExpiryDate,
+            ),
+          TextField(
+            controller: _notes,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Notes',
+              border: OutlineInputBorder(),
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),

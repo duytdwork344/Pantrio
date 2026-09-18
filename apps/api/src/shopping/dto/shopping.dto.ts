@@ -8,6 +8,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -188,4 +189,21 @@ export class PurchaseShoppingItemDto {
   @NormalizeUnit()
   @IsEnum(Unit)
   unit?: Unit;
+
+  @ApiPropertyOptional({
+    example: '2026-09-18T00:00:00.000Z',
+    description:
+      'Purchase date for the new inventory batch. Defaults to now when omitted.',
+  })
+  @IsOptional()
+  @IsDateString()
+  purchaseDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-10-01T00:00:00.000Z',
+    description: 'Optional expiry for the new inventory batch',
+  })
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }
