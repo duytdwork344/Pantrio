@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:pantrio_mobile/core/auth/auth_session.dart';
+import 'package:pantrio_mobile/features/auth/login_page.dart';
 import 'package:pantrio_mobile/features/inventory/inventory_page.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_page.dart';
+import 'package:provider/provider.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -12,18 +15,48 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _pages = [
-    InventoryPage(),
-    ShoppingPage(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<AuthSession>();
+    if (session.restoring) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!session.isAuthenticated) {
+      return const LoginPage();
+    }
+
+    const pages = [
+      InventoryPage(),
+      ShoppingPage(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pantrio'),
+        actions: [
+          if (session.user != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(
+                child: Text(
+                  session.user!.displayName,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          IconButton(
+            tooltip: 'Sign out',
+            onPressed: () => session.logout(),
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
-      body: _pages[_index],
+      body: IndexedStack(
+        index: _index,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
