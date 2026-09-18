@@ -11,6 +11,7 @@ import {
   RecipeVisibility,
 } from '@prisma/client';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
+import { assertFoodsUsable as ensureFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -122,7 +123,7 @@ export class RecipesService {
     const slug = dto.slug?.trim()
       ? await this.resolveUniqueSlug(dto.slug, { allowSuffix: false })
       : await this.resolveUniqueSlug(dto.title, { allowSuffix: true });
-    await this.assertFoodsExist(dto.ingredients);
+    await this.assertFoodsUsable(dto.ingredients, author);
 
     const recipe = await this.prisma.recipe.create({
       data: {
@@ -160,7 +161,7 @@ export class RecipesService {
     this.assertCanEdit(existing.authorId, actor);
 
     if (dto.ingredients?.length) {
-      await this.assertFoodsExist(dto.ingredients);
+      await this.assertFoodsUsable(dto.ingredients, actor);
     }
 
     let slug = existing.slug;
@@ -232,22 +233,18 @@ export class RecipesService {
     }
   }
 
-  private async assertFoodsExist(ingredients: RecipeIngredientInputDto[]) {
-    const foodIds = [...new Set(ingredients.map((item) => item.foodId))];
-    const foods = await this.prisma.food.findMany({
-      where: { id: { in: foodIds } },
-      select: { id: true },
-    });
+  private async assertFoodsUsable(
+    ingredients: RecipeIngredientInputDto[],
+    user: AuthUser,
+  ) {
+    await ensureFoodsUsable(
+      this.prisma,
+      ingredients.map((item) => item.foodId),
+      user,
+    );
 
-    if (foods.length !== foodIds.length) {
-      const found = new Set(foods.map((food) => food.id));
-      const missing = foodIds.filter((id) => !found.has(id));
-      throw new BadRequestException(
-        `Unknown foodId(s): ${missing.join(', ')}. Search GET /foods first.`,
-      );
-    }
-
-    if (foodIds.length !== ingredients.length) {
+    const foodIds = ingredients.map((item) => item.foodId);
+    if (new Set(foodIds).size !== foodIds.length) {
       throw new BadRequestException('Duplicate foodId in ingredients');
     }
   }

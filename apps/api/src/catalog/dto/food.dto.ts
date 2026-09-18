@@ -157,3 +157,62 @@ export class UpdateFoodDto {
   @Type(() => UpsertFoodTranslationDto)
   translations?: UpsertFoodTranslationDto[];
 }
+
+export class FoodReferenceCountsDto {
+  @ApiProperty()
+  recipeIngredients!: number;
+
+  @ApiProperty()
+  inventoryItems!: number;
+
+  @ApiProperty()
+  shoppingListItems!: number;
+
+  @ApiProperty()
+  total!: number;
+}
+
+export class ModeratedFoodDto extends FoodDto {
+  @ApiProperty({ type: FoodReferenceCountsDto })
+  references!: FoodReferenceCountsDto;
+}
+
+export class MergeFoodDto {
+  @ApiProperty({ description: 'Food id to merge away (usually PRIVATE duplicate)' })
+  @IsString()
+  @MinLength(1)
+  fromFoodId!: string;
+
+  @ApiProperty({
+    description:
+      'Canonical food id to keep; if PRIVATE, merge auto-promotes it to PUBLIC',
+  })
+  @IsString()
+  @MinLength(1)
+  toFoodId!: string;
+}
+
+export class MergeFoodResultDto {
+  @ApiProperty()
+  fromFoodId!: string;
+
+  @ApiProperty()
+  toFoodId!: string;
+
+  @ApiProperty()
+  remappedRecipeIngredients!: number;
+
+  @ApiProperty()
+  remappedInventoryItems!: number;
+
+  @ApiProperty()
+  remappedShoppingListItems!: number;
+
+  @ApiProperty()
+  deletedFromFood!: boolean;
+
+  @ApiProperty({
+    description: 'True when toFood was PRIVATE and was promoted to PUBLIC',
+  })
+  promotedToPublic!: boolean;
+}

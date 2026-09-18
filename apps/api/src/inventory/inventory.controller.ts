@@ -46,14 +46,14 @@ export class InventoryController {
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
     summary:
-      'Add an inventory batch for an existing foodId (search GET /foods first)',
+      'Add inventory batch (foodId must be PUBLIC or your own PRIVATE)',
   })
   @ApiOkResponse({ type: InventoryItemDto })
   create(
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateInventoryItemDto,
   ): Promise<InventoryItemDto> {
-    return this.inventoryService.create(user.id, dto);
+    return this.inventoryService.create(user, dto);
   }
 
   @Patch(':id')

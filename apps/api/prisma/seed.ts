@@ -27,6 +27,11 @@ const BOOTSTRAP_USERS: Array<{
     displayName: 'Pantrio Creator',
     roleName: 'CREATOR',
   },
+  {
+    email: 'moderator@pantrio.app',
+    displayName: 'Pantrio Moderator',
+    roleName: 'MODERATOR',
+  },
 ];
 
 const ROLE_DESCRIPTIONS: Record<RoleName, string> = {

@@ -175,7 +175,7 @@ Không làm ở MVP:
 
 Trong lúc phát triển Recipe CRUD: gán CREATOR bằng seed / `POST /rbac/assign` là đủ — không bắt buộc có CreatorRequest trước khi viết recipe API.
 
-Seed bootstrap (local): `admin@pantrio.app` (ADMIN), `creator@pantrio.app` (CREATOR), password `password123` — chạy `pnpm --filter @pantrio/api db:seed`.
+Seed bootstrap (local): `admin@pantrio.app` (ADMIN), `creator@pantrio.app` (CREATOR), `moderator@pantrio.app` (MODERATOR), password `password123` — chạy `pnpm --filter @pantrio/api db:seed`.
 
 Không làm:
 
@@ -487,10 +487,11 @@ MODERATOR / ADMIN được làm (catalog):
 - Xem danh sách Food (lọc PUBLIC / PRIVATE / PENDING nếu có), kèm metadata: createdByUserId, số reference tổng hợp (vd. bao nhiêu InventoryItem / RecipeIngredient trỏ tới) — không cần soi chi tiết từng inventory của user.
 - Ẩn / từ chối / đánh dấu spam Food rác.
 - Promote Food PRIVATE → PUBLIC khi đáng đưa vào catalog chung (tay; hoặc sau khi approve recipe và **không** phát hiện trùng).
-- Merge Food trùng: chọn fromFoodId → toFoodId (thường PRIVATE → PUBLIC).
+- Merge Food trùng: chọn fromFoodId → toFoodId. **`toFoodId` luôn kết thúc PUBLIC** (nếu đang PRIVATE thì merge auto-promote). Hướng thường: PRIVATE trùng → PUBLIC chuẩn.
   - Cập nhật hàng loạt FK sang toFoodId (InventoryItem, RecipeIngredient, ShoppingListItem, …).
   - Ẩn hoặc xóa mềm fromFoodId.
   - User không bấm merge; phía client tối đa nhận remapping trong suốt (tủ vẫn hiện đúng, foodId đổi phía sau).
+- Gắn Food vào Inventory / Shopping / RecipeIngredient qua API: chỉ **PUBLIC** hoặc **PRIVATE do chính user tạo** — từ chối foodId PRIVATE của người khác (parity với search; không dựa vào UI ẩn).
 - **Đã chốt — luồng Approve Recipe (4.2b / 7b.1):** trước khi (hoặc trong lúc) approve, Moderator xử lý từng Food PRIVATE mới của recipe:
   1. Hệ thống gợi ý ứng viên trùng (tên/slug).
   2. Trùng → Moderator **merge** sang Food chuẩn → rồi mới hoàn tất approve (recipe trỏ đúng foodId chuẩn).
@@ -1219,7 +1220,8 @@ FoodAlias (bảng riêng): foodId + name + normalizedName + locale? + region?; s
 
 Alias / synonym (muối, salt, tên miền → cùng foodId) — không nhân bản Food.
 
-Merge Food trùng (PRIVATE → PUBLIC) do MODERATOR/ADMIN; remapping FK trong suốt với user.
+Merge Food trùng (toFood luôn PUBLIC sau merge) do MODERATOR/ADMIN; remapping FK trong suốt với user.
+Inventory/Shopping/Recipe chỉ gắn foodId PUBLIC hoặc PRIVATE của chính user.
 
 Moderation PENDING/ACTIVE nếu cần chống spam.
 

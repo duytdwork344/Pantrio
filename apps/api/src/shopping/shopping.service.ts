@@ -9,6 +9,8 @@ import {
   ShoppingListItemStatus,
   StorageLocation,
 } from '@prisma/client';
+import type { AuthUser } from '../common/decorators/current-user.decorator';
+import { assertFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -82,11 +84,12 @@ export class ShoppingService {
   }
 
   async addItem(
-    userId: string,
+    user: AuthUser,
     listId: string,
     dto: CreateShoppingListItemDto,
   ): Promise<ShoppingListItemDto> {
-    await this.assertListOwned(userId, listId);
+    await this.assertListOwned(user.id, listId);
+    await assertFoodsUsable(this.prisma, [dto.foodId], user);
 
     const food = await this.prisma.food.findUnique({
       where: { id: dto.foodId },

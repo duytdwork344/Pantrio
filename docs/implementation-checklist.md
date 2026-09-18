@@ -39,7 +39,7 @@ Tham chiếu: requirements **3**, **3b**, **3c**.
 - [x] `GET /users/me` (roles + permissions)
 - [x] Global JWT guard + `@Public()` + `@RequirePermissions()`
 - [x] Seed Role / Permission (`pnpm db:seed`)
-- [x] Seed bootstrap users: `admin@pantrio.app` (ADMIN), `creator@pantrio.app` (CREATOR) — password `password123`
+- [x] Seed bootstrap users: `admin@pantrio.app` (ADMIN), `creator@pantrio.app` (CREATOR), `moderator@pantrio.app` (MODERATOR) — password `password123`
 - [x] `GET /rbac/roles`, `POST /rbac/assign` (admin-oriented; dùng tay khi dev)
 - [ ] Refresh token (optional, sau MVP)
 - [ ] **Lên CREATOR** — request → admin/moderator duyệt (không self-serve) — requirements **3c**
@@ -68,12 +68,13 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] Seed foods EN + VI
 - [x] Schema: `visibility` (PUBLIC \| PRIVATE), `createdByUserId`
 - [x] `POST /foods` cho USER/CREATOR → **PRIVATE** (manager có thể tạo PUBLIC) — **7b.4** / **7b.1**
-- [ ] Approve recipe: **check trùng** Food PRIVATE mới → trùng thì Moderator **merge**, không trùng thì **promote → PUBLIC** — **4.2b** / **7b.7**
 - [x] Search: chỉ trả Food user được thấy (PUBLIC + PRIVATE của chính user; manager/moderator thấy thêm)
-- [ ] Moderator: list Food PRIVATE + reference counts — **7b.7**
-- [ ] Moderator: merge Food (`fromFoodId` → `toFoodId`) + remap FK — **7b.7**
-- [ ] Moderator: promote PRIVATE → PUBLIC (tay; ngoài promote sau approve khi không trùng) — **7b.7**
-- [ ] Moderator: list + dọn orphan Food PRIVATE (không auto-delete) — **7b.7**
+- [x] Moderator: list Food PRIVATE + reference counts — `GET /foods/moderation/private`
+- [x] Moderator: merge Food (`fromFoodId` → `toFoodId`) + remap FK; **toFood auto-promote PUBLIC** — `POST /foods/moderation/merge`
+- [x] Moderator: promote PRIVATE → PUBLIC — `POST /foods/:id/promote`
+- [x] Moderator: list + dọn orphan Food PRIVATE — `GET /foods/moderation/orphans`, `DELETE /foods/:id`
+- [x] Inventory / Shopping / Recipe: reject `foodId` PRIVATE không thuộc user
+- [ ] Approve recipe: **check trùng** Food PRIVATE mới → merge/promote (gắn khi làm **4.2b**)
 - [ ] **FoodAlias** (bảng riêng, search) — **7b.8** (phase sau, không làm MVP)
 
 ---
@@ -192,7 +193,7 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [ ] Seed admin user dev (optional)
 - [ ] E2E smoke: register → create recipe → save → add inventory foodId
 
-Note: bootstrap seed users already cover admin/creator (`pnpm db:seed`).
+Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 
 ---
 
@@ -213,6 +214,6 @@ Note: bootstrap seed users already cover admin/creator (`pnpm db:seed`).
 
 - Swagger: `pnpm dev:api` → http://localhost:3001/docs  
 - Studio: `pnpm db:studio` → http://localhost:5555  
-- Seed: `pnpm db:seed` (roles + foods + `admin@` / `creator@` — password `password123`)  
+- Seed: `pnpm db:seed` (roles + foods + `admin@` / `creator@` / `moderator@` — password `password123`)  
 - Khớp recipe ↔ inventory **chỉ qua `foodId`**, không qua tên string.
 - Unit MVP chuẩn: `g` | `kg` | `ml` | `l` | `pcs` (`@pantrio/shared` `Unit`).

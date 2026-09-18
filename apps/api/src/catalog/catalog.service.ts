@@ -16,6 +16,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateFoodDto,
   FoodDto,
+  FoodReferenceCountsDto,
+  MergeFoodDto,
+  MergeFoodResultDto,
+  ModeratedFoodDto,
   UpdateFoodDto,
   UpsertFoodTranslationDto,
 } from './dto/food.dto';
@@ -254,6 +258,210 @@ export class CatalogService {
         throw new ConflictException('Food translation already exists');
       }
       throw error;
+    }
+  }
+
+  async listPrivateForModeration(
+    actor: AuthUser,
+    locale?: string,
+  ): Promise<ModeratedFoodDto[]> {
+    this.assertManager(actor);
+    return this.listModerated(
+      { visibility: FoodVisibility.PRIVATE },
+      normalizeLocale(locale),
+    );
+  }
+
+  async listOrphansForModeration(
+    actor: AuthUser,
+    locale?: string,
+  ): Promise<ModeratedFoodDto[]> {
+    this.assertManager(actor);
+    const foods = await this.listModerated(
+      { visibility: FoodVisibility.PRIVATE },
+      normalizeLocale(locale),
+    );
+    return foods.filter((food) => food.references.total === 0);
+  }
+
+  async promote(
+    id: string,
+    actor: AuthUser,
+    locale?: string,
+  ): Promise<FoodDto> {
+    this.assertManager(actor);
+    const existing = await this.prisma.food.findUnique({
+      where: { id },
+      include: { translations: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Food '${id}' not found`);
+    }
+    if (existing.visibility === FoodVisibility.PUBLIC) {
+      return this.toDto(existing, normalizeLocale(locale));
+    }
+
+    const food = await this.prisma.food.update({
+      where: { id },
+      data: { visibility: FoodVisibility.PUBLIC },
+      include: { translations: true },
+    });
+    return this.toDto(food, normalizeLocale(locale));
+  }
+
+  async merge(
+    actor: AuthUser,
+    dto: MergeFoodDto,
+  ): Promise<MergeFoodResultDto> {
+    this.assertManager(actor);
+
+    if (dto.fromFoodId === dto.toFoodId) {
+      throw new BadRequestException('fromFoodId and toFoodId must differ');
+    }
+
+    const [fromFood, toFood] = await Promise.all([
+      this.prisma.food.findUnique({ where: { id: dto.fromFoodId } }),
+      this.prisma.food.findUnique({ where: { id: dto.toFoodId } }),
+    ]);
+    if (!fromFood) {
+      throw new NotFoundException(`fromFoodId '${dto.fromFoodId}' not found`);
+    }
+    if (!toFood) {
+      throw new NotFoundException(`toFoodId '${dto.toFoodId}' not found`);
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const fromIngredients = await tx.recipeIngredient.findMany({
+        where: { foodId: dto.fromFoodId },
+      });
+      let remappedRecipeIngredients = 0;
+      for (const ing of fromIngredients) {
+        const conflict = await tx.recipeIngredient.findUnique({
+          where: {
+            recipeId_foodId: {
+              recipeId: ing.recipeId,
+              foodId: dto.toFoodId,
+            },
+          },
+        });
+        if (conflict) {
+          await tx.recipeIngredient.update({
+            where: { id: conflict.id },
+            data: {
+              quantity: conflict.quantity + ing.quantity,
+              optional: conflict.optional && ing.optional,
+            },
+          });
+          await tx.recipeIngredient.delete({ where: { id: ing.id } });
+        } else {
+          await tx.recipeIngredient.update({
+            where: { id: ing.id },
+            data: { foodId: dto.toFoodId },
+          });
+        }
+        remappedRecipeIngredients += 1;
+      }
+
+      const inventory = await tx.inventoryItem.updateMany({
+        where: { foodId: dto.fromFoodId },
+        data: { foodId: dto.toFoodId },
+      });
+
+      const shopping = await tx.shoppingListItem.updateMany({
+        where: { foodId: dto.fromFoodId },
+        data: { foodId: dto.toFoodId },
+      });
+
+      const promotedToPublic =
+        toFood.visibility !== FoodVisibility.PUBLIC;
+      if (promotedToPublic) {
+        await tx.food.update({
+          where: { id: dto.toFoodId },
+          data: { visibility: FoodVisibility.PUBLIC },
+        });
+      }
+
+      await tx.food.delete({ where: { id: dto.fromFoodId } });
+
+      return {
+        fromFoodId: dto.fromFoodId,
+        toFoodId: dto.toFoodId,
+        remappedRecipeIngredients,
+        remappedInventoryItems: inventory.count,
+        remappedShoppingListItems: shopping.count,
+        deletedFromFood: true,
+        promotedToPublic,
+      };
+    });
+
+    return result;
+  }
+
+  async deleteOrphan(id: string, actor: AuthUser) {
+    this.assertManager(actor);
+    const food = await this.prisma.food.findUnique({ where: { id } });
+    if (!food) {
+      throw new NotFoundException(`Food '${id}' not found`);
+    }
+    if (food.visibility !== FoodVisibility.PRIVATE) {
+      throw new BadRequestException(
+        'Only PRIVATE orphan foods can be deleted this way',
+      );
+    }
+
+    const counts = await this.countReferences(id);
+    if (counts.total > 0) {
+      throw new BadRequestException(
+        `Food still has ${counts.total} references; merge instead of delete`,
+      );
+    }
+
+    await this.prisma.food.delete({ where: { id } });
+    return { deleted: true, id };
+  }
+
+  private async listModerated(
+    where: Prisma.FoodWhereInput,
+    locale: string,
+  ): Promise<ModeratedFoodDto[]> {
+    const foods = await this.prisma.food.findMany({
+      where,
+      include: { translations: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+    });
+
+    const result: ModeratedFoodDto[] = [];
+    for (const food of foods) {
+      const references = await this.countReferences(food.id);
+      result.push({
+        ...this.toDto(food, locale),
+        references,
+      });
+    }
+    return result;
+  }
+
+  private async countReferences(
+    foodId: string,
+  ): Promise<FoodReferenceCountsDto> {
+    const [recipeIngredients, inventoryItems, shoppingListItems] =
+      await Promise.all([
+        this.prisma.recipeIngredient.count({ where: { foodId } }),
+        this.prisma.inventoryItem.count({ where: { foodId } }),
+        this.prisma.shoppingListItem.count({ where: { foodId } }),
+      ]);
+    return {
+      recipeIngredients,
+      inventoryItems,
+      shoppingListItems,
+      total: recipeIngredients + inventoryItems + shoppingListItems,
+    };
+  }
+
+  private assertManager(actor: AuthUser) {
+    if (!this.canManageCatalog(actor)) {
+      throw new ForbiddenException('Catalog moderation permission required');
     }
   }
 

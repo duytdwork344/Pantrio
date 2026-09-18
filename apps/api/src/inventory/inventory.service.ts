@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,6 +8,8 @@ import {
   QuantityConfidence,
   StorageLocation,
 } from '@prisma/client';
+import type { AuthUser } from '../common/decorators/current-user.decorator';
+import { assertFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -36,23 +37,15 @@ export class InventoryService {
   }
 
   async create(
-    userId: string,
+    user: AuthUser,
     dto: CreateInventoryItemDto,
   ): Promise<InventoryItemDto> {
-    const food = await this.prisma.food.findUnique({
-      where: { id: dto.foodId },
-      select: { id: true },
-    });
-    if (!food) {
-      throw new BadRequestException(
-        `Unknown foodId '${dto.foodId}'. Search GET /foods first.`,
-      );
-    }
+    await assertFoodsUsable(this.prisma, [dto.foodId], user);
 
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await tx.inventoryItem.create({
         data: {
-          userId,
+          userId: user.id,
           foodId: dto.foodId,
           quantity: dto.quantity,
           unit: dto.unit.trim(),
@@ -71,7 +64,7 @@ export class InventoryService {
       await tx.inventoryTransaction.create({
         data: {
           inventoryItemId: created.id,
-          userId,
+          userId: user.id,
           type: InventoryTransactionType.PURCHASE,
           quantity: dto.quantity,
           unit: created.unit,

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -20,7 +21,14 @@ import {
 } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { CatalogService } from './catalog.service';
-import { CreateFoodDto, FoodDto, UpdateFoodDto } from './dto/food.dto';
+import {
+  CreateFoodDto,
+  FoodDto,
+  MergeFoodDto,
+  MergeFoodResultDto,
+  ModeratedFoodDto,
+  UpdateFoodDto,
+} from './dto/food.dto';
 
 @ApiTags('catalog')
 @Controller('foods')
@@ -49,6 +57,72 @@ export class CatalogController {
     @CurrentUser() user?: AuthUser,
   ): Promise<FoodDto[]> {
     return this.catalogService.list({ q, category, locale, viewer: user });
+  }
+
+  @Get('moderation/private')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Moderator: list PRIVATE foods with reference counts',
+  })
+  @ApiQuery({ name: 'locale', required: false })
+  @ApiOkResponse({ type: [ModeratedFoodDto] })
+  listPrivate(
+    @CurrentUser() user: AuthUser,
+    @Query('locale') locale?: string,
+  ): Promise<ModeratedFoodDto[]> {
+    return this.catalogService.listPrivateForModeration(user, locale);
+  }
+
+  @Get('moderation/orphans')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Moderator: list PRIVATE foods with zero references (safe to delete)',
+  })
+  @ApiQuery({ name: 'locale', required: false })
+  @ApiOkResponse({ type: [ModeratedFoodDto] })
+  listOrphans(
+    @CurrentUser() user: AuthUser,
+    @Query('locale') locale?: string,
+  ): Promise<ModeratedFoodDto[]> {
+    return this.catalogService.listOrphansForModeration(user, locale);
+  }
+
+  @Post('moderation/merge')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Moderator: merge fromFoodId → toFoodId (remap FKs, delete from; toFood auto-promoted to PUBLIC)',
+  })
+  @ApiOkResponse({ type: MergeFoodResultDto })
+  merge(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: MergeFoodDto,
+  ): Promise<MergeFoodResultDto> {
+    return this.catalogService.merge(user, dto);
+  }
+
+  @Post(':id/promote')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Moderator: promote PRIVATE food → PUBLIC' })
+  @ApiQuery({ name: 'locale', required: false })
+  @ApiOkResponse({ type: FoodDto })
+  promote(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Query('locale') locale?: string,
+  ): Promise<FoodDto> {
+    return this.catalogService.promote(id, user, locale);
+  }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Moderator: delete PRIVATE orphan food only (total references must be 0)',
+  })
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.catalogService.deleteOrphan(id, user);
   }
 
   @Public()

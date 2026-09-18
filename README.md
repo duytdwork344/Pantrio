@@ -68,6 +68,7 @@ Bootstrap login (local only, password `password123`):
 |-------|------|
 | `admin@pantrio.app` | ADMIN |
 | `creator@pantrio.app` | CREATOR |
+| `moderator@pantrio.app` | MODERATOR |
 
 Mobile:
 

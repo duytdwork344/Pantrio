@@ -81,14 +81,17 @@ export class ShoppingController {
 
   @Post(':id/items')
   @RequirePermissions(Permission.SHOPPING_MANAGE)
-  @ApiOperation({ summary: 'Add an item manually to the list' })
+  @ApiOperation({
+    summary:
+      'Add an item manually (foodId must be PUBLIC or your own PRIVATE)',
+  })
   @ApiOkResponse({ type: ShoppingListItemDto })
   addItem(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateShoppingListItemDto,
   ): Promise<ShoppingListItemDto> {
-    return this.shoppingService.addItem(user.id, id, dto);
+    return this.shoppingService.addItem(user, id, dto);
   }
 
   @Patch(':id/items/:itemId')
