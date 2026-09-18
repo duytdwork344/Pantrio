@@ -17,6 +17,7 @@ import {
   CreateShoppingListDto,
   CreateShoppingListItemDto,
   GenerateShoppingListDto,
+  MergeShoppingListsDto,
   PurchaseShoppingItemDto,
   ShoppingListDetailDto,
   ShoppingListItemDto,
@@ -81,6 +82,120 @@ export class ShoppingService {
       },
     });
     return this.toDetail(list);
+  }
+
+  /**
+   * Create a new list by copying items from existing lists.
+   * Aggregates by foodId+unit; new items are always PENDING.
+   * SKIPPED source items are ignored. Sources are left unchanged.
+   */
+  async mergeFromLists(
+    userId: string,
+    dto: MergeShoppingListsDto,
+  ): Promise<ShoppingListDetailDto> {
+    const sourceIds = [...new Set(dto.sourceListIds.map((id) => id.trim()))];
+    if (sourceIds.length === 0) {
+      throw new BadRequestException('sourceListIds must not be empty');
+    }
+
+    const sources = await this.prisma.shoppingList.findMany({
+      where: { userId, id: { in: sourceIds } },
+      include: { items: true },
+    });
+    if (sources.length !== sourceIds.length) {
+      throw new BadRequestException(
+        'One or more sourceListIds were not found for this user',
+      );
+    }
+
+    type Acc = {
+      foodId: string;
+      unit: string;
+      quantity: number;
+      recipeId: string | null;
+      note: string | null;
+    };
+    const merged = new Map<NeedKey, Acc>();
+
+    for (const source of sources) {
+      for (const item of source.items) {
+        if (item.status === ShoppingListItemStatus.SKIPPED) {
+          continue;
+        }
+        const unit = item.unit.trim();
+        const key = `${item.foodId}::${unit.toLowerCase()}`;
+        const existing = merged.get(key);
+        if (existing) {
+          existing.quantity += item.quantity;
+          if (!existing.recipeId && item.recipeId) {
+            existing.recipeId = item.recipeId;
+          }
+          if (!existing.note && item.note) {
+            existing.note = item.note;
+          }
+        } else {
+          merged.set(key, {
+            foodId: item.foodId,
+            unit,
+            quantity: item.quantity,
+            recipeId: item.recipeId,
+            note: item.note,
+          });
+        }
+      }
+    }
+
+    const list = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.shoppingList.create({
+        data: {
+          userId,
+          name: dto.name.trim(),
+          items: {
+            create: [...merged.values()].map((row) => ({
+              foodId: row.foodId,
+              unit: row.unit,
+              quantity: Number(row.quantity.toFixed(3)),
+              recipeId: row.recipeId,
+              note: row.note,
+              status: ShoppingListItemStatus.PENDING,
+            })),
+          },
+        },
+        include: {
+          items: {
+            include: { food: { include: { translations: true } } },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+      return created;
+    });
+
+    return this.toDetail(list);
+  }
+
+  /** Reset PURCHASED / SKIPPED items to PENDING for reuse. Does not touch Inventory. */
+  async reset(userId: string, id: string): Promise<ShoppingListDetailDto> {
+    await this.assertListOwned(userId, id);
+    await this.prisma.shoppingListItem.updateMany({
+      where: {
+        shoppingListId: id,
+        status: {
+          in: [
+            ShoppingListItemStatus.PURCHASED,
+            ShoppingListItemStatus.SKIPPED,
+          ],
+        },
+      },
+      data: { status: ShoppingListItemStatus.PENDING },
+    });
+    return this.getDetail(userId, id);
+  }
+
+  async remove(userId: string, id: string): Promise<{ deleted: true }> {
+    await this.assertListOwned(userId, id);
+    await this.prisma.shoppingList.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async addItem(

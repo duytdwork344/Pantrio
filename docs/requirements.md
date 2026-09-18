@@ -844,6 +844,25 @@ Hoặc:
 
 Đây là input Inventory có ngữ cảnh và có lý do rõ ràng, nên ít gây khó chịu hơn việc yêu cầu cập nhật sau mỗi lần tiêu thụ.
 
+16b. Shopping list — merge / reset / delete (đã chốt)
+
+**Merge từ list có sẵn → list mới**
+
+- `POST /shopping-lists/merge-from-lists` `{ name, sourceListIds[] }`
+- Copy item từ các list nguồn; cùng `foodId+unit` → cộng quantity.
+- Item trên list mới luôn `PENDING`. Bỏ qua `SKIPPED`.
+- List nguồn **không** bị sửa / xóa (dùng như template tuần).
+
+**Reset tái sử dụng**
+
+- `POST /shopping-lists/:id/reset` — mọi item `PURCHASED` / `SKIPPED` → `PENDING`.
+- **Không** rollback Inventory / transaction.
+
+**Xóa list**
+
+- `DELETE /shopping-lists/:id` bất kỳ lúc nào (cascade items).
+- UI: khi `pendingCount === 0` và còn items → gợi ý Reset hoặc Delete.
+
 17. Shopping List từ Recipe
 
 Không lấy tất cả Saved Recipe để tạo Shopping List.

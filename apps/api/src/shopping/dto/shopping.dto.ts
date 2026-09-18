@@ -141,6 +141,23 @@ export class GenerateShoppingListDto {
   plannedRecipeIds?: string[];
 }
 
+export class MergeShoppingListsDto {
+  @ApiProperty({ example: 'Thức ăn cho cả tuần' })
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Existing shopping list ids to copy from (owned by user)',
+    example: ['clx_weekday', 'clx_weekend'],
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  sourceListIds!: string[];
+}
+
 export class PurchaseShoppingItemDto {
   @ApiPropertyOptional({
     type: Number,

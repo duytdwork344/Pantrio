@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -22,6 +24,7 @@ import {
   CreateShoppingListDto,
   CreateShoppingListItemDto,
   GenerateShoppingListDto,
+  MergeShoppingListsDto,
   PurchaseShoppingItemDto,
   ShoppingListDetailDto,
   ShoppingListItemDto,
@@ -56,6 +59,20 @@ export class ShoppingController {
     return this.shoppingService.create(user.id, dto);
   }
 
+  @Post('merge-from-lists')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({
+    summary:
+      'Create a new list by merging existing lists (copy; aggregate foodId+unit → PENDING; skip SKIPPED; sources unchanged)',
+  })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  mergeFromLists(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: MergeShoppingListsDto,
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.mergeFromLists(user.id, dto);
+  }
+
   @Get(':id')
   @RequirePermissions(Permission.SHOPPING_MANAGE)
   @ApiOperation({ summary: 'Get shopping list detail with items' })
@@ -77,6 +94,28 @@ export class ShoppingController {
     @Body() dto: UpdateShoppingListDto,
   ): Promise<ShoppingListDetailDto> {
     return this.shoppingService.update(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(200)
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({ summary: 'Delete shopping list and its items' })
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.shoppingService.remove(user.id, id);
+  }
+
+  @Post(':id/reset')
+  @RequirePermissions(Permission.SHOPPING_MANAGE)
+  @ApiOperation({
+    summary:
+      'Reset PURCHASED/SKIPPED items to PENDING for reuse (does not change Inventory)',
+  })
+  @ApiOkResponse({ type: ShoppingListDetailDto })
+  reset(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ShoppingListDetailDto> {
+    return this.shoppingService.reset(user.id, id);
   }
 
   @Post(':id/items')

@@ -145,10 +145,12 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 - [x] `GET /shopping-lists` (summary)
 - [x] `POST /shopping-lists`, `GET/PATCH /shopping-lists/:id`
+- [x] `DELETE /shopping-lists/:id`
+- [x] `POST /shopping-lists/merge-from-lists` (copy + aggregate foodId+unit → PENDING; skip SKIPPED; sources unchanged)
+- [x] `POST /shopping-lists/:id/reset` (PURCHASED/SKIPPED → PENDING; no Inventory change)
 - [x] `POST/PATCH .../items` (thêm / sửa item tay)
 - [x] `POST .../generate-from-planned` (PlannedRecipe − Inventory theo foodId+unit)
 - [x] `POST .../items/:itemId/purchase` → InventoryItem + txn PURCHASE
-
 ---
 
 ## 7. Cook / Consumption / Recommendation (API)
@@ -175,14 +177,16 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 
 ## 9. Mobile (Flutter)
 
-- [x] Shell Inventory + Shopping (placeholder data)
-- [ ] Auth + API client (dio / OpenAPI)
-- [ ] Inventory list / add (search foods → tạo item)
+- [x] Shell Inventory + Shopping
+- [x] Auth + API client (dio + JWT via `SharedPreferences`)
+- [x] Inventory list / add (search foods → tạo item) / delete
+- [x] Shopping lists + detail / add item / purchase → inventory
+- [x] Merge from existing lists → new list
+- [x] Reset list to pending / delete list (UI + when all done)
 - [ ] Thêm food vào tủ từ recipe đã lưu
-- [ ] Shopping lists
+- [ ] Mode CREATOR/ADMIN/MODERATOR (surface theo `/users/me` permissions)
 - [ ] Notifications expiry — Phase 2
-
----
+- [ ] Generate shopping from planned recipes (UI)---
 
 ## 10. Docs & quality
 
