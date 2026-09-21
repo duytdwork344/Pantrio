@@ -1,21 +1,51 @@
 <section class="hero">
   <h1>Nhà có gì, nấu được gì?</h1>
   <p>
-    Khám phá recipe, lên kế hoạch nấu, mua đúng nguyên liệu và quản lý tủ bếp —
-    vòng lặp cốt lõi của Pantrio.
+    Khám phá recipe và article trên Web — tủ bếp &amp; shopping dùng trên Mobile.
   </p>
 </section>
 
-<section class="discover">
-  <h2>Discover</h2>
-  <ul>
-    @for (recipe of recipes; track recipe.slug) {
-      <li>
-        <a [routerLink]="['/recipes', recipe.slug]">
-          <h3>{{ recipe.title }}</h3>
-          <p>{{ recipe.description }}</p>
-        </a>
-      </li>
+@if (loading()) {
+  <p class="muted">Đang tải…</p>
+} @else if (error()) {
+  <p class="error">{{ error() }} <button type="button" (click)="reload()">Thử lại</button></p>
+} @else {
+  <section class="discover">
+    <h2>Recipes</h2>
+    @if (recipes().length === 0) {
+      <p class="muted">Chưa có recipe công khai.</p>
+    } @else {
+      <ul>
+        @for (recipe of recipes(); track recipe.id) {
+          <li>
+            <a [routerLink]="['/recipes', recipe.slug]">
+              <h3>{{ recipe.title }}</h3>
+              <p>{{ recipe.description || (recipe.servings + ' servings · ' + recipe.difficulty) }}</p>
+            </a>
+          </li>
+        }
+      </ul>
     }
-  </ul>
-</section>
+  </section>
+
+  <section class="discover">
+    <div class="discover__head">
+      <h2>Articles</h2>
+      <a routerLink="/articles">Xem tất cả</a>
+    </div>
+    @if (articles().length === 0) {
+      <p class="muted">Chưa có article đã publish.</p>
+    } @else {
+      <ul>
+        @for (article of articles().slice(0, 5); track article.id) {
+          <li>
+            <a [routerLink]="['/articles', article.slug]">
+              <h3>{{ article.title }}</h3>
+              <p>{{ article.summary || ('bởi ' + article.authorName) }}</p>
+            </a>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

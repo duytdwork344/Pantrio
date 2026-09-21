@@ -1,11 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-
-type DemoRecipe = {
-  slug: string;
-  title: string;
-  description: string;
-};
+import { ApiService } from '../../core/api.service';
+import type { ArticleSummary, RecipeSummary } from '../../core/models';
 
 @Component({
   selector: 'app-discover-page',
@@ -14,16 +10,39 @@ type DemoRecipe = {
   styleUrl: './discover-page.component.scss',
 })
 export class DiscoverPageComponent {
-  readonly recipes: DemoRecipe[] = [
-    {
-      slug: 'chicken-tomato-pasta',
-      title: 'Chicken Tomato Pasta',
-      description: 'Nhanh, dùng được cà chua và gà đang có trong tủ.',
-    },
-    {
-      slug: 'carbonara',
-      title: 'Carbonara',
-      description: 'Cổ điển — pasta, trứng, bacon, phô mai.',
-    },
-  ];
+  private readonly api = inject(ApiService);
+
+  readonly recipes = signal<RecipeSummary[]>([]);
+  readonly articles = signal<ArticleSummary[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+
+  constructor() {
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.listRecipes().subscribe({
+      next: (recipes) => {
+        this.recipes.set(recipes);
+        this.api.listArticles().subscribe({
+          next: (articles) => {
+            this.articles.set(articles);
+            this.loading.set(false);
+          },
+          error: () => {
+            // Articles API may not be up yet during staged rollout.
+            this.articles.set([]);
+            this.loading.set(false);
+          },
+        });
+      },
+      error: (err: { message?: string }) => {
+        this.loading.set(false);
+        this.error.set(err.message ?? 'Không tải được recipes');
+      },
+    });
+  }
 }

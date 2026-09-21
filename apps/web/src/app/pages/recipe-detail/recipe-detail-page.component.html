@@ -1,14 +1,43 @@
-<a routerLink="/" class="back">← Pantrio</a>
+<a routerLink="/" class="back">← Discover</a>
 
-<article>
-  <h1>{{ recipe().title }}</h1>
-  <p>{{ recipe().body }}</p>
-
-  @if (recipe().ingredients.length) {
-    <ul>
-      @for (item of recipe().ingredients; track item) {
-        <li>{{ item }}</li>
+@if (loading()) {
+  <p class="muted">Đang tải recipe…</p>
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+} @else {
+  @if (recipe(); as r) {
+    <article>
+      <h1>{{ r.title }}</h1>
+      @if (r.description) {
+        <p class="lead">{{ r.description }}</p>
       }
-    </ul>
+      <p class="meta">
+        {{ r.servings }} servings · {{ r.difficulty }}
+        @if (r.prepTimeMin) {
+          · prep {{ r.prepTimeMin }}m
+        }
+        @if (r.cookTimeMin) {
+          · cook {{ r.cookTimeMin }}m
+        }
+      </p>
+
+      <h2>Ingredients</h2>
+      <ul>
+        @for (ing of r.ingredients; track ing.foodId + ing.sortOrder) {
+          <li>
+            {{ ing.foodName }} — {{ ing.quantity }} {{ ing.unit }}
+            @if (ing.optional) {
+              <span class="optional">(optional)</span>
+            }
+            @if (ing.inInventory) {
+              <span class="in-pantry">· in pantry</span>
+            }
+          </li>
+        }
+      </ul>
+
+      <h2>Instructions</h2>
+      <pre class="instructions">{{ r.instructions }}</pre>
+    </article>
   }
-</article>
+}

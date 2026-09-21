@@ -28,6 +28,21 @@
     color: color-mix(in srgb, var(--color-brand) 80%, transparent);
   }
 
+  .discover__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+
+    a {
+      font-size: 0.9rem;
+      color: var(--color-brand);
+      text-decoration: none;
+      border: 0;
+      padding: 0;
+    }
+  }
+
   ul {
     list-style: none;
     margin: 1.5rem 0 0;
@@ -64,3 +79,16 @@
     color: var(--color-muted);
   }
 }
+
+.muted {
+  color: var(--color-muted);
+}
+
+.error {
+  color: #9b2c2c;
+
+  button {
+    margin-left: 0.5rem;
+  }
+}
+
