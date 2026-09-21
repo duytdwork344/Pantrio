@@ -16,6 +16,7 @@ apps/api/openapi.json
 # Web (Angular)
 apps/web/dist
 apps/web/.angular
+apps/web/src/environments/environment.local.ts
 
 # Mobile (Flutter)
 apps/mobile/.dart_tool

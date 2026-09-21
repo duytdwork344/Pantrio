@@ -6,6 +6,8 @@
     "ng": "ng",
     "dev": "ng serve --port 4200",
     "start": "ng serve --port 4200",
+    "start:lan": "test -f src/environments/environment.local.ts || cp src/environments/environment.local.example.ts src/environments/environment.local.ts; ng serve --port 4200 --host 0.0.0.0 --configuration=local",
+    "dev:lan": "pnpm run start:lan",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "lint": "ng build --configuration development",
