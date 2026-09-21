@@ -8,6 +8,7 @@ class InventoryItem {
     required this.confidence,
     required this.storageLocation,
     required this.opened,
+    this.groupId,
     this.expiryDate,
     this.purchaseDate,
     this.notes,
@@ -21,6 +22,7 @@ class InventoryItem {
   final String confidence;
   final String storageLocation;
   final bool opened;
+  final String? groupId;
   final String? expiryDate;
   final String? purchaseDate;
   final String? notes;
@@ -35,6 +37,7 @@ class InventoryItem {
       confidence: json['confidence'] as String,
       storageLocation: json['storageLocation'] as String,
       opened: json['opened'] as bool? ?? false,
+      groupId: json['groupId'] as String?,
       expiryDate: json['expiryDate'] as String?,
       purchaseDate: json['purchaseDate'] as String?,
       notes: json['notes'] as String?,

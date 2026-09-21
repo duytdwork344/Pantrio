@@ -4,12 +4,14 @@ class ShoppingListSummary {
     required this.name,
     required this.itemCount,
     required this.pendingCount,
+    this.groupId,
   });
 
   final String id;
   final String name;
   final int itemCount;
   final int pendingCount;
+  final String? groupId;
 
   factory ShoppingListSummary.fromJson(Map<String, dynamic> json) {
     return ShoppingListSummary(
@@ -17,6 +19,7 @@ class ShoppingListSummary {
       name: json['name'] as String,
       itemCount: json['itemCount'] as int,
       pendingCount: json['pendingCount'] as int,
+      groupId: json['groupId'] as String?,
     );
   }
 }
@@ -63,6 +66,7 @@ class ShoppingListDetail extends ShoppingListSummary {
     required super.itemCount,
     required super.pendingCount,
     required this.items,
+    super.groupId,
   });
 
   final List<ShoppingListItem> items;
@@ -73,6 +77,7 @@ class ShoppingListDetail extends ShoppingListSummary {
       name: json['name'] as String,
       itemCount: json['itemCount'] as int,
       pendingCount: json['pendingCount'] as int,
+      groupId: json['groupId'] as String?,
       items: (json['items'] as List<dynamic>? ?? const [])
           .map((e) => ShoppingListItem.fromJson(e as Map<String, dynamic>))
           .toList(),

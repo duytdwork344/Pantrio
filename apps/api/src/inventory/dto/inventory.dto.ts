@@ -26,6 +26,12 @@ export class InventoryItemDto {
   @ApiProperty()
   foodName!: string;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'null = personal batch; set = InventoryGroup pantry',
+  })
+  groupId?: string | null;
+
   @ApiProperty()
   quantity!: number;
 
@@ -56,6 +62,15 @@ export class CreateInventoryItemDto {
   @IsString()
   @MinLength(1)
   foodId!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'When set, batch belongs to InventoryGroup (caller must be a member)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  groupId?: string;
 
   @ApiProperty({ example: 500 })
   @IsNumber()

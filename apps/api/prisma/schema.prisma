@@ -57,6 +57,11 @@ enum ShoppingListItemStatus {
   SKIPPED
 }
 
+enum GroupMemberRole {
+  OWNER
+  MEMBER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -76,6 +81,8 @@ model User {
   inventoryTxns       InventoryTransaction[]
   cookingSessions     CookingSession[]
   createdFoods        Food[]               @relation("FoodCreator")
+  groupMemberships    GroupMembership[]
+  ownedGroups         InventoryGroup[]     @relation("GroupCreator")
 }
 
 model Role {
@@ -257,17 +264,57 @@ model PlannedRecipe {
   @@index([userId, plannedFor])
 }
 
+/// Shared household pantry + shopping scope (MVP: one membership per user).
+model InventoryGroup {
+  id              String   @id @default(cuid())
+  name            String
+  createdByUserId String
+  inviteCode      String   @unique
+  inviteExpiresAt DateTime?
+  inviteMaxUses   Int?
+  inviteUseCount  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy     User              @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  members       GroupMembership[]
+  inventoryItems InventoryItem[]
+  shoppingLists ShoppingList[]
+
+  @@index([inviteCode])
+}
+
+model GroupMembership {
+  id        String          @id @default(cuid())
+  groupId   String
+  userId    String
+  role      GroupMemberRole @default(MEMBER)
+  joinedAt  DateTime        @default(now())
+
+  group InventoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// MVP: at most one active group per user.
+  @@unique([userId])
+  @@unique([groupId, userId])
+  @@index([groupId])
+}
+
 model ShoppingList {
   id        String   @id @default(cuid())
   userId    String
+  /// null = personal list; set = shared list for InventoryGroup.
+  groupId   String?
   name      String   @default("Shopping List")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group InventoryGroup?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
   items ShoppingListItem[]
 
   @@index([userId])
+  @@index([groupId])
 }
 
 model ShoppingListItem {
@@ -290,10 +337,12 @@ model ShoppingListItem {
   @@index([foodId])
 }
 
-/// One inventory batch/package for a user (FEFO-friendly).
+/// One inventory batch/package (FEFO-friendly).
+/// Personal: groupId null + userId = owner. Group: groupId set; userId = actor who created the batch.
 model InventoryItem {
   id             String             @id @default(cuid())
   userId         String
+  groupId        String?
   foodId         String
   quantity       Float
   unit           String
@@ -308,11 +357,14 @@ model InventoryItem {
   updatedAt      DateTime           @updatedAt
 
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group        InventoryGroup?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   food         Food                   @relation(fields: [foodId], references: [id])
   transactions InventoryTransaction[]
 
   @@index([userId, foodId])
   @@index([userId, expiryDate])
+  @@index([groupId, foodId])
+  @@index([groupId, expiryDate])
 }
 
 model InventoryTransaction {

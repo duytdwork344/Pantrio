@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **7b**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **7b**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -153,6 +153,41 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] `POST .../items/:itemId/purchase` → InventoryItem + txn PURCHASE
 ---
 
+## 6a. InventoryGroup — tủ & shopping chung (API + Mobile)
+
+Tham chiếu: requirements **7c**. Mục tiêu: dual scope Personal | Group; share Inventory + Shopping; purchase list group → tủ group; MVP **1 user ≤ 1 group**.
+
+### Đầu mục cần giải quyết
+
+- [x] **Docs đã ghi hướng** (**7c**) — dual tab, invite code, 1 group/user, Planned personal, race, PRIVATE
+- [x] Schema: `InventoryGroup`, `GroupMembership` (OWNER|MEMBER), invite (`code`, expiry, maxUses / rotate)
+- [x] Ownership: `InventoryItem` + `ShoppingList` hỗ trợ scope personal **hoặc** `groupId` (nullable `groupId`)
+- [x] `InventoryTransaction`: actor = `userId` người thao tác; chỗ trừ kho qua item.`groupId` / personal
+- [x] API group: tạo / join-by-code / leave / rotate invite / `GET /groups/me` (MVP 1 group/user)
+- [x] API inventory + shopping: `?groupId=` / body `groupId`; membership guard; purchase **cùng scope**
+- [x] `generate-from-planned`: shortage theo stock **group** khi list thuộc group (Planned vẫn personal)
+- [x] Race: atomic purchase (`updateMany` status PENDING→PURCHASED)
+- [x] Race: cook/adjust quantity (row lock hoặc conditional UPDATE; optional `version`) — khi làm cook theo group
+- [ ] Food PRIVATE trong group: policy tạm (PUBLIC + PRIVATE của actor) — ghi rõ / enforce thêm nếu cần
+- [x] Cook / recommend / `inInventory` theo context group (sau khi inventory group ổn)
+- [x] Mobile: tab **Personal | Group** (Inventory + Shopping); Group trống → Tạo / Join bằng mã
+- [ ] Lifecycle: owner transfer khi còn member (hiện: owner leave chỉ khi sole → dissolve)
+- [ ] Phase sau: nhiều group / user + picker trong tab Group
+
+### Bước giải quyết ban đầu (làm theo thứ tự)
+
+1. [x] **Chốt schema ownership** (nullable `groupId`) + migration `20260921100000_inventory_group`
+2. [x] **Group module tối thiểu:** create, invite code, join, leave, rotate, `GET /groups/me`; enforce **1 group/user**
+3. [x] **Mở inventory + shopping theo `groupId`** + purchase → batch cùng group; personal = `groupId` null
+4. [x] **Mobile tabs Personal | Group** + màn Tạo/Join; wire API trên
+5. [x] **Củng cố race** trên adjust/cook quantity khi đụng batch group — cook dùng `updateMany` + `quantity gte` + decrement
+6. [x] Cook / recommend / `inInventory` theo group context
+7. [ ] Owner transfer + policy Food PRIVATE trong group
+
+Không làm trong 6a: FoodAlias, OR-foodId, multi-group, reservation kiểu TMĐT.
+
+---
+
 ## 7. Cook / Consumption / Recommendation (API)
 
 - [x] CookingSession (`POST /cook`, `GET /cooking-sessions`, `GET /cooking-sessions/:id`)
@@ -185,9 +220,11 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] Reset list to pending / delete list (UI + when all done)
 - [x] Recipes: Discover / Saved / Planned + detail (save, plan, add ingredient → inventory)
 - [x] Generate shopping from planned recipes (UI)
+- [x] Inventory + Shopping: tab Personal | Group + create/join group (invite code)
+- [x] Recipes: Cook tab (recommend Personal|Group) + recipe detail Cook / pantry scope
 - [ ] Mode CREATOR/ADMIN/MODERATOR (surface theo `/users/me` permissions)
 - [ ] Notifications expiry — Phase 2
-- [ ] Cook / recommendations UI
+- [x] Cook / recommendations UI
 
 ---
 
@@ -196,6 +233,7 @@ Tham chiếu: **7b.2–7b.4** — RecipeIngredient **không** mutate Inventory.
 - [x] requirements: Food / Inventory / RecipeIngredient decisions (**7b**)
 - [x] requirements: Moderator merge (**7b.7**)
 - [x] requirements: FoodAlias phase sau (**7b.8**)
+- [x] requirements: InventoryGroup dual scope (**7c**)
 - [ ] OpenAPI export + regenerate `packages/api-client` sau mỗi domain lớn
 - [ ] Seed admin user dev (optional)
 - [ ] E2E smoke: register → create recipe → save → add inventory foodId
@@ -206,14 +244,15 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 
 ## Thứ tự đề xuất (gần → xa)
 
-1. **Recipe CRUD + ingredients + seed recipes**  
-2. **SavedRecipe + inInventory flags**  
-3. **Inventory POST + search-first / from-recipe option**  
-4. **Food PRIVATE cho USER** (schema visibility)  
-5. **Shopping generate + purchase → inventory**  
-6. **Cook + estimated consume + recommendation**  
-7. **Web/Mobile hydrate** theo surface (Web discovery/creator, Mobile inventory)  
-8. Phase sau: Article (**4.1** / checklist **3a**), OAuth 2.0 (requirements **3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), Moderation console (API + Web), moderator merge Food, FoodAlias, AI scan, …
+1. **Recipe CRUD + ingredients + seed recipes** _(xong API)_  
+2. **SavedRecipe + inInventory flags** _(xong)_  
+3. **Inventory POST + search-first / from-recipe option** _(xong)_  
+4. **Food PRIVATE cho USER** _(xong)_  
+5. **Shopping generate + purchase → inventory** _(xong)_  
+6. **Cook + estimated consume + recommendation** _(xong API)_  
+7. **InventoryGroup (checklist 6a)** — schema → group API → inventory/shopping scope → Mobile tabs → race → cook/recommend group  
+8. **Web/Mobile hydrate** còn lại (Web auth + Creator recipe; Mobile Cook UI nếu chưa gộp vào 6a)  
+9. Phase sau: multi-group, Article (**4.1**), OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, …
 
 ---
 
@@ -224,3 +263,4 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 - Seed: `pnpm db:seed` (roles + foods + `admin@` / `creator@` / `moderator@` — password `password123`)  
 - Khớp recipe ↔ inventory **chỉ qua `foodId`**, không qua tên string.
 - Unit MVP chuẩn: `g` | `kg` | `ml` | `l` | `pcs` (`@pantrio/shared` `Unit`).
+- InventoryGroup (**7c** / checklist **6a**): Personal | Group tabs; share Inventory + Shopping; 1 group/user MVP; invite code; purchase cùng scope.

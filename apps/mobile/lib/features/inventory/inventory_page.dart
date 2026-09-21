@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
+import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/inventory_item.dart';
+import 'package:pantrio_mobile/features/groups/group_scope_widgets.dart';
 import 'package:pantrio_mobile/features/inventory/add_inventory_page.dart';
 import 'package:pantrio_mobile/features/inventory/edit_inventory_page.dart';
 import 'package:provider/provider.dart';
@@ -43,26 +45,65 @@ class _FoodGroup {
 }
 
 class _InventoryPageState extends State<InventoryPage> {
+  /// 0 = personal, 1 = group
+  int _scope = 0;
+  InventoryGroup? _group;
+  bool _groupLoading = true;
   late Future<List<InventoryItem>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = _loadItems();
+    _reloadGroup();
   }
 
-  Future<List<InventoryItem>> _load() {
-    return context.read<AuthSession>().api.getInventory();
+  String? get _activeGroupId => _scope == 1 ? _group?.id : null;
+
+  Future<List<InventoryItem>> _loadItems() {
+    return context.read<AuthSession>().api.getInventory(
+          groupId: _activeGroupId,
+        );
   }
 
-  Future<void> _refresh() async {
+  Future<void> _reloadGroup() async {
+    setState(() => _groupLoading = true);
+    try {
+      final group = await context.read<AuthSession>().api.getMyGroup();
+      if (!mounted) return;
+      setState(() {
+        _group = group;
+        _groupLoading = false;
+      });
+      if (_scope == 1) {
+        await _refreshItems();
+      }
+    } on ApiException catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _group = null;
+        _groupLoading = false;
+      });
+    }
+  }
+
+  Future<void> _refreshItems() async {
     setState(() {
-      _future = _load();
+      _future = _loadItems();
     });
     await _future;
   }
 
-  List<_FoodGroup> _group(List<InventoryItem> items) {
+  Future<void> _onScopeChanged(int value) async {
+    setState(() => _scope = value);
+    if (value == 1) {
+      await _reloadGroup();
+    } else {
+      await _refreshItems();
+    }
+  }
+
+  List<_FoodGroup> _groupItems(List<InventoryItem> items) {
     final map = <String, _FoodGroup>{};
     for (final item in items) {
       final existing = map[item.foodId];
@@ -90,10 +131,12 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _openAdd() async {
     final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const AddInventoryPage()),
+      MaterialPageRoute(
+        builder: (_) => AddInventoryPage(groupId: _activeGroupId),
+      ),
     );
     if (created == true && mounted) {
-      await _refresh();
+      await _refreshItems();
     }
   }
 
@@ -102,7 +145,7 @@ class _InventoryPageState extends State<InventoryPage> {
       MaterialPageRoute(builder: (_) => EditInventoryPage(item: item)),
     );
     if (updated == true && mounted) {
-      await _refresh();
+      await _refreshItems();
     }
   }
 
@@ -113,7 +156,7 @@ class _InventoryPageState extends State<InventoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Removed ${item.foodName} batch')),
       );
-      await _refresh();
+      await _refreshItems();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +170,24 @@ class _InventoryPageState extends State<InventoryPage> {
     return iso;
   }
 
+  String _batchSubtitle(InventoryItem batch) {
+    final parts = <String>[];
+    if (batch.purchaseDate != null && batch.purchaseDate!.isNotEmpty) {
+      parts.add('bought ${_shortDate(batch.purchaseDate!)}');
+    }
+    if (batch.expiryDate != null && batch.expiryDate!.isNotEmpty) {
+      parts.add('exp ${_shortDate(batch.expiryDate!)}');
+    }
+    final note = batch.notes?.trim();
+    if (note != null && note.isNotEmpty) {
+      parts.add(note);
+    }
+    if (parts.isEmpty) {
+      return 'No note';
+    }
+    return parts.join(' · ');
+  }
+
   bool _isExpiringSoon(String? iso) {
     if (iso == null) return false;
     final d = DateTime.tryParse(iso);
@@ -138,133 +199,161 @@ class _InventoryPageState extends State<InventoryPage> {
     return diff <= 3;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder<List<InventoryItem>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _ErrorPane(
-              message: snapshot.error.toString(),
-              onRetry: _refresh,
-            );
-          }
-          final items = snapshot.data ?? const <InventoryItem>[];
-          if (items.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24),
-                children: const [
-                  SizedBox(height: 80),
-                  Text(
-                    'No inventory batches yet.\nAdd food from search, or purchase from a shopping list.',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-          final groups = _group(items);
+  Widget _buildItemList({required bool showFab}) {
+    return FutureBuilder<List<InventoryItem>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return _ErrorPane(
+            message: snapshot.error.toString(),
+            onRetry: _refreshItems,
+          );
+        }
+        final items = snapshot.data ?? const <InventoryItem>[];
+        final label = _scope == 0 ? 'Personal' : 'Group';
+        if (items.isEmpty) {
           return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-              itemCount: groups.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Inventory · ${groups.length} foods · ${items.length} batches',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  );
-                }
-                final group = groups[index - 1];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ExpansionTile(
-                    initiallyExpanded: groups.length <= 4,
-                    title: Text(group.foodName),
-                    subtitle: Text(
-                      '${group.totalsLabel} · ${group.batches.length} batch${group.batches.length == 1 ? '' : 'es'}',
-                    ),
-                    children: [
-                      for (final batch in group.batches)
-                        Dismissible(
-                          key: ValueKey(batch.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 16),
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            child: const Icon(Icons.delete_outline),
-                          ),
-                          confirmDismiss: (_) async {
-                            return await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Remove batch?'),
-                                    content: Text(
-                                      '${batch.foodName} · ${batch.quantity} ${batch.unit}',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: const Text('Remove'),
-                                      ),
-                                    ],
-                                  ),
-                                ) ??
-                                false;
-                          },
-                          onDismissed: (_) => _delete(batch),
-                          child: ListTile(
-                            title: Text(
-                              '${batch.quantity} ${batch.unit} · ${batch.storageLocation}'
-                              '${batch.opened ? ' · opened' : ''}',
-                            ),
-                            subtitle: batch.expiryDate == null
-                                ? const Text('No expiry · tap to edit')
-                                : Text(
-                                    'exp ${_shortDate(batch.expiryDate!)} · tap to edit',
-                                    style: _isExpiringSoon(batch.expiryDate)
-                                        ? TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .error,
-                                          )
-                                        : null,
-                                  ),
-                            trailing: const Icon(Icons.edit_outlined),
-                            onTap: () => _openEdit(batch),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
+            onRefresh: _refreshItems,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: [
+                const SizedBox(height: 48),
+                Text(
+                  _scope == 0
+                      ? 'No inventory batches yet.\nAdd food from search, or purchase from a shopping list.'
+                      : 'Shared pantry is empty.\nAdd food or purchase from a group shopping list.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           );
-        },
+        }
+        final groups = _groupItems(items);
+        return RefreshIndicator(
+          onRefresh: _refreshItems,
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, showFab ? 88 : 24),
+            itemCount: groups.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8, top: 4),
+                  child: Text(
+                    '$label · ${groups.length} foods · ${items.length} batches',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                );
+              }
+              final group = groups[index - 1];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ExpansionTile(
+                  initiallyExpanded: groups.length <= 4,
+                  title: Text(group.foodName),
+                  subtitle: Text(
+                    '${group.totalsLabel} · ${group.batches.length} batch${group.batches.length == 1 ? '' : 'es'}',
+                  ),
+                  children: [
+                    for (final batch in group.batches)
+                      Dismissible(
+                        key: ValueKey(batch.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 16),
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          child: const Icon(Icons.delete_outline),
+                        ),
+                        confirmDismiss: (_) async {
+                          return await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Remove batch?'),
+                                  content: Text(
+                                    '${batch.foodName} · ${batch.quantity} ${batch.unit}',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, true),
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
+                                ),
+                              ) ??
+                              false;
+                        },
+                        onDismissed: (_) => _delete(batch),
+                        child: ListTile(
+                          title: Text(
+                            '${batch.quantity} ${batch.unit} · ${batch.storageLocation}'
+                            '${batch.opened ? ' · opened' : ''}',
+                          ),
+                          subtitle: Text(
+                            _batchSubtitle(batch),
+                            style: _isExpiringSoon(batch.expiryDate)
+                                ? TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                  )
+                                : null,
+                          ),
+                          trailing: const Icon(Icons.edit_outlined),
+                          onTap: () => _openEdit(batch),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inGroup = _group != null;
+    final showFab = _scope == 0 || inGroup;
+
+    return Scaffold(
+      body: Column(
+        children: [
+          ScopeSegmentBar(index: _scope, onChanged: _onScopeChanged),
+          if (_scope == 1 && _groupLoading)
+            const LinearProgressIndicator(minHeight: 2),
+          if (_scope == 1 && !_groupLoading && inGroup)
+            GroupHeaderBar(
+              group: _group!,
+              onChanged: _reloadGroup,
+            ),
+          Expanded(
+            child: _scope == 1 && !_groupLoading && !inGroup
+                ? RefreshIndicator(
+                    onRefresh: _reloadGroup,
+                    child: GroupJoinPane(onJoined: _reloadGroup),
+                  )
+                : _buildItemList(showFab: showFab),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'fab_inventory',
-        onPressed: _openAdd,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: showFab
+          ? FloatingActionButton(
+              heroTag: 'fab_inventory',
+              onPressed: _openAdd,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }

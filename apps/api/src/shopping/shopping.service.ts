@@ -12,6 +12,7 @@ import {
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { assertFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
+import { GroupsService } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateShoppingListDto,
@@ -30,11 +31,23 @@ type NeedKey = string; // `${foodId}::${unit}`
 
 @Injectable()
 export class ShoppingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groups: GroupsService,
+  ) {}
 
-  async listForUser(userId: string): Promise<ShoppingListSummaryDto[]> {
+  async listForUser(
+    userId: string,
+    groupId?: string,
+  ): Promise<ShoppingListSummaryDto[]> {
+    if (groupId) {
+      await this.groups.requireMembership(userId, groupId);
+    }
+
     const lists = await this.prisma.shoppingList.findMany({
-      where: { userId },
+      where: groupId
+        ? { groupId }
+        : { userId, groupId: null },
       include: { items: true },
       orderBy: { updatedAt: 'desc' },
     });
@@ -43,7 +56,7 @@ export class ShoppingService {
   }
 
   async getDetail(userId: string, id: string): Promise<ShoppingListDetailDto> {
-    const list = await this.getOwnedList(userId, id);
+    const list = await this.getAccessibleList(userId, id);
     return this.toDetail(list);
   }
 
@@ -51,9 +64,16 @@ export class ShoppingService {
     userId: string,
     dto: CreateShoppingListDto,
   ): Promise<ShoppingListDetailDto> {
+    let groupId: string | null = null;
+    if (dto.groupId) {
+      await this.groups.requireMembership(userId, dto.groupId);
+      groupId = dto.groupId;
+    }
+
     const list = await this.prisma.shoppingList.create({
       data: {
         userId,
+        groupId,
         name: dto.name?.trim() || 'Shopping List',
       },
       include: {
@@ -70,7 +90,7 @@ export class ShoppingService {
     id: string,
     dto: UpdateShoppingListDto,
   ): Promise<ShoppingListDetailDto> {
-    await this.assertListOwned(userId, id);
+    await this.assertListAccessible(userId, id);
     const list = await this.prisma.shoppingList.update({
       where: { id },
       data: { name: dto.name.trim() },
@@ -88,6 +108,7 @@ export class ShoppingService {
    * Create a new list by copying items from existing lists.
    * Aggregates by foodId+unit; new items are always PENDING.
    * SKIPPED source items are ignored. Sources are left unchanged.
+   * Sources must share the same scope (all personal or same groupId).
    */
   async mergeFromLists(
     userId: string,
@@ -99,13 +120,27 @@ export class ShoppingService {
     }
 
     const sources = await this.prisma.shoppingList.findMany({
-      where: { userId, id: { in: sourceIds } },
+      where: { id: { in: sourceIds } },
       include: { items: true },
     });
     if (sources.length !== sourceIds.length) {
       throw new BadRequestException(
-        'One or more sourceListIds were not found for this user',
+        'One or more sourceListIds were not found',
       );
+    }
+
+    for (const source of sources) {
+      await this.assertListAccessible(userId, source.id, source);
+    }
+
+    const scopeGroupId = sources[0]!.groupId;
+    if (sources.some((s) => s.groupId !== scopeGroupId)) {
+      throw new BadRequestException(
+        'Cannot merge lists across personal and group scopes (or different groups)',
+      );
+    }
+    if (scopeGroupId) {
+      await this.groups.requireMembership(userId, scopeGroupId);
     }
 
     type Acc = {
@@ -145,10 +180,16 @@ export class ShoppingService {
       }
     }
 
+    const targetGroupId = dto.groupId ?? scopeGroupId ?? null;
+    if (targetGroupId) {
+      await this.groups.requireMembership(userId, targetGroupId);
+    }
+
     const list = await this.prisma.$transaction(async (tx) => {
       const created = await tx.shoppingList.create({
         data: {
           userId,
+          groupId: targetGroupId,
           name: dto.name.trim(),
           items: {
             create: [...merged.values()].map((row) => ({
@@ -176,7 +217,7 @@ export class ShoppingService {
 
   /** Reset PURCHASED / SKIPPED items to PENDING for reuse. Does not touch Inventory. */
   async reset(userId: string, id: string): Promise<ShoppingListDetailDto> {
-    await this.assertListOwned(userId, id);
+    await this.assertListAccessible(userId, id);
     await this.prisma.shoppingListItem.updateMany({
       where: {
         shoppingListId: id,
@@ -193,7 +234,7 @@ export class ShoppingService {
   }
 
   async remove(userId: string, id: string): Promise<{ deleted: true }> {
-    await this.assertListOwned(userId, id);
+    await this.assertListAccessible(userId, id);
     await this.prisma.shoppingList.delete({ where: { id } });
     return { deleted: true };
   }
@@ -203,7 +244,7 @@ export class ShoppingService {
     listId: string,
     dto: CreateShoppingListItemDto,
   ): Promise<ShoppingListItemDto> {
-    await this.assertListOwned(user.id, listId);
+    await this.assertListAccessible(user.id, listId);
     await assertFoodsUsable(this.prisma, [dto.foodId], user);
 
     const food = await this.prisma.food.findUnique({
@@ -245,7 +286,7 @@ export class ShoppingService {
     itemId: string,
     dto: UpdateShoppingListItemDto,
   ): Promise<ShoppingListItemDto> {
-    const item = await this.getOwnedItem(userId, listId, itemId);
+    const item = await this.getAccessibleItem(userId, listId, itemId);
     const updated = await this.prisma.shoppingListItem.update({
       where: { id: item.id },
       data: {
@@ -263,7 +304,7 @@ export class ShoppingService {
     listId: string,
     dto: GenerateShoppingListDto,
   ): Promise<ShoppingListDetailDto> {
-    await this.assertListOwned(userId, listId);
+    const listMeta = await this.assertListAccessible(userId, listId);
 
     const planned = await this.prisma.plannedRecipe.findMany({
       where: {
@@ -313,8 +354,11 @@ export class ShoppingService {
       }
     }
 
+    // Shortage against pantry of the same scope as the shopping list.
     const inventory = await this.prisma.inventoryItem.findMany({
-      where: { userId },
+      where: listMeta.groupId
+        ? { groupId: listMeta.groupId }
+        : { userId, groupId: null },
       select: { foodId: true, quantity: true, unit: true },
     });
     const have = new Map<NeedKey, number>();
@@ -372,24 +416,34 @@ export class ShoppingService {
     itemId: string,
     dto: PurchaseShoppingItemDto,
   ) {
-    const item = await this.getOwnedItem(userId, listId, itemId);
-    if (item.status === ShoppingListItemStatus.PURCHASED) {
-      throw new BadRequestException('Item already purchased');
-    }
+    const listMeta = await this.assertListAccessible(userId, listId);
+    const item = await this.getAccessibleItem(userId, listId, itemId);
 
     const quantity = dto.quantity ?? item.quantity;
     const unit = (dto.unit ?? item.unit).trim();
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const updatedItem = await tx.shoppingListItem.update({
-        where: { id: item.id },
+      // Atomic claim — only one concurrent purchase wins.
+      const claimed = await tx.shoppingListItem.updateMany({
+        where: {
+          id: item.id,
+          status: ShoppingListItemStatus.PENDING,
+        },
         data: { status: ShoppingListItemStatus.PURCHASED },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException('Item already purchased');
+      }
+
+      const updatedItem = await tx.shoppingListItem.findUniqueOrThrow({
+        where: { id: item.id },
         include: { food: { include: { translations: true } } },
       });
 
       const inventoryItem = await tx.inventoryItem.create({
         data: {
           userId,
+          groupId: listMeta.groupId,
           foodId: item.foodId,
           quantity,
           unit,
@@ -429,6 +483,7 @@ export class ShoppingService {
         id: result.inventoryItem.id,
         foodId: result.inventoryItem.foodId,
         foodName: translation?.name ?? result.inventoryItem.food.slug,
+        groupId: result.inventoryItem.groupId,
         quantity: result.inventoryItem.quantity,
         unit: result.inventoryItem.unit,
         storageLocation: result.inventoryItem.storageLocation,
@@ -436,7 +491,7 @@ export class ShoppingService {
     };
   }
 
-  private async getOwnedList(userId: string, id: string) {
+  private async getAccessibleList(userId: string, id: string) {
     const list = await this.prisma.shoppingList.findUnique({
       where: { id },
       include: {
@@ -447,26 +502,37 @@ export class ShoppingService {
       },
     });
 
-    if (!list || list.userId !== userId) {
+    if (!list) {
       throw new NotFoundException(`Shopping list '${id}' not found`);
     }
-
+    await this.assertListAccessible(userId, id, list);
     return list;
   }
 
-  private async assertListOwned(userId: string, id: string) {
-    const list = await this.prisma.shoppingList.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-    if (!list || list.userId !== userId) {
+  private async assertListAccessible(
+    userId: string,
+    id: string,
+    preloaded?: { id: string; userId: string; groupId: string | null },
+  ) {
+    const list =
+      preloaded ??
+      (await this.prisma.shoppingList.findUnique({
+        where: { id },
+        select: { id: true, userId: true, groupId: true },
+      }));
+    if (!list) {
+      throw new NotFoundException(`Shopping list '${id}' not found`);
+    }
+    if (list.groupId) {
+      await this.groups.requireMembership(userId, list.groupId);
+    } else if (list.userId !== userId) {
       throw new NotFoundException(`Shopping list '${id}' not found`);
     }
     return list;
   }
 
-  private async getOwnedItem(userId: string, listId: string, itemId: string) {
-    const list = await this.assertListOwned(userId, listId);
+  private async getAccessibleItem(userId: string, listId: string, itemId: string) {
+    const list = await this.assertListAccessible(userId, listId);
     const item = await this.prisma.shoppingListItem.findUnique({
       where: { id: itemId },
       include: { food: { include: { translations: true } } },
@@ -480,11 +546,13 @@ export class ShoppingService {
   private toSummary(list: {
     id: string;
     name: string;
+    groupId?: string | null;
     items: Array<{ status: ShoppingListItemStatus }>;
   }): ShoppingListSummaryDto {
     return {
       id: list.id,
       name: list.name,
+      groupId: list.groupId ?? null,
       itemCount: list.items.length,
       pendingCount: list.items.filter(
         (item) => item.status === ShoppingListItemStatus.PENDING,
@@ -495,6 +563,7 @@ export class ShoppingService {
   private toDetail(list: {
     id: string;
     name: string;
+    groupId?: string | null;
     items: Array<{
       id: string;
       foodId: string;

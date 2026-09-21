@@ -6,11 +6,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -35,18 +37,27 @@ export class InventoryController {
   @Get()
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
-    summary: 'List current user inventory batches (FEFO ordered)',
+    summary:
+      'List inventory batches (personal by default; pass groupId for shared pantry)',
+  })
+  @ApiQuery({
+    name: 'groupId',
+    required: false,
+    description: 'InventoryGroup id — list shared pantry for that group',
   })
   @ApiOkResponse({ type: [InventoryItemDto] })
-  list(@CurrentUser() user: AuthUser): Promise<InventoryItemDto[]> {
-    return this.inventoryService.listForUser(user.id);
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query('groupId') groupId?: string,
+  ): Promise<InventoryItemDto[]> {
+    return this.inventoryService.list(user, groupId?.trim() || undefined);
   }
 
   @Post()
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
     summary:
-      'Add inventory batch (foodId must be PUBLIC or your own PRIVATE)',
+      'Add inventory batch (foodId must be PUBLIC or your own PRIVATE; optional groupId)',
   })
   @ApiOkResponse({ type: InventoryItemDto })
   create(
@@ -68,7 +79,7 @@ export class InventoryController {
     @CurrentUser() user: AuthUser,
     @Body() dto: UpdateInventoryItemDto,
   ): Promise<InventoryItemDto> {
-    return this.inventoryService.update(user.id, id, dto);
+    return this.inventoryService.update(user, id, dto);
   }
 
   @Delete(':id')
@@ -78,6 +89,6 @@ export class InventoryController {
       'Remove inventory batch (writes DISPOSE then deletes; txn history for this batch is removed)',
   })
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.inventoryService.remove(user.id, id);
+    return this.inventoryService.remove(user, id);
   }
 }

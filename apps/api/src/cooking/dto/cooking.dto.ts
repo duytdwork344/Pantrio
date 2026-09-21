@@ -22,6 +22,15 @@ export class CookRecipeDto {
   @Type(() => Number)
   servings!: number;
 
+  @ApiPropertyOptional({
+    description:
+      'When set, FEFO consume from InventoryGroup pantry (caller must be a member)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  groupId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

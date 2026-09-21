@@ -26,6 +26,12 @@ export class ShoppingListSummaryDto {
   @ApiProperty()
   name!: string;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'null = personal list; set = InventoryGroup list',
+  })
+  groupId?: string | null;
+
   @ApiProperty()
   itemCount!: number;
 
@@ -70,6 +76,14 @@ export class CreateShoppingListDto {
   @IsString()
   @MinLength(1)
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'When set, list belongs to InventoryGroup',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  groupId?: string;
 }
 
 export class UpdateShoppingListDto {
@@ -150,13 +164,23 @@ export class MergeShoppingListsDto {
 
   @ApiProperty({
     type: [String],
-    description: 'Existing shopping list ids to copy from (owned by user)',
+    description:
+      'Existing shopping list ids to copy from (same scope: personal or one group)',
     example: ['clx_weekday', 'clx_weekend'],
   })
   @IsArray()
   @ArrayMinSize(1)
   @IsString({ each: true })
   sourceListIds!: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Target group for the new list (defaults to sources’ groupId when they are group lists)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  groupId?: string;
 }
 
 export class PurchaseShoppingItemDto {

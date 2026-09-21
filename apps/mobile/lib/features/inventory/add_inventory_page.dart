@@ -10,7 +10,10 @@ const _units = ['g', 'kg', 'ml', 'l', 'pcs'];
 const _locations = ['PANTRY', 'FRIDGE', 'FREEZER', 'OTHER'];
 
 class AddInventoryPage extends StatefulWidget {
-  const AddInventoryPage({super.key});
+  const AddInventoryPage({super.key, this.groupId});
+
+  /// When set, batch is created in the InventoryGroup pantry.
+  final String? groupId;
 
   @override
   State<AddInventoryPage> createState() => _AddInventoryPageState();
@@ -159,6 +162,7 @@ class _AddInventoryPageState extends State<AddInventoryPage> {
             foodId: food.id,
             quantity: qty,
             unit: _unit,
+            groupId: widget.groupId,
             storageLocation: _location,
             opened: _opened,
             purchaseDate: _dayIso(_purchaseDate),

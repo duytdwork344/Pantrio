@@ -7,11 +7,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -42,15 +44,27 @@ export class ShoppingController {
 
   @Get()
   @RequirePermissions(Permission.SHOPPING_MANAGE)
-  @ApiOperation({ summary: 'List shopping lists for current user' })
+  @ApiOperation({
+    summary:
+      'List shopping lists (personal by default; pass groupId for shared lists)',
+  })
+  @ApiQuery({ name: 'groupId', required: false })
   @ApiOkResponse({ type: [ShoppingListSummaryDto] })
-  list(@CurrentUser() user: AuthUser): Promise<ShoppingListSummaryDto[]> {
-    return this.shoppingService.listForUser(user.id);
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query('groupId') groupId?: string,
+  ): Promise<ShoppingListSummaryDto[]> {
+    return this.shoppingService.listForUser(
+      user.id,
+      groupId?.trim() || undefined,
+    );
   }
 
   @Post()
   @RequirePermissions(Permission.SHOPPING_MANAGE)
-  @ApiOperation({ summary: 'Create a shopping list' })
+  @ApiOperation({
+    summary: 'Create a shopping list (optional groupId for shared list)',
+  })
   @ApiOkResponse({ type: ShoppingListDetailDto })
   create(
     @CurrentUser() user: AuthUser,
@@ -63,7 +77,7 @@ export class ShoppingController {
   @RequirePermissions(Permission.SHOPPING_MANAGE)
   @ApiOperation({
     summary:
-      'Create a new list by merging existing lists (copy; aggregate foodId+unit → PENDING; skip SKIPPED; sources unchanged)',
+      'Create a new list by merging existing lists (same scope only; copy; aggregate foodId+unit → PENDING)',
   })
   @ApiOkResponse({ type: ShoppingListDetailDto })
   mergeFromLists(
@@ -150,7 +164,7 @@ export class ShoppingController {
   @RequirePermissions(Permission.SHOPPING_MANAGE)
   @ApiOperation({
     summary:
-      'Generate/merge PENDING items from PlannedRecipe − Inventory (by foodId+unit)',
+      'Generate/merge PENDING items from PlannedRecipe − pantry of list scope (personal or group)',
   })
   @ApiOkResponse({ type: ShoppingListDetailDto })
   generate(
@@ -165,7 +179,7 @@ export class ShoppingController {
   @RequirePermissions(Permission.SHOPPING_MANAGE)
   @ApiOperation({
     summary:
-      'Mark item purchased and create InventoryItem (+ PURCHASE transaction)',
+      'Mark item purchased and create InventoryItem in the same scope as the list (+ PURCHASE txn)',
   })
   purchase(
     @Param('id') id: string,

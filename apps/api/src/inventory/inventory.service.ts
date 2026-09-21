@@ -11,6 +11,7 @@ import {
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { assertFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
+import { GroupsService } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateInventoryItemDto,
@@ -20,11 +21,23 @@ import {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groups: GroupsService,
+  ) {}
 
-  async listForUser(userId: string): Promise<InventoryItemDto[]> {
+  async list(
+    user: AuthUser,
+    groupId?: string,
+  ): Promise<InventoryItemDto[]> {
+    if (groupId) {
+      await this.groups.requireMembership(user.id, groupId);
+    }
+
     const items = await this.prisma.inventoryItem.findMany({
-      where: { userId },
+      where: groupId
+        ? { groupId }
+        : { userId: user.id, groupId: null },
       include: {
         food: {
           include: { translations: true },
@@ -42,10 +55,17 @@ export class InventoryService {
   ): Promise<InventoryItemDto> {
     await assertFoodsUsable(this.prisma, [dto.foodId], user);
 
+    let groupId: string | null = null;
+    if (dto.groupId) {
+      await this.groups.requireMembership(user.id, dto.groupId);
+      groupId = dto.groupId;
+    }
+
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await tx.inventoryItem.create({
         data: {
           userId: user.id,
+          groupId,
           foodId: dto.foodId,
           quantity: dto.quantity,
           unit: dto.unit.trim(),
@@ -81,11 +101,11 @@ export class InventoryService {
   }
 
   async update(
-    userId: string,
+    user: AuthUser,
     id: string,
     dto: UpdateInventoryItemDto,
   ): Promise<InventoryItemDto> {
-    const existing = await this.assertOwned(userId, id);
+    const existing = await this.assertAccessible(user.id, id);
 
     const nextUnit = dto.unit?.trim();
     const unitChanged =
@@ -109,7 +129,7 @@ export class InventoryService {
         await tx.inventoryTransaction.create({
           data: {
             inventoryItemId: id,
-            userId,
+            userId: user.id,
             type: InventoryTransactionType.ADJUSTMENT,
             quantity: delta,
             unit: nextUnit ?? existing.unit,
@@ -158,15 +178,15 @@ export class InventoryService {
     return this.toDto(item);
   }
 
-  async remove(userId: string, id: string) {
-    const existing = await this.assertOwned(userId, id);
+  async remove(user: AuthUser, id: string) {
+    const existing = await this.assertAccessible(user.id, id);
 
     await this.prisma.$transaction(async (tx) => {
       if (existing.quantity > 0) {
         await tx.inventoryTransaction.create({
           data: {
             inventoryItemId: id,
-            userId,
+            userId: user.id,
             type: InventoryTransactionType.DISPOSE,
             quantity: existing.quantity,
             unit: existing.unit,
@@ -176,19 +196,22 @@ export class InventoryService {
         });
       }
 
-      // Cascades InventoryTransaction rows for this item.
       await tx.inventoryItem.delete({ where: { id } });
     });
 
     return { deleted: true, id };
   }
 
-  private async assertOwned(userId: string, id: string) {
+  private async assertAccessible(userId: string, id: string) {
     const existing = await this.prisma.inventoryItem.findUnique({
       where: { id },
     });
     if (!existing) {
       throw new NotFoundException(`Inventory item '${id}' not found`);
+    }
+    if (existing.groupId) {
+      await this.groups.requireMembership(userId, existing.groupId);
+      return existing;
     }
     if (existing.userId !== userId) {
       throw new ForbiddenException('Not your inventory item');
@@ -199,6 +222,7 @@ export class InventoryService {
   private toDto(item: {
     id: string;
     foodId: string;
+    groupId?: string | null;
     quantity: number;
     unit: string;
     confidence: QuantityConfidence;
@@ -217,6 +241,7 @@ export class InventoryService {
       id: item.id,
       foodId: item.foodId,
       foodName: translation?.name ?? item.food.slug,
+      groupId: item.groupId ?? null,
       quantity: item.quantity,
       unit: item.unit,
       confidence: item.confidence,

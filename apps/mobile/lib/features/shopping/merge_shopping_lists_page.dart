@@ -5,7 +5,9 @@ import 'package:pantrio_mobile/core/models/shopping_list.dart';
 import 'package:provider/provider.dart';
 
 class MergeShoppingListsPage extends StatefulWidget {
-  const MergeShoppingListsPage({super.key});
+  const MergeShoppingListsPage({super.key, this.groupId});
+
+  final String? groupId;
 
   @override
   State<MergeShoppingListsPage> createState() => _MergeShoppingListsPageState();
@@ -21,7 +23,9 @@ class _MergeShoppingListsPageState extends State<MergeShoppingListsPage> {
   @override
   void initState() {
     super.initState();
-    _future = context.read<AuthSession>().api.getShoppingLists();
+    _future = context.read<AuthSession>().api.getShoppingLists(
+          groupId: widget.groupId,
+        );
   }
 
   @override
@@ -48,6 +52,7 @@ class _MergeShoppingListsPageState extends State<MergeShoppingListsPage> {
       final created = await context.read<AuthSession>().api.mergeShoppingLists(
             name: name,
             sourceListIds: _selected.toList(),
+            groupId: widget.groupId,
           );
       if (!mounted) return;
       Navigator.of(context).pop(created);

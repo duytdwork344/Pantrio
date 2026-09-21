@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
+import 'package:pantrio_mobile/core/models/cooking.dart';
 import 'package:pantrio_mobile/core/models/food_item.dart';
+import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/inventory_item.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:pantrio_mobile/core/models/shopping_list.dart';
@@ -55,8 +57,55 @@ class PantrioApiClient {
     return UserProfile.fromJson(data);
   }
 
-  Future<List<InventoryItem>> getInventory() async {
-    final list = await _getList('inventory');
+  Future<InventoryGroup?> getMyGroup() async {
+    try {
+      final response = await _dio.get<dynamic>('groups/me');
+      final data = response.data;
+      if (data == null) return null;
+      return InventoryGroup.fromJson(_asMap(data));
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
+  Future<InventoryGroup> createGroup({
+    required String name,
+    int? inviteMaxUses,
+  }) async {
+    final data = await _post('groups', {
+      'name': name.trim(),
+      if (inviteMaxUses != null) 'inviteMaxUses': inviteMaxUses,
+    });
+    return InventoryGroup.fromJson(data);
+  }
+
+  Future<InventoryGroup> joinGroup({required String code}) async {
+    final data = await _post('groups/join', {
+      'code': code.trim(),
+    });
+    return InventoryGroup.fromJson(data);
+  }
+
+  Future<({bool left, bool? dissolved})> leaveGroup() async {
+    final data = await _post('groups/me/leave', {});
+    return (
+      left: data['left'] as bool? ?? true,
+      dissolved: data['dissolved'] as bool?,
+    );
+  }
+
+  Future<InventoryGroup> rotateGroupInvite() async {
+    final data = await _post('groups/me/rotate-invite', {});
+    return InventoryGroup.fromJson(data);
+  }
+
+  Future<List<InventoryItem>> getInventory({String? groupId}) async {
+    final list = await _getList(
+      'inventory',
+      query: {
+        if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
+      },
+    );
     return list.map(InventoryItem.fromJson).toList();
   }
 
@@ -64,6 +113,7 @@ class PantrioApiClient {
     required String foodId,
     required num quantity,
     required String unit,
+    String? groupId,
     String storageLocation = 'PANTRY',
     bool opened = false,
     String? purchaseDate,
@@ -76,6 +126,7 @@ class PantrioApiClient {
       'unit': unit,
       'storageLocation': storageLocation,
       'opened': opened,
+      if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
       if (purchaseDate != null) 'purchaseDate': purchaseDate,
       if (expiryDate != null) 'expiryDate': expiryDate,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
@@ -143,8 +194,13 @@ class PantrioApiClient {
     return FoodItem.fromJson(data);
   }
 
-  Future<List<ShoppingListSummary>> getShoppingLists() async {
-    final list = await _getList('shopping-lists');
+  Future<List<ShoppingListSummary>> getShoppingLists({String? groupId}) async {
+    final list = await _getList(
+      'shopping-lists',
+      query: {
+        if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
+      },
+    );
     return list.map(ShoppingListSummary.fromJson).toList();
   }
 
@@ -153,9 +209,13 @@ class PantrioApiClient {
     return ShoppingListDetail.fromJson(data);
   }
 
-  Future<ShoppingListDetail> createShoppingList({String? name}) async {
+  Future<ShoppingListDetail> createShoppingList({
+    String? name,
+    String? groupId,
+  }) async {
     final data = await _post('shopping-lists', {
       if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+      if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
     });
     return ShoppingListDetail.fromJson({
       ...data,
@@ -166,10 +226,12 @@ class PantrioApiClient {
   Future<ShoppingListDetail> mergeShoppingLists({
     required String name,
     required List<String> sourceListIds,
+    String? groupId,
   }) async {
     final data = await _post('shopping-lists/merge-from-lists', {
       'name': name.trim(),
       'sourceListIds': sourceListIds,
+      if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
     });
     return ShoppingListDetail.fromJson(data);
   }
@@ -242,9 +304,48 @@ class PantrioApiClient {
     return list.map(RecipeSummary.fromJson).toList();
   }
 
-  Future<RecipeDetail> getRecipeBySlug(String slug) async {
-    final data = await _get('recipes/$slug');
+  Future<RecipeDetail> getRecipeBySlug(
+    String slug, {
+    String? groupId,
+  }) async {
+    final data = await _get(
+      'recipes/$slug',
+      query: {
+        if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
+      },
+    );
     return RecipeDetail.fromJson(data);
+  }
+
+  Future<List<RecipeRecommendation>> getRecipeRecommendations({
+    String? groupId,
+  }) async {
+    final list = await _getList(
+      'recommendations/recipes',
+      query: {
+        if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
+      },
+    );
+    return list.map(RecipeRecommendation.fromJson).toList();
+  }
+
+  Future<CookingSession> cookRecipe({
+    required String recipeId,
+    required int servings,
+    String? groupId,
+    String? notes,
+  }) async {
+    final data = await _post('cook', {
+      'recipeId': recipeId,
+      'servings': servings,
+      if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    });
+    return CookingSession.fromJson(data);
+  }
+
+  Future<void> undoCookingSession(String id) async {
+    await _post('cooking-sessions/$id/undo', {});
   }
 
   Future<void> saveRecipe(String recipeId) async {

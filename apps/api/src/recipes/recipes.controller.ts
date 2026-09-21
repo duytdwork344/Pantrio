@@ -7,12 +7,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -99,15 +101,21 @@ export class RecipesController {
   @ApiBearerAuth()
   @ApiOperation({
     summary:
-      'Get recipe detail by slug (optional JWT adds saved + inInventory flags)',
+      'Get recipe detail by slug (optional JWT adds saved + inInventory; optional groupId for group pantry flags)',
   })
+  @ApiQuery({ name: 'groupId', required: false })
   @ApiOkResponse({ type: RecipeDetailDto })
   @ApiNotFoundResponse({ description: 'Recipe not found' })
   async findBySlug(
     @Param('slug') slug: string,
     @CurrentUser() user?: AuthUser,
+    @Query('groupId') groupId?: string,
   ): Promise<RecipeDetailDto> {
-    const recipe = await this.recipesService.findBySlug(slug, user?.id);
+    const recipe = await this.recipesService.findBySlug(
+      slug,
+      user?.id,
+      groupId?.trim() || undefined,
+    );
     if (!recipe) {
       throw new NotFoundException(`Recipe '${slug}' not found`);
     }

@@ -13,6 +13,7 @@ import {
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { assertFoodsUsable as ensureFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
+import { GroupsService } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateRecipeDto,
@@ -46,7 +47,10 @@ type RecipeWithIngredients = Prisma.RecipeGetPayload<{
 
 @Injectable()
 export class RecipesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groups: GroupsService,
+  ) {}
 
   async list(): Promise<RecipeSummaryDto[]> {
     const recipes = await this.prisma.recipe.findMany({
@@ -61,6 +65,7 @@ export class RecipesService {
   async findBySlug(
     slug: string,
     viewerUserId?: string,
+    groupId?: string,
   ): Promise<RecipeDetailDto | null> {
     const recipe = await this.prisma.recipe.findUnique({
       where: { slug },
@@ -71,7 +76,7 @@ export class RecipesService {
       return null;
     }
 
-    return this.toDetail(recipe, viewerUserId);
+    return this.toDetail(recipe, viewerUserId, groupId);
   }
 
   async saveRecipe(userId: string, recipeId: string) {
@@ -331,19 +336,24 @@ export class RecipesService {
   private async toDetail(
     recipe: RecipeWithIngredients,
     viewerUserId?: string,
+    groupId?: string,
   ): Promise<RecipeDetailDto> {
     let inventoryFoodIds = new Set<string>();
     let saved = false;
 
     if (viewerUserId) {
       const foodIds = recipe.ingredients.map((item) => item.foodId);
+      if (groupId) {
+        await this.groups.requireMembership(viewerUserId, groupId);
+      }
+      const pantryWhere = groupId
+        ? { groupId, foodId: { in: foodIds } }
+        : { userId: viewerUserId, groupId: null, foodId: { in: foodIds } };
+
       const [inventoryRows, savedRow] = await Promise.all([
         foodIds.length
           ? this.prisma.inventoryItem.findMany({
-              where: {
-                userId: viewerUserId,
-                foodId: { in: foodIds },
-              },
+              where: pantryWhere,
               select: { foodId: true },
               distinct: ['foodId'],
             })

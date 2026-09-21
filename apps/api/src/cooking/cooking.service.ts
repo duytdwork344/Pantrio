@@ -10,6 +10,7 @@ import {
   sameFamily,
   toBaseQuantity,
 } from '../common/units/convert';
+import { GroupsService } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ConsumptionLineDto,
@@ -18,11 +19,18 @@ import {
   RecommendationItemDto,
 } from './dto/cooking.dto';
 
+type PantryScope = { userId: string; groupId: string | null } | { groupId: string };
+
 @Injectable()
 export class CookingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groups: GroupsService,
+  ) {}
 
   async cook(userId: string, dto: CookRecipeDto): Promise<CookingSessionDto> {
+    const pantryWhere = await this.resolvePantryWhere(userId, dto.groupId);
+
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: dto.recipeId },
       include: {
@@ -64,7 +72,7 @@ export class CookingService {
 
         const batches = await tx.inventoryItem.findMany({
           where: {
-            userId,
+            ...pantryWhere,
             foodId: ing.foodId,
             quantity: { gt: 0 },
           },
@@ -97,11 +105,19 @@ export class CookingService {
             continue;
           }
 
-          const nextQty = Number((batch.quantity - takeInBatchUnit).toFixed(6));
-          await tx.inventoryItem.update({
-            where: { id: batch.id },
-            data: { quantity: Math.max(0, nextQty) },
+          // Atomic claim: skip batch if another cook already reduced quantity.
+          const claimed = await tx.inventoryItem.updateMany({
+            where: {
+              id: batch.id,
+              quantity: { gte: takeInBatchUnit },
+            },
+            data: {
+              quantity: { decrement: takeInBatchUnit },
+            },
           });
+          if (claimed.count === 0) {
+            continue;
+          }
 
           await tx.inventoryTransaction.create({
             data: {
@@ -113,7 +129,9 @@ export class CookingService {
               recipeId: recipe.id,
               cookingSessionId: created.id,
               estimated: true,
-              note: `Cook ${recipe.slug} × ${dto.servings}`,
+              note: `Cook ${recipe.slug} × ${dto.servings}${
+                dto.groupId ? ' (group pantry)' : ''
+              }`,
             },
           });
 
@@ -263,7 +281,12 @@ export class CookingService {
     return { undone: true, id };
   }
 
-  async recommend(userId: string): Promise<RecommendationItemDto[]> {
+  async recommend(
+    userId: string,
+    groupId?: string,
+  ): Promise<RecommendationItemDto[]> {
+    const pantryWhere = await this.resolvePantryWhere(userId, groupId);
+
     const [recipes, inventory] = await Promise.all([
       this.prisma.recipe.findMany({
         where: { visibility: 'PUBLIC' },
@@ -276,7 +299,7 @@ export class CookingService {
         take: 50,
       }),
       this.prisma.inventoryItem.findMany({
-        where: { userId, quantity: { gt: 0 } },
+        where: { ...pantryWhere, quantity: { gt: 0 } },
         select: { foodId: true, quantity: true, unit: true },
       }),
     ]);
@@ -367,6 +390,18 @@ export class CookingService {
     });
   }
 
+  /** Personal pantry = userId + groupId null; group = membership + groupId. */
+  private async resolvePantryWhere(
+    userId: string,
+    groupId?: string,
+  ): Promise<PantryScope> {
+    if (groupId) {
+      await this.groups.requireMembership(userId, groupId);
+      return { groupId };
+    }
+    return { userId, groupId: null };
+  }
+
   private sessionToDto(session: {
     id: string;
     recipeId: string;
@@ -426,7 +461,6 @@ export class CookingService {
       };
     }
 
-    // Legacy sessions (before consumptionsJson): rebuild from transactions only.
     const byFood = new Map<string, ConsumptionLineDto>();
     for (const txn of session.transactions) {
       const foodId = txn.inventoryItem.foodId;

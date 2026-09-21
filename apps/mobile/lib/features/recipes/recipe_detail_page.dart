@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
+import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:provider/provider.dart';
 
@@ -9,11 +10,14 @@ class RecipeDetailPage extends StatefulWidget {
     super.key,
     required this.slug,
     this.initialServings,
+    this.pantryGroupId,
   });
 
   final String slug;
   /// When opened from a plan, show ingredients scaled to this.
   final int? initialServings;
+  /// When set, inInventory flags + cook use this InventoryGroup pantry.
+  final String? pantryGroupId;
 
   @override
   State<RecipeDetailPage> createState() => _RecipeDetailPageState();
@@ -23,16 +27,21 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   late Future<RecipeDetail> _future;
   RecipeDetail? _recipe;
   int _viewServings = 1;
+  String? _pantryGroupId;
+  bool _cooking = false;
 
   @override
   void initState() {
     super.initState();
+    _pantryGroupId = widget.pantryGroupId;
     _future = _load();
   }
 
   Future<RecipeDetail> _load() async {
-    final recipe =
-        await context.read<AuthSession>().api.getRecipeBySlug(widget.slug);
+    final recipe = await context.read<AuthSession>().api.getRecipeBySlug(
+          widget.slug,
+          groupId: _pantryGroupId,
+        );
     if (!mounted) return recipe;
     setState(() {
       _recipe = recipe;
@@ -118,13 +127,115 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
         foodId: ingredient.foodId,
         quantity: qty,
         unit: ingredient.unit,
+        groupId: _pantryGroupId,
       );
       messenger.showSnackBar(
-        SnackBar(content: Text('Added ${ingredient.foodName} to inventory')),
+        SnackBar(
+          content: Text(
+            'Added ${ingredient.foodName} to '
+            '${_pantryGroupId != null ? 'group' : 'personal'} inventory',
+          ),
+        ),
       );
       await _refresh();
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _pickPantryScope() async {
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    InventoryGroup? group;
+    try {
+      group = await api.getMyGroup();
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Personal pantry'),
+              selected: _pantryGroupId == null,
+              onTap: () => Navigator.pop(ctx, 'personal'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: Text(
+                group == null
+                    ? 'Group pantry (join a group first)'
+                    : 'Group · ${group.name}',
+              ),
+              enabled: group != null,
+              selected: _pantryGroupId != null,
+              onTap: group == null ? null : () => Navigator.pop(ctx, group!.id),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      _pantryGroupId = choice == 'personal' ? null : choice;
+    });
+    await _refresh();
+  }
+
+  Future<void> _cook(RecipeDetail recipe) async {
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cook this recipe?'),
+        content: Text(
+          'Estimate-consume ingredients for $_viewServings servings from your '
+          '${_pantryGroupId != null ? 'group' : 'personal'} pantry (FEFO).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cook'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _cooking = true);
+    try {
+      final session = await api.cookRecipe(
+        recipeId: recipe.id,
+        servings: _viewServings,
+        groupId: _pantryGroupId,
+      );
+      final shortfalls = session.consumptions
+          .where((c) => c.shortfallQuantity > 0)
+          .length;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            shortfalls == 0
+                ? 'Cooked · pantry updated'
+                : 'Cooked · $shortfalls ingredient(s) short',
+          ),
+        ),
+      );
+      await _refresh();
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _cooking = false);
     }
   }
 
@@ -217,18 +328,47 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               const SizedBox(height: 12),
-              Row(
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ActionChip(
+                  avatar: Icon(
+                    _pantryGroupId != null
+                        ? Icons.groups_outlined
+                        : Icons.person_outline,
+                  ),
+                  label: Text(
+                    _pantryGroupId != null
+                        ? 'Pantry: Group'
+                        : 'Pantry: Personal',
+                  ),
+                  onPressed: _pickPantryScope,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   FilledButton.tonalIcon(
                     onPressed: () => _toggleSave(recipe),
                     icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
                     label: Text(saved ? 'Saved' : 'Save'),
                   ),
-                  const SizedBox(width: 8),
                   FilledButton.icon(
                     onPressed: () => _plan(recipe),
                     icon: const Icon(Icons.event_note),
                     label: Text('Plan × $_viewServings'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _cooking ? null : () => _cook(recipe),
+                    icon: _cooking
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.soup_kitchen_outlined),
+                    label: Text('Cook × $_viewServings'),
                   ),
                 ],
               ),
@@ -246,10 +386,10 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                   subtitle: Text(
                     '${_fmtQty(ing.quantity)} ${ing.unit}'
                     '${ing.optional ? ' · optional' : ''}'
-                    '${inInv ? ' · in inventory' : ''}',
+                    '${inInv ? ' · in pantry' : ''}',
                   ),
                   trailing: IconButton(
-                    tooltip: 'Add to inventory',
+                    tooltip: 'Add to pantry',
                     onPressed: () => _addToInventory(ing),
                     icon: Icon(
                       inInv ? Icons.kitchen : Icons.add_box_outlined,

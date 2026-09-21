@@ -4,11 +4,13 @@ import {
   Get,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -34,7 +36,7 @@ export class CookingController {
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
     summary:
-      'Cook a recipe: create CookingSession and FEFO ESTIMATED_CONSUME from inventory',
+      'Cook a recipe: CookingSession + FEFO ESTIMATED_CONSUME (personal or group pantry via groupId)',
   })
   @ApiOkResponse({ type: CookingSessionDto })
   cook(
@@ -77,10 +79,17 @@ export class CookingController {
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
     summary:
-      'Recommend recipes from current inventory (canCook / missing ingredients)',
+      'Recommend recipes from pantry (personal by default; pass groupId for shared pantry)',
   })
+  @ApiQuery({ name: 'groupId', required: false })
   @ApiOkResponse({ type: [RecommendationItemDto] })
-  recommend(@CurrentUser() user: AuthUser): Promise<RecommendationItemDto[]> {
-    return this.cookingService.recommend(user.id);
+  recommend(
+    @CurrentUser() user: AuthUser,
+    @Query('groupId') groupId?: string,
+  ): Promise<RecommendationItemDto[]> {
+    return this.cookingService.recommend(
+      user.id,
+      groupId?.trim() || undefined,
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
+import 'package:pantrio_mobile/features/recipes/cook_recommend_tab.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -32,7 +33,7 @@ class _RecipesPageState extends State<RecipesPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
     final api = context.read<AuthSession>().api;
     _discover = api.getRecipes();
     _saved = api.getSavedRecipes();
@@ -115,8 +116,10 @@ class _RecipesPageState extends State<RecipesPage>
       children: [
         TabBar(
           controller: _tabs,
+          isScrollable: true,
           tabs: const [
             Tab(text: 'Discover'),
+            Tab(text: 'Cook'),
             Tab(text: 'Saved'),
             Tab(text: 'Planned'),
           ],
@@ -130,6 +133,7 @@ class _RecipesPageState extends State<RecipesPage>
                 onRefresh: _refresh,
                 onOpen: (r) => _openRecipe(r),
               ),
+              const CookRecommendTab(),
               _SavedTab(
                 future: _saved,
                 onRefresh: _refresh,

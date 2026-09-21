@@ -64,9 +64,9 @@ Mobile
 
 Bao gồm các chức năng nội dung cần thiết của web và tập trung thêm vào:
 
-Personal Inventory
+Personal Inventory (+ InventoryGroup — tủ nhà dùng chung, xem **7c**)
 
-Shopping List
+Shopping List (personal + shared trong group)
 
 AI Food Scan
 
@@ -508,7 +508,7 @@ MODERATOR / ADMIN không làm:
 
 Quyền gợi ý: catalog:manage và/hoặc moderation:manage (ADMIN có đủ; MODERATOR theo ROLE_PERMISSIONS).
 
-Privacy: Inventory là dữ liệu cá nhân. Moderator chống rác / trùng trên Food, không browse nội dung tủ từng người.
+Privacy: Inventory personal là dữ liệu cá nhân; Inventory/Shopping **group** chia sẻ giữa MEMBER (xem **7c**). Moderator chống rác / trùng trên Food, không browse nội dung tủ từng người hay từng group.
 
 7b.8 Phase sau — FoodAlias (tên miền / biến thể gọi)
 
@@ -552,6 +552,65 @@ Thứ tự triển khai:
 3. Rồi: region, đề xuất alias, UX “ý bạn là …?”.
 
 Khi implement: migration + model FoodAlias tách file/module catalog; không nhét alias vào JSON trên Food.
+
+7c. InventoryGroup — tủ & shopping list dùng chung (đã bàn)
+
+Vấn đề: một hộ nhiều tài khoản. Một account dùng chung không hợp lý; nhiều account với Inventory/Shopping tách biệt cũng không khớp “nhà có gì”.
+
+Phạm vi đã hướng:
+
+- **Share Inventory** + **share ShoppingList** trong cùng một group.
+- **Purchase (PURCHASED)** trên list thuộc group → tạo `InventoryItem` thuộc **cùng group** (không ghi tủ cá nhân).
+- **Không** làm ingredient OR nhiều foodId (food1/food2) cho tên miền — dùng **một foodId + FoodAlias** (7b.8).
+- **PlannedRecipe / SavedRecipe:** MVP giữ **personal**. Generate shopping trong context group: shortage tính trên **stock của group** (user chọn / theo tab đang mở).
+
+Không gian dữ liệu (dual scope):
+
+| Scope | Inventory | Shopping |
+|-------|-----------|----------|
+| Personal | như hiện tại (`userId`) | như hiện tại |
+| Group | thuộc `groupId` | thuộc `groupId` |
+
+Membership (MVP):
+
+- Một user **tối đa một group** active (đủ use-case một nhà bếp). Nhiều group / picker = phase sau.
+- Role trong group: ít nhất `OWNER` | `MEMBER` (kick / rotate invite / giải tán = OWNER).
+- Join bằng **invite code** (hết hạn / rotate / giới hạn lần dùng) — **không** bắt user gõ raw DB `groupId` + password cố định lâu dài. Có thể kèm shared secret lúc tạo nếu muốn; membership vẫn revoke được.
+- Tạo group: creator thành OWNER, group có tủ + list trống ngay.
+
+UX Mobile (đã hướng):
+
+- Tab **Personal** | **Group** trên Inventory (và Shopping cùng context).
+- Tab Group chưa join: CTA **Tạo nhóm** / **Tham gia bằng mã** (nút “+” hoặc tương đương).
+- Trong tab Group: mọi thao tác tủ/list/purchase bám `groupId` đang active — không cho purchase lệch scope (list group → tủ personal).
+
+Ownership / audit:
+
+- Pantry partition: `groupId` (group) hoặc `userId` (personal) — chốt schema khi implement (nullable cặp, hoặc luôn có personal “implicit”, hoặc backfill mỗi user một personal group — quyết định kỹ thuật ở bước đầu).
+- `InventoryTransaction`: tách **actor** (`actorUserId` / `userId` người thao tác) vs **chỗ trừ kho** (group hoặc personal owner).
+
+Đồng thời / race (khác sàn TMĐT về policy, gần về atomic trừ số):
+
+- Cook / adjust / purchase trên batch dùng chung: **transaction + row lock hoặc UPDATE có điều kiện** trên `quantity`; optional `version` cho PATCH.
+- Purchase item: chỉ một member đánh PURCHASED thành công (atomic status) rồi mới tạo batch.
+- Không cần reservation/hold kiểu checkout TMĐT cho MVP.
+- Cook có thể giữ shortfall như hiện tại (product), miễn quantity không bị double-decrement sai.
+
+Food PRIVATE trong group (cần giải khi implement):
+
+- Hiện `assertFoodUsable`: PRIVATE chỉ creator. Member khác không gắn food PRIVATE của người khác vào tủ/list group.
+- Hướng tạm MVP: trong group ưu tiên Food **PUBLIC**; PRIVATE chỉ actor tự tạo và tự dùng; hoặc phase sau visibility theo group. Không để moderator browse nội dung tủ group (vẫn privacy vs staff).
+
+Privacy giữa thành viên: mọi MEMBER thấy batch/list trong group (expiry, notes, …). Join = chấp nhận chia sẻ đó.
+
+Cook / recommend / `inInventory` theo group: khi context = Group, stock lấy từ inventory group (phase gắn sau khi group inventory ổn).
+
+Không làm (MVP group):
+
+- Nhiều group / user.
+- Shopping/Inventory “nửa personal nửa group” trong cùng một list.
+- OR-foodId trên RecipeIngredient.
+- Moderator quản lý pantry group như admin tủ.
 
 
 8. Inventory Batch
@@ -1135,6 +1194,7 @@ Recipe Recommendation
 
 Phase 2
 
+InventoryGroup — tủ & shopping dùng chung (tab Personal | Group; xem **7c** / checklist **6a**)
 AI Food Scan
 Expiry Notification
 Advanced Search
@@ -1199,7 +1259,7 @@ Recipe
 
 28. Các vấn đề cần thiết kế tiếp
 
-Các phần chưa chốt hoàn toàn:
+Các phần chưa chốt hoàn toàn / còn chi tiết kỹ thuật:
 
 Domain Model
 
@@ -1216,8 +1276,19 @@ Purchase
 InventoryItem
 InventoryTransaction
 CookingSession
+InventoryGroup + Membership + Invite (xem **7c** — hướng đã bàn; schema/API chi tiết khi implement)
 
 Đã chốt (xem mục 7b, 4.2b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; CREATOR tạo Food mới kèm recipe → PRIVATE; khi APPROVE recipe → check trùng rồi Moderator merge hoặc promote PUBLIC; orphan do Moderator dọn; kiểm duyệt recipe phase sau (MVP CRUD chưa bắt buộc).
+
+Đã bàn / hướng (xem **7c**): dual tab Personal | Group; share Inventory + Shopping; purchase list group → tủ group; MVP 1 user ≤ 1 group; invite code (không raw groupId+password cố định); Planned/Saved personal; race = lock/atomic quantity; chưa OR-foodId.
+
+Còn chốt khi triển khai 7c:
+
+- Schema: personal = `userId` nullable `groupId` vs backfill personal group.
+- Leave / kick / owner transfer / giải tán group (số phận tủ & list).
+- Food PRIVATE usable trong group (tạm PUBLIC-only vs group visibility).
+- Cook / recommend / `inInventory` nhận context group.
+- Generate-from-planned: param/stock scope group khi list thuộc group.
 
 Inventory semantics
 
@@ -1240,11 +1311,11 @@ FoodAlias (bảng riêng): foodId + name + normalizedName + locale? + region?; s
 Alias / synonym (muối, salt, tên miền → cùng foodId) — không nhân bản Food.
 
 Merge Food trùng (toFood luôn PUBLIC sau merge) do MODERATOR/ADMIN; remapping FK trong suốt với user.
-Inventory/Shopping/Recipe chỉ gắn foodId PUBLIC hoặc PRIVATE của chính user.
+Inventory/Shopping/Recipe chỉ gắn foodId PUBLIC hoặc PRIVATE của chính user (group: xem ràng buộc PRIVATE ở **7c**).
 
 Moderation PENDING/ACTIVE nếu cần chống spam.
 
-List Food PRIVATE kèm createdBy + count reference — không soi Inventory chi tiết theo user.
+List Food PRIVATE kèm createdBy + count reference — không soi Inventory chi tiết theo user / theo group.
 
 Recommendation
 
