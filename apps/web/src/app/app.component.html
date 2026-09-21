@@ -5,7 +5,14 @@
       <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">
         Discover
       </a>
-      <a routerLink="/recipes/carbonara">Recipes</a>
+      @if (auth.isAuthenticated()) {
+        <span class="shell__user">{{ auth.user()?.displayName }}</span>
+        <button type="button" class="shell__linkbtn" (click)="auth.logout()">
+          Đăng xuất
+        </button>
+      } @else {
+        <a routerLink="/login" routerLinkActive="is-active">Đăng nhập</a>
+      }
     </nav>
   </header>
 

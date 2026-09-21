@@ -25,6 +25,8 @@
 
 .shell__nav {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 1rem;
   font-size: 0.95rem;
 
@@ -36,6 +38,24 @@
     &.is-active {
       color: var(--color-brand);
     }
+  }
+}
+
+.shell__user {
+  color: var(--color-ink);
+  font-size: 0.85rem;
+}
+
+.shell__linkbtn {
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover {
+    color: var(--color-brand);
   }
 }
 
