@@ -105,12 +105,13 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 Tham chiếu: requirements **4.1** — tách khỏi Recipe; không chặn core loop MVP.
 
 - [x] Prisma model `Article` (author, title, slug, body, …)
-- [ ] `GET /articles` (public list / published)
-- [ ] `GET /articles/:slug` (detail)
-- [ ] `POST /articles`, `PATCH /articles/:id` (CREATOR, `article:create` / author)
-- [ ] Publish flow (`publishedAt` null = draft)
-- [ ] Optional: gắn / embed Recipe vào Article (schema quan hệ — chốt khi làm; Recipe vẫn độc lập)
-- [ ] Web: list + detail + creator editor (discovery/blog surface)
+- [x] `GET /articles` (public list / published)
+- [x] `GET /articles/:slug` (detail; draft chỉ author)
+- [x] `POST /articles`, `PATCH /articles/:id` (CREATOR, `article:create` / author)
+- [x] Publish flow (`publishedAt` null = draft; `publish` true/false)
+- [x] `GET /me/articles` (bài của author, gồm draft)
+- [x] Gắn Recipe vào Article (`ArticleRecipe`; create/update `recipeIds`; detail trả `recipes`)
+- [x] Web: list + detail + Studio editor (new + edit draft by id; recipe picker; draft → `/studio/articles/:id`)
 - [ ] (Sau) kiểm duyệt Article nếu mở cộng đồng — có thể mirror **4.2b** hoặc đơn giản hơn
 
 ---
@@ -201,10 +202,10 @@ Không làm trong 6a: FoodAlias, OR-foodId, multi-group, reservation kiểu TMĐ
 ## 8. Web (Angular)
 
 - [x] Skeleton Discover + recipe detail (demo data)
-- [ ] Auth (register / login / lưu JWT)
-- [ ] Discover + recipe detail hydrate từ API
+- [x] Auth (register / login / lưu JWT + interceptor)
+- [x] Discover + recipe detail hydrate từ API
+- [x] Article / blog list + detail + Studio (tag recipes; draft mở editor `/studio/articles/:id`)
 - [ ] Creator: tạo/sửa recipe + ingredients (typeahead Food)
-- [ ] Article / blog hydrate từ API (Phase 2 — checklist **3a**)
 - [ ] Saved recipes
 - [ ] (Inventory chủ yếu Mobile; Web có thể read-only sau)
 
@@ -251,8 +252,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 5. **Shopping generate + purchase → inventory** _(xong)_  
 6. **Cook + estimated consume + recommendation** _(xong API)_  
 7. **InventoryGroup (checklist 6a)** — schema → group API → inventory/shopping scope → Mobile tabs → race → cook/recommend group  
-8. **Web/Mobile hydrate** còn lại (Web auth + Creator recipe; Mobile Cook UI nếu chưa gộp vào 6a)  
-9. Phase sau: multi-group, Article (**4.1**), OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, …
+8. **Web/Mobile hydrate** còn lại (Creator recipe trên Web; Mobile Cook UI nếu chưa gộp vào 6a)  
+9. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, …
 
 ---
 
