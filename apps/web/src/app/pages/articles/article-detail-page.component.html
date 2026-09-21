@@ -1,0 +1,41 @@
+<a routerLink="/articles" class="back">← Articles</a>
+
+@if (loading()) {
+  <p class="muted">Đang tải…</p>
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+} @else {
+  @if (article(); as a) {
+    <article>
+      <h1>{{ a.title }}</h1>
+      <p class="meta">
+        {{ a.authorName }}
+        @if (a.publishedAt) {
+          · {{ a.publishedAt | date: 'mediumDate' }}
+        } @else {
+          · draft
+        }
+      </p>
+      @if (a.summary) {
+        <p class="summary">{{ a.summary }}</p>
+      }
+      <pre class="body">{{ a.body }}</pre>
+
+      @if (a.recipes.length) {
+        <section class="tagged">
+          <h2>Recipes trong bài</h2>
+          <ul>
+            @for (r of a.recipes; track r.id) {
+              <li>
+                <a [routerLink]="['/recipes', r.slug]">{{ r.title }}</a>
+                @if (r.description) {
+                  <p>{{ r.description }}</p>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </article>
+  }
+}

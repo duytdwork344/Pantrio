@@ -1,0 +1,64 @@
+<section class="editor">
+  <a routerLink="/studio/articles" class="back">← Studio</a>
+  <h1>{{ articleId() ? 'Sửa article' : 'Article mới' }}</h1>
+  <p class="lede">
+    Draft lưu rồi mở lại từ Studio. Gắn recipe để article dẫn sang món nấu.
+  </p>
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else {
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    <form class="form" [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Tiêu đề
+        <input type="text" formControlName="title" />
+      </label>
+      <label>
+        Tóm tắt (optional)
+        <input type="text" formControlName="summary" />
+      </label>
+      <label>
+        Nội dung
+        <textarea rows="12" formControlName="body"></textarea>
+      </label>
+
+      <fieldset class="recipes">
+        <legend>Tag recipes</legend>
+        @if (recipes().length === 0) {
+          <p class="muted">Chưa có recipe công khai để gắn.</p>
+        } @else {
+          <ul>
+            @for (r of recipes(); track r.id) {
+              <li>
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(r.id)"
+                    (change)="toggleRecipe(r.id)"
+                  />
+                  <span>{{ r.title }}</span>
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </fieldset>
+
+      <label class="check">
+        <input type="checkbox" formControlName="publish" />
+        Publish
+      </label>
+
+      <div class="actions">
+        <button type="submit" [disabled]="saving()">
+          {{ saving() ? 'Đang lưu…' : articleId() ? 'Cập nhật' : 'Tạo' }}
+        </button>
+        <a routerLink="/studio/articles">Hủy</a>
+      </div>
+    </form>
+  }
+</section>

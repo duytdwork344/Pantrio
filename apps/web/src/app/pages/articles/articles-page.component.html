@@ -1,0 +1,26 @@
+<section class="page">
+  <h1>Articles</h1>
+  <p class="lede">Blog / tips từ Creator — tách khỏi Recipe.</p>
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }} <button type="button" (click)="reload()">Thử lại</button></p>
+  } @else if (articles().length === 0) {
+    <p class="muted">Chưa có article đã publish.</p>
+  } @else {
+    <ul class="list">
+      @for (article of articles(); track article.id) {
+        <li>
+          <a [routerLink]="['/articles', article.slug]">
+            <h2>{{ article.title }}</h2>
+            <p>
+              {{ article.summary || '—' }}
+              <span class="meta"> · {{ article.authorName }}</span>
+            </p>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+</section>

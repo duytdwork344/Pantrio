@@ -1,0 +1,41 @@
+<section class="studio">
+  <div class="studio__head">
+    <div>
+      <h1>Studio · Articles</h1>
+      <p class="lede">Draft mở lại trong editor; published cũng sửa được.</p>
+    </div>
+    <a routerLink="/studio/articles/new" class="btn">+ Article mới</a>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else if (mine().length === 0) {
+    <p class="muted">Chưa có bài nào. Tạo article đầu tiên.</p>
+  } @else {
+    <ul class="mine">
+      @for (a of mine(); track a.id) {
+        <li>
+          <div>
+            <a [routerLink]="['/studio/articles', a.id]" class="title">{{ a.title }}</a>
+            <p class="meta">
+              {{ a.publishedAt ? 'published' : 'draft' }}
+              @if (a.recipeCount) {
+                · {{ a.recipeCount }} recipe{{ a.recipeCount === 1 ? '' : 's' }}
+              }
+            </p>
+          </div>
+          <div class="actions">
+            <a [routerLink]="['/studio/articles', a.id]">Sửa</a>
+            @if (a.publishedAt) {
+              <a [routerLink]="['/articles', a.slug]">Xem</a>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
