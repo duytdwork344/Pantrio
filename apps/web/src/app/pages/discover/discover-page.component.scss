@@ -80,6 +80,32 @@
   }
 }
 
+.discover--pantry {
+  .can-cook {
+    color: var(--color-brand);
+    font-weight: 600;
+  }
+
+  .missing {
+    color: var(--color-muted);
+  }
+
+  .desc {
+    color: var(--color-muted);
+  }
+}
+
+.pantry-cta a {
+  color: var(--color-brand);
+  text-decoration: none;
+  border: 0;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .muted {
   color: var(--color-muted);
 }

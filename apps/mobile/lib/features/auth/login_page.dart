@@ -64,6 +64,21 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: ColoredBox(
+                          color: const Color(0xFFE8F6F4),
+                          child: Image.asset(
+                            'assets/brand/logo/Pantrio-logo.png',
+                            width: 112,
+                            height: 112,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Text(
                       'Pantrio',
                       style: Theme.of(context).textTheme.headlineMedium,

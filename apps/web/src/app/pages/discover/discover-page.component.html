@@ -10,8 +10,50 @@
 } @else if (error()) {
   <p class="error">{{ error() }} <button type="button" (click)="reload()">Thử lại</button></p>
 } @else {
+  <section class="discover discover--pantry">
+    <div class="discover__head">
+      <h2>Gợi ý từ tủ</h2>
+    </div>
+
+    @if (!auth.isAuthenticated()) {
+      <p class="muted pantry-cta">
+        <a routerLink="/login">Đăng nhập</a> để xem món gần khớp với pantry cá nhân
+        (đồng bộ tủ trên Mobile).
+      </p>
+    } @else if (recommendLoading()) {
+      <p class="muted">Đang đối chiếu pantry…</p>
+    } @else if (recommendError()) {
+      <p class="error">{{ recommendError() }}</p>
+    } @else if (recommendations().length === 0) {
+      <p class="muted pantry-cta">
+        Chưa có gợi ý — thêm thực phẩm vào tủ trên Mobile rồi tải lại trang này.
+      </p>
+    } @else {
+      <ul>
+        @for (row of recommendations(); track row.recipe.id) {
+          <li>
+            <a [routerLink]="['/recipes', row.recipe.slug]">
+              <h3>{{ row.recipe.title }}</h3>
+              <p>
+                @if (matchLabel(row); as label) {
+                  <span [class.can-cook]="row.canCook">{{ label }}</span>
+                  @if (row.missingCount > 0 && !row.canCook) {
+                    <span class="missing"> · thiếu {{ row.missingCount }}</span>
+                  }
+                }
+                @if (row.recipe.description) {
+                  <span class="desc"> · {{ row.recipe.description }}</span>
+                }
+              </p>
+            </a>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
   <section class="discover">
-    <h2>Recipes</h2>
+    <h2>Tất cả recipes</h2>
     @if (recipes().length === 0) {
       <p class="muted">Chưa có recipe công khai.</p>
     } @else {

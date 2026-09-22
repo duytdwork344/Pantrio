@@ -20,8 +20,19 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final session = context.watch<AuthSession>();
     if (session.restoring) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: const Color(0xFFE8F6F4),
+        body: Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'assets/brand/splash/Pantrio-logo.png',
+              width: 160,
+              height: 160,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
       );
     }
     if (!session.isAuthenticated) {
@@ -36,7 +47,24 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pantrio'),
+        title: Row(
+          children: [
+ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ColoredBox(
+                color: const Color(0xFFE8F6F4),
+                child: Image.asset(
+                  'assets/brand/logo/Pantrio-logo.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Pantrio'),
+          ],
+        ),
         actions: [
           if (session.user != null)
             Padding(

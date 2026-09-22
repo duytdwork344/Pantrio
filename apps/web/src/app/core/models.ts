@@ -45,6 +45,21 @@ export type RecipeDetail = RecipeSummary & {
   saved?: boolean;
 };
 
+/** Pantry recommend row from GET /recommendations/recipes */
+export type RecipeRecommendation = {
+  recipe: RecipeSummary;
+  requiredCount: number;
+  matchedCount: number;
+  missingCount: number;
+  canCook: boolean;
+  missing: Array<{
+    foodId: string;
+    foodName: string;
+    quantity: number;
+    unit: string;
+  }>;
+};
+
 export type ArticleSummary = {
   id: string;
   title: string;

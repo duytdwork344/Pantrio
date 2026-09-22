@@ -5,6 +5,7 @@ import type {
   ArticleDetail,
   ArticleSummary,
   RecipeDetail,
+  RecipeRecommendation,
   RecipeSummary,
 } from './models';
 
@@ -41,6 +42,14 @@ export class ApiService {
     }>(`${this.base}/recipes/${encodeURIComponent(recipeId)}/share`, {
       channel,
     });
+  }
+
+  /** Personal pantry recommend (auth + inventory:manage). Optional groupId later. */
+  listPantryRecommendations(groupId?: string) {
+    const params = groupId ? `?groupId=${encodeURIComponent(groupId)}` : '';
+    return this.http.get<RecipeRecommendation[]>(
+      `${this.base}/recommendations/recipes${params}`,
+    );
   }
 
   listArticles() {

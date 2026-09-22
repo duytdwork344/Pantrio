@@ -219,12 +219,12 @@ Mục tiêu: tách Discover thành **các cụm**; có tín hiệu tương tác 
 
 Không gộp một list rank duy nhất. Thứ tự đề xuất trên màn Discover:
 
-- [ ] Cụm **Gợi ý từ tủ (pantry recommend)** — tái sử dụng `GET …/cooking/recommendations/recipes` (Personal; optional Group sau)
+- [x] Cụm **Gợi ý từ tủ (pantry recommend)** — tái sử dụng `GET …/recommendations/recipes` (Personal; optional Group sau)
   - Chỉ hiện khi user đã login; không tủ / không match → empty hoặc CTA (đăng nhập / thêm inventory) — tránh cụm trống xấu
-  - Web: hydrate khi đã có auth (+ inventory trên Web hoặc chỉ gọi recommend API)
+  - Web: hydrate khi đã có auth (gọi recommend API; tủ quản lý trên Mobile)
 - [ ] Cụm **Hôm nay / Mới** (recent và/hoặc featured-of-day) — để feed “đổi theo ngày”
-- [ ] Cụm **Articles**
-- [ ] Cụm **Tất cả recipes** (catalog như hiện tại; có thể thu nhỏ khi các cụm trên đủ)
+- [x] Cụm **Articles** (strip trên Discover + link xem tất cả)
+- [x] Cụm **Tất cả recipes** (catalog; đứng sau pantry)
 
 ### Pantry recommend — ranking (đã có nền + mở rộng)
 
