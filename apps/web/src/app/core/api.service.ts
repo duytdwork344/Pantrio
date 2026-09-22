@@ -32,6 +32,17 @@ export class ApiService {
     );
   }
 
+  shareRecipe(recipeId: string, channel: 'copy' | 'native' | 'unknown' = 'unknown') {
+    return this.http.post<{
+      recipeId: string;
+      shareCount: number;
+      channel: string;
+      rateLimited?: boolean;
+    }>(`${this.base}/recipes/${encodeURIComponent(recipeId)}/share`, {
+      channel,
+    });
+  }
+
   listArticles() {
     return this.http.get<ArticleSummary[]>(`${this.base}/articles`);
   }

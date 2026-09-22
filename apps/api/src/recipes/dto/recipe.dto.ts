@@ -7,6 +7,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -45,6 +46,11 @@ export class RecipeSummaryDto {
 
   @ApiPropertyOptional()
   imageUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Intent-share count (denormalized)',
+  })
+  shareCount?: number;
 }
 
 export class RecipeIngredientDto {
@@ -215,3 +221,42 @@ export class CreateRecipeDto {
 }
 
 export class UpdateRecipeDto extends PartialType(CreateRecipeDto) {}
+
+export const SHARE_CHANNELS = [
+  'copy',
+  'native',
+  'facebook',
+  'x',
+  'unknown',
+] as const;
+
+export type ShareChannel = (typeof SHARE_CHANNELS)[number];
+
+export class ShareRecipeDto {
+  @ApiPropertyOptional({
+    description:
+      'Intent channel only (not delivery proof). native = OS share sheet.',
+    enum: SHARE_CHANNELS,
+    example: 'copy',
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn([...SHARE_CHANNELS])
+  channel?: ShareChannel;
+}
+
+export class ShareRecipeResultDto {
+  @ApiProperty()
+  recipeId!: string;
+
+  @ApiProperty()
+  shareCount!: number;
+
+  @ApiProperty({ enum: SHARE_CHANNELS })
+  channel!: string;
+
+  @ApiPropertyOptional({
+    description: 'True when rate-limited; shareCount unchanged',
+  })
+  rateLimited?: boolean;
+}

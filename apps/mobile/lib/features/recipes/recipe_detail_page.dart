@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
@@ -85,6 +86,38 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
         messenger.showSnackBar(const SnackBar(content: Text('Saved')));
       }
       await _refresh();
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _share(RecipeDetail recipe) async {
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final apiUri = Uri.parse(
+      api.baseUrl.endsWith('/')
+          ? api.baseUrl.substring(0, api.baseUrl.length - 1)
+          : api.baseUrl,
+    );
+    // Intent share copies the Web recipe URL (same host as API, port 4200).
+    final link =
+        '${apiUri.scheme}://${apiUri.host}:4200/recipes/${recipe.slug}';
+    try {
+      await Clipboard.setData(ClipboardData(text: link));
+      final result = await api.shareRecipe(recipe.id, channel: 'copy');
+      if (!mounted) return;
+      setState(() {
+        _recipe = recipe.copyWith(shareCount: result.shareCount);
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.rateLimited
+                ? 'Link copied · share rate-limited'
+                : 'Link copied · ${result.shareCount} shares',
+          ),
+        ),
+      );
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
@@ -353,6 +386,11 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                     onPressed: () => _toggleSave(recipe),
                     icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
                     label: Text(saved ? 'Saved' : 'Save'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _share(recipe),
+                    icon: const Icon(Icons.share_outlined),
+                    label: Text('Share (${recipe.shareCount})'),
                   ),
                   FilledButton.icon(
                     onPressed: () => _plan(recipe),

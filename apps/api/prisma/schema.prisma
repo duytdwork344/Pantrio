@@ -62,6 +62,11 @@ enum GroupMemberRole {
   MEMBER
 }
 
+enum ContentEventType {
+  SHARE
+  VIEW
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -83,6 +88,7 @@ model User {
   createdFoods        Food[]               @relation("FoodCreator")
   groupMemberships    GroupMembership[]
   ownedGroups         InventoryGroup[]     @relation("GroupCreator")
+  contentEvents       ContentEvent[]
 }
 
 model Role {
@@ -171,6 +177,8 @@ model Recipe {
   instructions String
   imageUrl     String?
   visibility   RecipeVisibility @default(PUBLIC)
+  /// Denormalized intent-share count (see ContentEvent SHARE).
+  shareCount   Int              @default(0)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -183,6 +191,7 @@ model Recipe {
   cookingSessions   CookingSession[]
   inventoryTxns     InventoryTransaction[]
   articles          ArticleRecipe[]
+  contentEvents     ContentEvent[]
 
   @@index([authorId])
   @@index([title])
@@ -251,6 +260,24 @@ model ArticleRecipe {
 
   @@id([articleId, recipeId])
   @@index([recipeId])
+}
+
+/// Engagement events for learning feeds (intent share, later VIEW).
+/// channel on SHARE is intent-level only (copy | native | …), not delivery proof.
+model ContentEvent {
+  id        String           @id @default(cuid())
+  type      ContentEventType
+  recipeId  String?
+  userId    String?
+  /// Intent channel: copy | native | facebook | x | unknown | …
+  channel   String?
+  createdAt DateTime         @default(now())
+
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([recipeId, type, createdAt])
+  @@index([userId, recipeId, type, createdAt])
 }
 
 model SavedRecipe {

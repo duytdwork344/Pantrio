@@ -23,6 +23,7 @@ export type RecipeSummary = {
   cookTimeMin?: number | null;
   difficulty: string;
   imageUrl?: string | null;
+  shareCount?: number;
 };
 
 export type RecipeIngredient = {

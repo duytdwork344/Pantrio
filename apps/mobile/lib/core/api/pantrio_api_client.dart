@@ -356,6 +356,21 @@ class PantrioApiClient {
     await _delete('recipes/$recipeId/save');
   }
 
+  /// Intent share. [channel]: copy | native | unknown | …
+  Future<({int shareCount, String channel, bool rateLimited})> shareRecipe(
+    String recipeId, {
+    String channel = 'unknown',
+  }) async {
+    final data = await _post('recipes/$recipeId/share', {
+      'channel': channel,
+    });
+    return (
+      shareCount: data['shareCount'] as int? ?? 0,
+      channel: data['channel'] as String? ?? channel,
+      rateLimited: data['rateLimited'] as bool? ?? false,
+    );
+  }
+
   Future<List<SavedRecipe>> getSavedRecipes() async {
     final list = await _getList('me/saved-recipes');
     return list.map(SavedRecipe.fromJson).toList();

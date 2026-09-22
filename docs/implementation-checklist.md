@@ -211,6 +211,58 @@ Không làm trong 6a: FoodAlias, OR-foodId, multi-group, reservation kiểu TMĐ
 
 ---
 
+## 8a. Discover feed, pantry recommend cụm & intent share — Phase học
+
+Mục tiêu: tách Discover thành **các cụm**; có tín hiệu tương tác (intent share) để sau này tie-break ranking; **chưa** OG/deep-link attribution.
+
+### Discover UI — các cụm (Web; Mobile align khi tiện)
+
+Không gộp một list rank duy nhất. Thứ tự đề xuất trên màn Discover:
+
+- [ ] Cụm **Gợi ý từ tủ (pantry recommend)** — tái sử dụng `GET …/cooking/recommendations/recipes` (Personal; optional Group sau)
+  - Chỉ hiện khi user đã login; không tủ / không match → empty hoặc CTA (đăng nhập / thêm inventory) — tránh cụm trống xấu
+  - Web: hydrate khi đã có auth (+ inventory trên Web hoặc chỉ gọi recommend API)
+- [ ] Cụm **Hôm nay / Mới** (recent và/hoặc featured-of-day) — để feed “đổi theo ngày”
+- [ ] Cụm **Articles**
+- [ ] Cụm **Tất cả recipes** (catalog như hiện tại; có thể thu nhỏ khi các cụm trên đủ)
+
+### Pantry recommend — ranking (đã có nền + mở rộng)
+
+API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/requiredCount`).
+
+- [ ] Giữ **pantry là trục chính** của cụm Recommend (không để share/view át món thiếu nhiều đồ)
+- [ ] Sau khi có tín hiệu engagement: **multi-signal tie-break / weight nhẹ**
+  - `score ≈ w_p·pantry + w_e·engagement + w_r·recency` với \(w_p\) lớn nhất
+  - Engagement: SAVE (đã có SavedRecipe), intent SHARE, (sau) VIEW
+  - Chốt hệ số cụ thể lúc implement — giai đoạn này chỉ chốt nguyên tắc
+- [ ] Cụm “Mới / Featured” **rank riêng** (recent/editorial), không dùng chung formula pantry
+
+### Intent share (làm — tín hiệu thô cho học engagement)
+
+- [x] Schema: event tối thiểu (vd. `ContentEvent` hoặc counter) — type `SHARE` (sau thêm `VIEW`)
+- [x] API: `POST /recipes/:id/share` (optional Article) → event / `shareCount += 1`; auth optional hoặc bắt login (chốt lúc làm)
+- [x] **Channel / “đích đến” mức intent** (học analytics — không chứng minh đã gửi thành công):
+  - Field optional trên event/body: `channel` — vd. `copy` | `native` | `facebook` | `x` | `unknown`
+  - Copy link → ghi `copy`
+  - `navigator.share` / OS share sheet → ghi `native` (**không** biết app đích: Zalo/FB… — OS không trả)
+  - (Sau, optional) nút/SDK mở đúng kênh → ghi tên kênh cụ thể
+  - Không kỳ vọng biết “đã share tới user X”; chỉ biết *user chọn cách share nào*
+- [x] Chống spam nhẹ (optional): rate-limit user+content / cửa sổ thời gian
+- [x] Web (+ Mobile nếu tiện): nút Share trên detail → gọi API; copy link hoặc `navigator.share` — **+1 theo intent khi bấm**, không bắt share sheet thành công
+- [x] Hiển thị `shareCount` trên detail (và list nếu cần)
+- [ ] (Optional học) breakdown đơn giản theo `channel` — admin/debug hoặc field trên detail sau
+
+### Cố ý chưa làm (giai đoạn sau — attribution / share thật)
+
+- Open Graph meta, Universal/App Link
+- Short / tracked link `?ref=` / `sid=` — đếm **inbound click/open** (outcome), khác với intent + channel
+- Đếm share bằng referrer/UTM từ mạng xã hội
+- Biết chắc đã gửi tới bạn bè trên Zalo/FB (thường không có, trừ in-app share đóng)
+- Trending Discover chỉ dựa trên social (không pantry)
+- Personalize sâu (follow creator, ML)
+
+---
+
 ## 9. Mobile (Flutter)
 
 - [x] Shell Inventory + Shopping
@@ -253,7 +305,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 6. **Cook + estimated consume + recommendation** _(xong API)_  
 7. **InventoryGroup (checklist 6a)** — schema → group API → inventory/shopping scope → Mobile tabs → race → cook/recommend group  
 8. **Web/Mobile hydrate** còn lại (Creator recipe trên Web; Mobile Cook UI nếu chưa gộp vào 6a)  
-9. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, …
+9. **Discover cụm + intent share + pantry multi-signal** (checklist **8a**) — trước OG/deep-link attribution  
+10. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
 
 ---
 

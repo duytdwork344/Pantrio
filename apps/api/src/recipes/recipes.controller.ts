@@ -29,6 +29,8 @@ import {
   RecipeDetailDto,
   RecipeSummaryDto,
   SavedRecipeDto,
+  ShareRecipeDto,
+  ShareRecipeResultDto,
   UpdateRecipeDto,
 } from './dto/recipe.dto';
 import { RecipesService } from './recipes.service';
@@ -78,6 +80,22 @@ export class RecipesController {
   @ApiOperation({ summary: 'Remove a recipe from saved list' })
   unsave(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.recipesService.unsaveRecipe(user.id, id);
+  }
+
+  @Public()
+  @Post(':id/share')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Record intent share (+1). Optional JWT. channel = copy|native|… (not delivery proof). Soft rate-limit 30s when logged in.',
+  })
+  @ApiOkResponse({ type: ShareRecipeResultDto })
+  share(
+    @Param('id') id: string,
+    @Body() dto: ShareRecipeDto,
+    @CurrentUser() user?: AuthUser,
+  ): Promise<ShareRecipeResultDto> {
+    return this.recipesService.recordShare(id, dto.channel, user?.id);
   }
 
   @Patch(':id')

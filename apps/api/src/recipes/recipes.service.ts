@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ContentEventType,
   Prisma,
   RecipeDifficulty,
   RecipeVisibility,
@@ -20,6 +21,8 @@ import {
   RecipeDetailDto,
   RecipeIngredientInputDto,
   RecipeSummaryDto,
+  ShareChannel,
+  ShareRecipeResultDto,
   UpdateRecipeDto,
 } from './dto/recipe.dto';
 
@@ -104,6 +107,68 @@ export class RecipesService {
       where: { userId, recipeId },
     });
     return { saved: false, recipeId };
+  }
+
+  /**
+   * Intent share: always records user intent (+1), optional channel.
+   * Logged-in users are soft rate-limited (30s per recipe) so spam does not inflate counts.
+   */
+  async recordShare(
+    recipeId: string,
+    channel: ShareChannel | undefined,
+    userId?: string,
+  ): Promise<ShareRecipeResultDto> {
+    const resolvedChannel: ShareChannel = channel ?? 'unknown';
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      select: { id: true, shareCount: true },
+    });
+    if (!recipe) {
+      throw new NotFoundException(`Recipe '${recipeId}' not found`);
+    }
+
+    if (userId) {
+      const since = new Date(Date.now() - 30_000);
+      const recent = await this.prisma.contentEvent.findFirst({
+        where: {
+          type: ContentEventType.SHARE,
+          recipeId,
+          userId,
+          createdAt: { gte: since },
+        },
+        select: { id: true },
+      });
+      if (recent) {
+        return {
+          recipeId,
+          shareCount: recipe.shareCount,
+          channel: resolvedChannel,
+          rateLimited: true,
+        };
+      }
+    }
+
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.contentEvent.create({
+        data: {
+          type: ContentEventType.SHARE,
+          recipeId,
+          userId: userId ?? null,
+          channel: resolvedChannel,
+        },
+      }),
+      this.prisma.recipe.update({
+        where: { id: recipeId },
+        data: { shareCount: { increment: 1 } },
+        select: { id: true, shareCount: true },
+      }),
+    ]);
+
+    return {
+      recipeId: updated.id,
+      shareCount: updated.shareCount,
+      channel: resolvedChannel,
+    };
   }
 
   async listSavedRecipes(userId: string) {
@@ -319,6 +384,7 @@ export class RecipesService {
     cookTimeMin: number | null;
     difficulty: RecipeDifficulty;
     imageUrl: string | null;
+    shareCount: number;
   }): RecipeSummaryDto {
     return {
       id: recipe.id,
@@ -330,6 +396,7 @@ export class RecipesService {
       cookTimeMin: recipe.cookTimeMin,
       difficulty: recipe.difficulty,
       imageUrl: recipe.imageUrl,
+      shareCount: recipe.shareCount,
     };
   }
 

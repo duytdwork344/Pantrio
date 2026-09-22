@@ -19,7 +19,22 @@
         @if (r.cookTimeMin) {
           · cook {{ r.cookTimeMin }}m
         }
+        · {{ r.shareCount ?? 0 }} share{{ (r.shareCount ?? 0) === 1 ? '' : 's' }}
       </p>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="share-btn"
+          [disabled]="sharing()"
+          (click)="share()"
+        >
+          {{ sharing() ? 'Sharing…' : 'Share' }}
+        </button>
+        @if (shareHint()) {
+          <span class="share-hint">{{ shareHint() }}</span>
+        }
+      </div>
 
       <h2>Ingredients</h2>
       <ul>
