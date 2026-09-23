@@ -189,6 +189,7 @@ model Recipe {
   author            User               @relation("RecipeAuthor", fields: [authorId], references: [id])
   group             InventoryGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   ingredients       RecipeIngredient[]
+  steps             RecipeStep[]
   tags              RecipeTag[]
   savedBy           SavedRecipe[]
   plannedBy         PlannedRecipe[]
@@ -201,6 +202,19 @@ model Recipe {
   @@index([authorId])
   @@index([groupId])
   @@index([title])
+}
+
+/// Ordered instruction steps; optional per-step image (requirements 4.2e).
+model RecipeStep {
+  id        String  @id @default(cuid())
+  recipeId  String
+  sortOrder Int     @default(0)
+  body      String
+  imageUrl  String?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, sortOrder])
 }
 
 model RecipeIngredient {

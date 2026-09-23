@@ -77,6 +77,29 @@ class RecipeIngredient {
   }
 }
 
+class RecipeStep {
+  RecipeStep({
+    required this.id,
+    required this.sortOrder,
+    required this.body,
+    this.imageUrl,
+  });
+
+  final String id;
+  final int sortOrder;
+  final String body;
+  final String? imageUrl;
+
+  factory RecipeStep.fromJson(Map<String, dynamic> json) {
+    return RecipeStep(
+      id: json['id'] as String? ?? '',
+      sortOrder: json['sortOrder'] as int? ?? 0,
+      body: json['body'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
+    );
+  }
+}
+
 class RecipeDetail extends RecipeSummary {
   RecipeDetail({
     required super.id,
@@ -88,6 +111,7 @@ class RecipeDetail extends RecipeSummary {
     required this.visibility,
     required this.instructions,
     required this.ingredients,
+    this.steps = const [],
     super.description,
     super.prepTimeMin,
     super.cookTimeMin,
@@ -101,6 +125,7 @@ class RecipeDetail extends RecipeSummary {
   final String? groupId;
   final String visibility;
   final String instructions;
+  final List<RecipeStep> steps;
   final List<RecipeIngredient> ingredients;
   final bool? saved;
 
@@ -115,6 +140,7 @@ class RecipeDetail extends RecipeSummary {
       groupId: groupId,
       visibility: visibility,
       instructions: instructions,
+      steps: steps,
       ingredients: ingredients,
       description: description,
       prepTimeMin: prepTimeMin,
@@ -140,8 +166,11 @@ class RecipeDetail extends RecipeSummary {
       authorId: json['authorId'] as String,
       groupId: json['groupId'] as String?,
       visibility: json['visibility'] as String,
-      instructions: json['instructions'] as String,
+      instructions: json['instructions'] as String? ?? '',
       saved: json['saved'] as bool?,
+      steps: (json['steps'] as List<dynamic>? ?? const [])
+          .map((e) => RecipeStep.fromJson(e as Map<String, dynamic>))
+          .toList(),
       ingredients: (json['ingredients'] as List<dynamic>? ?? const [])
           .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
           .toList(),

@@ -85,6 +85,39 @@ export class RecipeIngredientDto {
   inInventory?: boolean;
 }
 
+
+export class RecipeStepDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  sortOrder!: number;
+
+  @ApiProperty()
+  body!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  imageUrl?: string | null;
+}
+
+export class RecipeStepInputDto {
+  @ApiProperty({ example: 'Boil pasta in salted water until al dente.' })
+  @IsString()
+  @MinLength(1)
+  body!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
+
 export class RecipeDetailDto extends RecipeSummaryDto {
   @ApiProperty()
   authorId!: string;
@@ -98,8 +131,13 @@ export class RecipeDetailDto extends RecipeSummaryDto {
   @ApiProperty({ enum: RecipeVisibility })
   visibility!: RecipeVisibility;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Legacy free-text; prefer steps[]. Derived from steps when writing.',
+  })
   instructions!: string;
+
+  @ApiProperty({ type: [RecipeStepDto] })
+  steps!: RecipeStepDto[];
 
   @ApiProperty({ type: [RecipeIngredientDto] })
   ingredients!: RecipeIngredientDto[];
@@ -203,10 +241,25 @@ export class CreateRecipeDto {
   @IsEnum(RecipeDifficulty)
   difficulty?: RecipeDifficulty;
 
-  @ApiProperty({ example: '1. Boil pasta...\n2. Mix eggs and cheese...' })
+  @ApiPropertyOptional({
+    example: '1. Boil pasta...\n2. Mix eggs and cheese...',
+    description: 'Legacy; used when steps omitted (split by newline into RecipeStep)',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  instructions!: string;
+  instructions?: string;
+
+  @ApiPropertyOptional({
+    type: [RecipeStepInputDto],
+    description: 'Preferred structured steps (with optional per-step imageUrl)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RecipeStepInputDto)
+  steps?: RecipeStepInputDto[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -276,10 +329,22 @@ export class CreateGroupRecipeDto {
   @IsEnum(RecipeDifficulty)
   difficulty?: RecipeDifficulty;
 
-  @ApiProperty({ example: '1. Chiên trứng...\n2. Xào cơm...' })
+  @ApiPropertyOptional({
+    example: '1. Chiên trứng...\n2. Xào cơm...',
+    description: 'Legacy; used when steps omitted',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  instructions!: string;
+  instructions?: string;
+
+  @ApiPropertyOptional({ type: [RecipeStepInputDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RecipeStepInputDto)
+  steps?: RecipeStepInputDto[];
 
   @ApiPropertyOptional()
   @IsOptional()

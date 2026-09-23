@@ -571,11 +571,65 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
               }),
               const SizedBox(height: 16),
               Text(
-                'Instructions',
+                'Steps',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              Text(recipe.instructions),
+              if (recipe.steps.isNotEmpty)
+                ...recipe.steps.map((step) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          child: Text(
+                            '${step.sortOrder + 1}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(step.body),
+                              if (step.imageUrl != null &&
+                                  step.imageUrl!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: AspectRatio(
+                                    aspectRatio: 16 / 9,
+                                    child: Image.network(
+                                      step.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => ColoredBox(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceVariant,
+                                        child: const Center(
+                                          child: Icon(Icons.broken_image_outlined),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                })
+              else
+                Text(
+                  recipe.instructions.isEmpty
+                      ? 'No steps yet.'
+                      : recipe.instructions,
+                ),
             ],
           );
         },

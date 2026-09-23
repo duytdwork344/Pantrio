@@ -355,6 +355,36 @@ Không làm:
 Thứ tự: Media upload MinIO local → wire tạo/sửa group cookbook (+ sau cook) → catalog/creator → deploy VPS (đổi `S3_*`, không đổi schema).
 
 
+4.2e. RecipeStep — hướng dẫn từng bước kèm ảnh (đã chốt hướng B)
+
+**Đã chốt:** Tách `instructions` (string tự do) thành bảng **`RecipeStep`** — mỗi bước có `body` + optional `imageUrl` (upload qua **4.2d** Media). Cover món vẫn là `Recipe.imageUrl`.
+
+Schema:
+
+```
+RecipeStep
+- id
+- recipeId
+- sortOrder   Int
+- body        String      // nội dung bước
+- imageUrl    String?     // optional; MinIO / URL hệ thống
+```
+
+Hành vi:
+
+1. Detail recipe trả `steps[]` (ordered). Client ưu tiên render steps; `instructions` giữ để tương thích (derived = join `body` bằng newline khi create/update steps).
+2. Create/update (catalog + group cookbook): nhận `steps[]` (≥1) **hoặc** `instructions` string (server split theo dòng không rỗng → steps).
+3. Ảnh bước: optional; chụp/thư viện → `POST /media` → gắn `imageUrl` trên step.
+4. Migrate dữ liệu cũ: mỗi recipe có `instructions` → tách dòng → `RecipeStep` nếu chưa có step.
+5. UX ưu tiên: **Group cookbook** editor + viewer; catalog/CREATOR dùng cùng model.
+
+Không làm (MVP steps):
+
+- Video từng bước; nhiều ảnh / bước.
+- Bắt buộc ảnh mọi bước.
+- JSON blob trong `instructions` thay vì bảng quan hệ.
+
+
 4.3 Ingredient
 
 Ingredient
@@ -1305,6 +1335,7 @@ Advanced Search
 Creator (UX xin quyền CREATOR + duyệt — xem mục **3c**; assign tay vẫn dùng được từ MVP)
 Group Cookbook (**4.2c** — ưu tiên trước moderation)
 Media / upload ảnh MinIO→S3 (**4.2d** — form-data MVP; tạo + sửa recipe; sau cook)
+RecipeStep — bước + ảnh (**4.2e**)
 Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; sau cookbook nhóm)
 Community
 OAuth 2.0 (Google / Apple, …) — xem mục **3b**

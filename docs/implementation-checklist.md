@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **7b**, **7c**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -128,6 +128,17 @@ Object storage MinIO (local) → S3-compatible (prod). Không file server tự v
 - [x] Mobile: image picker + upload + PATCH `/groups/me/recipes/:id`
 - [ ] (Cùng pipeline) Catalog CREATOR / Food / Article cover khi sẵn sàng
 - [ ] Deploy note: VPS chạy API; đổi `S3_*` sang MinIO/S3 prod — không đổi schema Recipe (khi lên prod)
+
+---
+
+## 3d. RecipeStep — bước + ảnh (requirements **4.2e**)
+
+- [x] Docs **4.2e**
+- [x] Schema `RecipeStep` + migration + backfill từ `instructions`
+- [x] API detail trả `steps[]`; create/update nhận `steps` hoặc split `instructions`
+- [x] Derive `instructions` từ steps khi ghi (tương thích cũ)
+- [x] Mobile group cookbook: editor bước (text + ảnh optional) + viewer từng bước
+- [ ] (Sau) Web catalog/creator step editor
 
 ---
 
@@ -319,6 +330,7 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 - [x] requirements: FoodAlias phase sau (**7b.8**)
 - [x] requirements: InventoryGroup dual scope (**7c**)
 - [x] requirements: Media / upload ảnh (**4.2d**)
+- [x] requirements: RecipeStep (**4.2e**)
 - [ ] OpenAPI export + regenerate `packages/api-client` sau mỗi domain lớn
 - [ ] Seed admin user dev (optional)
 - [ ] E2E smoke: register → create recipe → save → add inventory foodId
@@ -340,7 +352,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 9. **Discover cụm + intent share + pantry multi-signal** (checklist **8a**) — trước OG/deep-link attribution  
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
-12. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
+12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
+13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
 
 ---
 

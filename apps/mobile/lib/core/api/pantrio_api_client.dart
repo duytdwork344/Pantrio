@@ -350,8 +350,9 @@ class PantrioApiClient {
 
   Future<RecipeDetail> createGroupCookbookRecipe({
     required String title,
-    required String instructions,
     required List<Map<String, dynamic>> ingredients,
+    List<Map<String, dynamic>>? steps,
+    String? instructions,
     String? description,
     String? imageUrl,
     int servings = 2,
@@ -359,8 +360,10 @@ class PantrioApiClient {
   }) async {
     final data = await _post('groups/me/recipes', {
       'title': title,
-      'instructions': instructions,
       'ingredients': ingredients,
+      if (steps != null && steps.isNotEmpty) 'steps': steps,
+      if (instructions != null && instructions.trim().isNotEmpty)
+        'instructions': instructions.trim(),
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
       if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
@@ -377,6 +380,7 @@ class PantrioApiClient {
     String? instructions,
     String? imageUrl,
     List<Map<String, dynamic>>? ingredients,
+    List<Map<String, dynamic>>? steps,
     int? servings,
     String? difficulty,
   }) async {
@@ -386,6 +390,7 @@ class PantrioApiClient {
       if (instructions != null) 'instructions': instructions,
       if (imageUrl != null) 'imageUrl': imageUrl,
       if (ingredients != null) 'ingredients': ingredients,
+      if (steps != null) 'steps': steps,
       if (servings != null) 'servings': servings,
       if (difficulty != null) 'difficulty': difficulty,
     });

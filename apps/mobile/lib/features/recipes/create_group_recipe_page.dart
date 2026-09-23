@@ -13,7 +13,13 @@ class _DraftIngredient {
   String unit = 'g';
 }
 
-/// Minimal create form for group cookbook (requirements 4.2c).
+class _DraftStep {
+  final body = TextEditingController();
+  String? imagePath;
+  String? uploadedImageUrl;
+}
+
+/// Minimal create form for group cookbook (requirements 4.2c / 4.2e).
 class CreateGroupRecipePage extends StatefulWidget {
   const CreateGroupRecipePage({super.key, required this.groupName});
 
@@ -26,9 +32,9 @@ class CreateGroupRecipePage extends StatefulWidget {
 class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
   final _title = TextEditingController();
   final _description = TextEditingController();
-  final _instructions = TextEditingController();
   final _foodQuery = TextEditingController();
   final _ingredients = <_DraftIngredient>[_DraftIngredient()];
+  final _steps = <_DraftStep>[_DraftStep()];
   bool _saving = false;
   List<FoodItem> _foodHits = const [];
   String? _imagePath;
@@ -41,10 +47,12 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
   void dispose() {
     _title.dispose();
     _description.dispose();
-    _instructions.dispose();
     _foodQuery.dispose();
     for (final row in _ingredients) {
       row.quantity.dispose();
+    }
+    for (final step in _steps) {
+      step.body.dispose();
     }
     super.dispose();
   }
@@ -62,7 +70,7 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickCoverImage() async {
     final picked = await pickRecipeImage(context);
     if (picked == null) return;
     setState(() {
@@ -71,31 +79,55 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
     });
   }
 
-  Future<String?> _ensureUploadedImage() async {
+  Future<void> _pickStepImage(int index) async {
+    final picked = await pickRecipeImage(context);
+    if (picked == null) return;
+    setState(() {
+      _steps[index].imagePath = picked.path;
+      _steps[index].uploadedImageUrl = null;
+    });
+  }
+
+  Future<String?> _uploadPath(String path, {String folder = 'recipes'}) async {
+    final api = context.read<AuthSession>().api;
+    return api.uploadImage(filePath: path, folder: folder);
+  }
+
+  Future<String?> _ensureCoverUploaded() async {
     if (_uploadedImageUrl != null) return _uploadedImageUrl;
     if (_imagePath == null) return null;
-    final api = context.read<AuthSession>().api;
-    setState(() => _uploadingImage = true);
-    try {
-      final url = await api.uploadImage(
-            filePath: _imagePath!,
-            folder: 'recipes',
-          );
-      if (mounted) {
-        setState(() => _uploadedImageUrl = url);
+    final url = await _uploadPath(_imagePath!);
+    if (mounted) setState(() => _uploadedImageUrl = url);
+    return url;
+  }
+
+  Future<List<Map<String, dynamic>>> _buildStepsPayload() async {
+    final out = <Map<String, dynamic>>[];
+    for (var i = 0; i < _steps.length; i++) {
+      final step = _steps[i];
+      final body = step.body.text.trim();
+      if (body.isEmpty) continue;
+      String? imageUrl = step.uploadedImageUrl;
+      if (imageUrl == null && step.imagePath != null) {
+        imageUrl = await _uploadPath(step.imagePath!);
+        step.uploadedImageUrl = imageUrl;
       }
-      return url;
-    } finally {
-      if (mounted) setState(() => _uploadingImage = false);
+      out.add({
+        'body': body,
+        'sortOrder': out.length,
+        if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
+      });
     }
+    return out;
   }
 
   Future<void> _save() async {
     final title = _title.text.trim();
-    final instructions = _instructions.text.trim();
-    if (title.length < 2 || instructions.isEmpty) {
+    final stepBodies =
+        _steps.map((s) => s.body.text.trim()).where((b) => b.isNotEmpty);
+    if (title.length < 2 || stepBodies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title and instructions are required')),
+        const SnackBar(content: Text('Title and at least one step are required')),
       );
       return;
     }
@@ -117,21 +149,25 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
       });
     }
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _uploadingImage = true;
+    });
     final api = context.read<AuthSession>().api;
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     try {
-      final imageUrl = await _ensureUploadedImage();
+      final imageUrl = await _ensureCoverUploaded();
+      final steps = await _buildStepsPayload();
       await api.createGroupCookbookRecipe(
-            title: title,
-            instructions: instructions,
-            description: _description.text.trim().isEmpty
-                ? null
-                : _description.text.trim(),
-            imageUrl: imageUrl,
-            ingredients: ingredients,
-          );
+        title: title,
+        description: _description.text.trim().isEmpty
+            ? null
+            : _description.text.trim(),
+        imageUrl: imageUrl,
+        ingredients: ingredients,
+        steps: steps,
+      );
       if (!mounted) return;
       nav.pop(true);
     } on ApiException catch (e) {
@@ -140,8 +176,23 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
         SnackBar(content: Text(e.message)),
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _uploadingImage = false;
+        });
+      }
     }
+  }
+
+  Widget _stepThumb(_DraftStep step) {
+    if (step.imagePath != null) {
+      return Image.file(File(step.imagePath!), fit: BoxFit.cover);
+    }
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceVariant,
+      child: const Icon(Icons.add_a_photo_outlined, size: 20),
+    );
   }
 
   @override
@@ -194,12 +245,15 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: (_saving || _uploadingImage) ? null : _pickImage,
+                      onPressed:
+                          (_saving || _uploadingImage) ? null : _pickCoverImage,
                       icon: const Icon(Icons.add_a_photo_outlined),
-                      label: Text(_imagePath == null ? 'Add photo' : 'Change photo'),
+                      label: Text(
+                        _imagePath == null ? 'Add cover photo' : 'Change cover',
+                      ),
                     ),
                     Text(
-                      'Camera or library — optional; add after cooking if needed.',
+                      'Optional cover for the dish. Step photos go below.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -215,15 +269,73 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _instructions,
-            minLines: 4,
-            maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'Instructions',
-              border: OutlineInputBorder(),
+          const SizedBox(height: 20),
+          Text('Steps', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'One card per step. Photo optional (uploaded via Media).',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          for (var i = 0; i < _steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        child: Text('${i + 1}', style: const TextStyle(fontSize: 12)),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: (_saving || _uploadingImage)
+                            ? null
+                            : () => _pickStepImage(i),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 56,
+                            height: 56,
+                            child: _stepThumb(_steps[i]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _steps[i].body,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: 'Step ${i + 1}',
+                        border: const OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _steps.length <= 1
+                        ? null
+                        : () {
+                            setState(() {
+                              _steps[i].body.dispose();
+                              _steps.removeAt(i);
+                            });
+                          },
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                ],
+              ),
             ),
+          TextButton.icon(
+            onPressed: () => setState(() => _steps.add(_DraftStep())),
+            icon: const Icon(Icons.add),
+            label: const Text('Add step'),
           ),
           const SizedBox(height: 20),
           Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),

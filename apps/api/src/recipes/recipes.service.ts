@@ -22,6 +22,7 @@ import {
   CreateRecipeDto,
   RecipeDetailDto,
   RecipeIngredientInputDto,
+  RecipeStepInputDto,
   RecipeSummaryDto,
   ShareChannel,
   ShareRecipeResultDto,
@@ -48,6 +49,7 @@ type RecipeWithIngredients = Prisma.RecipeGetPayload<{
         };
       };
     };
+    steps: true;
   };
 }>;
 
@@ -245,6 +247,7 @@ export class RecipesService {
       ? await this.resolveUniqueSlug(dto.slug, { allowSuffix: false })
       : await this.resolveUniqueSlug(dto.title, { allowSuffix: true });
     await this.assertFoodsUsable(dto.ingredients, author);
+    const resolvedSteps = this.resolveStepsInput(dto.steps, dto.instructions);
 
     const recipe = await this.prisma.recipe.create({
       data: {
@@ -257,11 +260,14 @@ export class RecipesService {
         prepTimeMin: dto.prepTimeMin ?? null,
         cookTimeMin: dto.cookTimeMin ?? null,
         difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
-        instructions: dto.instructions.trim(),
+        instructions: this.deriveInstructions(resolvedSteps),
         imageUrl: dto.imageUrl ?? null,
         visibility,
         ingredients: {
           create: this.mapIngredientCreates(dto.ingredients),
+        },
+        steps: {
+          create: this.mapStepCreates(resolvedSteps),
         },
       },
       include: this.detailInclude(),
@@ -279,6 +285,7 @@ export class RecipesService {
       ? await this.resolveUniqueSlug(dto.slug, { allowSuffix: false })
       : await this.resolveUniqueSlug(dto.title, { allowSuffix: true });
     await this.assertFoodsUsable(dto.ingredients, author);
+    const resolvedSteps = this.resolveStepsInput(dto.steps, dto.instructions);
 
     const recipe = await this.prisma.recipe.create({
       data: {
@@ -291,11 +298,14 @@ export class RecipesService {
         prepTimeMin: dto.prepTimeMin ?? null,
         cookTimeMin: dto.cookTimeMin ?? null,
         difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
-        instructions: dto.instructions.trim(),
+        instructions: this.deriveInstructions(resolvedSteps),
         imageUrl: dto.imageUrl ?? null,
         visibility: RecipeVisibility.GROUP,
         ingredients: {
           create: this.mapIngredientCreates(dto.ingredients),
+        },
+        steps: {
+          create: this.mapStepCreates(resolvedSteps),
         },
       },
       include: this.detailInclude(),
@@ -399,9 +409,18 @@ export class RecipesService {
       });
     }
 
+    const shouldReplaceSteps =
+      dto.steps !== undefined || dto.instructions !== undefined;
+    const resolvedSteps = shouldReplaceSteps
+      ? this.resolveStepsInput(dto.steps, dto.instructions)
+      : null;
+
     return this.prisma.$transaction(async (tx) => {
       if (dto.ingredients) {
         await tx.recipeIngredient.deleteMany({ where: { recipeId: id } });
+      }
+      if (resolvedSteps) {
+        await tx.recipeStep.deleteMany({ where: { recipeId: id } });
       }
 
       return tx.recipe.update({
@@ -422,9 +441,11 @@ export class RecipesService {
           ...(dto.difficulty !== undefined
             ? { difficulty: dto.difficulty }
             : {}),
-          ...(dto.instructions !== undefined
-            ? { instructions: dto.instructions.trim() }
-            : {}),
+          ...(resolvedSteps
+            ? { instructions: this.deriveInstructions(resolvedSteps) }
+            : dto.instructions !== undefined
+              ? { instructions: dto.instructions.trim() }
+              : {}),
           ...(dto.imageUrl !== undefined ? { imageUrl: dto.imageUrl } : {}),
           ...(dto.visibility !== undefined
             ? { visibility: dto.visibility }
@@ -433,6 +454,13 @@ export class RecipesService {
             ? {
                 ingredients: {
                   create: this.mapIngredientCreates(dto.ingredients),
+                },
+              }
+            : {}),
+          ...(resolvedSteps
+            ? {
+                steps: {
+                  create: this.mapStepCreates(resolvedSteps),
                 },
               }
             : {}),
@@ -498,6 +526,50 @@ export class RecipesService {
     }));
   }
 
+  /** Prefer explicit steps; else split instructions by non-empty lines. */
+  private resolveStepsInput(
+    steps: RecipeStepInputDto[] | undefined,
+    instructions: string | undefined,
+  ): Array<{ body: string; imageUrl: string | null; sortOrder: number }> {
+    if (steps?.length) {
+      return steps.map((step, index) => ({
+        body: step.body.trim(),
+        imageUrl: step.imageUrl?.trim() || null,
+        sortOrder: step.sortOrder ?? index,
+      }));
+    }
+    const lines = (instructions ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (!lines.length) {
+      throw new BadRequestException(
+        'Provide steps[] or a non-empty instructions string',
+      );
+    }
+    return lines.map((body, index) => ({
+      body,
+      imageUrl: null,
+      sortOrder: index,
+    }));
+  }
+
+  private mapStepCreates(
+    steps: Array<{ body: string; imageUrl: string | null; sortOrder: number }>,
+  ) {
+    return steps.map((step) => ({
+      body: step.body,
+      imageUrl: step.imageUrl,
+      sortOrder: step.sortOrder,
+    }));
+  }
+
+  private deriveInstructions(
+    steps: Array<{ body: string }>,
+  ): string {
+    return steps.map((s) => s.body).join('\n');
+  }
+
   private async resolveUniqueSlug(
     source: string,
     options: { excludeRecipeId?: string; allowSuffix: boolean },
@@ -537,6 +609,9 @@ export class RecipesService {
             include: { translations: true },
           },
         },
+        orderBy: { sortOrder: 'asc' as const },
+      },
+      steps: {
         orderBy: { sortOrder: 'asc' as const },
       },
     };
@@ -614,6 +689,12 @@ export class RecipesService {
       groupId: recipe.groupId ?? null,
       visibility: recipe.visibility,
       instructions: recipe.instructions,
+      steps: (recipe.steps ?? []).map((step) => ({
+        id: step.id,
+        sortOrder: step.sortOrder,
+        body: step.body,
+        imageUrl: step.imageUrl,
+      })),
       ...(viewerUserId ? { saved } : {}),
       ingredients: recipe.ingredients.map((item) => {
         const translation = pickTranslation(item.food.translations);
