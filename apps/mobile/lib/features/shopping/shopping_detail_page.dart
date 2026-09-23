@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/shopping_list.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/shopping/add_shopping_item_page.dart';
 import 'package:provider/provider.dart';
 
@@ -329,6 +330,11 @@ class _ShoppingDetailPageState extends State<ShoppingDetailPage> {
               final pending = item.status == 'PENDING';
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: RemoteThumb(
+                  url: item.foodImageUrl,
+                  size: 44,
+                  icon: Icons.shopping_basket_outlined,
+                ),
                 title: Text(item.foodName),
                 subtitle: Text(
                   '${item.quantity} ${item.unit} · ${item.status}'

@@ -26,6 +26,9 @@ export class InventoryItemDto {
   @ApiProperty()
   foodName!: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  foodImageUrl?: string | null;
+
   @ApiPropertyOptional({
     nullable: true,
     description: 'null = personal batch; set = InventoryGroup pantry',

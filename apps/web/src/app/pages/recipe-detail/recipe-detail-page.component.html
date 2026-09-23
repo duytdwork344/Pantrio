@@ -7,6 +7,9 @@
 } @else {
   @if (recipe(); as r) {
     <article>
+      @if (r.imageUrl) {
+        <img class="hero" [src]="r.imageUrl" [alt]="r.title" />
+      }
       <h1>{{ r.title }}</h1>
       @if (r.description) {
         <p class="lead">{{ r.description }}</p>
@@ -37,16 +40,24 @@
       </div>
 
       <h2>Ingredients</h2>
-      <ul>
+      <ul class="ingredients">
         @for (ing of r.ingredients; track ing.foodId + ing.sortOrder) {
           <li>
-            {{ ing.foodName }} — {{ ing.quantity }} {{ ing.unit }}
-            @if (ing.optional) {
-              <span class="optional">(optional)</span>
+            @if (ing.foodImageUrl) {
+              <img [src]="ing.foodImageUrl" [alt]="ing.foodName" loading="lazy" />
+            } @else {
+              <span class="ing-fallback" aria-hidden="true"></span>
             }
-            @if (ing.inInventory) {
-              <span class="in-pantry">· in pantry</span>
-            }
+            <div>
+              <strong>{{ ing.foodName }}</strong>
+              — {{ ing.quantity }} {{ ing.unit }}
+              @if (ing.optional) {
+                <span class="optional">(optional)</span>
+              }
+              @if (ing.inInventory) {
+                <span class="in-pantry">· in pantry</span>
+              }
+            </div>
           </li>
         }
       </ul>

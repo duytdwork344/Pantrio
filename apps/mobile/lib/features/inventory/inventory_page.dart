@@ -3,6 +3,7 @@ import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/inventory_item.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/groups/group_scope_widgets.dart';
 import 'package:pantrio_mobile/features/inventory/add_inventory_page.dart';
 import 'package:pantrio_mobile/features/inventory/edit_inventory_page.dart';
@@ -20,11 +21,13 @@ class _FoodGroup {
     required this.foodId,
     required this.foodName,
     required this.batches,
+    this.foodImageUrl,
   });
 
   final String foodId;
   final String foodName;
   final List<InventoryItem> batches;
+  final String? foodImageUrl;
 
   String get totalsLabel {
     final byUnit = <String, num>{};
@@ -112,6 +115,7 @@ class _InventoryPageState extends State<InventoryPage> {
           foodId: item.foodId,
           foodName: item.foodName,
           batches: [item],
+          foodImageUrl: item.foodImageUrl,
         );
       } else {
         existing.batches.add(item);
@@ -253,6 +257,11 @@ class _InventoryPageState extends State<InventoryPage> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ExpansionTile(
                   initiallyExpanded: groups.length <= 4,
+                  leading: RemoteThumb(
+                    url: group.foodImageUrl,
+                    size: 44,
+                    icon: Icons.kitchen_outlined,
+                  ),
                   title: Text(group.foodName),
                   subtitle: Text(
                     '${group.totalsLabel} · ${group.batches.length} batch${group.batches.length == 1 ? '' : 'es'}',

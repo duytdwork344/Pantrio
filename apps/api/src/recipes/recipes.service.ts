@@ -451,6 +451,7 @@ export class RecipesService {
         return {
           foodId: item.foodId,
           foodName: translation?.name ?? item.food.slug,
+          foodImageUrl: item.food.imageUrl ?? null,
           quantity: item.quantity,
           unit: item.unit,
           note: item.note,

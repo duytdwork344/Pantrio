@@ -49,6 +49,7 @@ class RecipeIngredient {
     required this.sortOrder,
     this.note,
     this.inInventory,
+    this.foodImageUrl,
   });
 
   final String foodId;
@@ -59,6 +60,7 @@ class RecipeIngredient {
   final int sortOrder;
   final String? note;
   final bool? inInventory;
+  final String? foodImageUrl;
 
   factory RecipeIngredient.fromJson(Map<String, dynamic> json) {
     return RecipeIngredient(
@@ -70,6 +72,7 @@ class RecipeIngredient {
       sortOrder: json['sortOrder'] as int? ?? 0,
       note: json['note'] as String?,
       inInventory: json['inInventory'] as bool?,
+      foodImageUrl: json['foodImageUrl'] as String?,
     );
   }
 }

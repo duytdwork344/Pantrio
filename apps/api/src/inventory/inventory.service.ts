@@ -233,6 +233,7 @@ export class InventoryService {
     notes: string | null;
     food: {
       slug: string;
+      imageUrl: string | null;
       translations: Array<{ locale: string; name: string; category: string | null }>;
     };
   }): InventoryItemDto {
@@ -241,6 +242,7 @@ export class InventoryService {
       id: item.id,
       foodId: item.foodId,
       foodName: translation?.name ?? item.food.slug,
+      foodImageUrl: item.food.imageUrl ?? null,
       groupId: item.groupId ?? null,
       quantity: item.quantity,
       unit: item.unit,

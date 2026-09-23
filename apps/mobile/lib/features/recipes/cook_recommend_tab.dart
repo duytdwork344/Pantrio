@@ -3,6 +3,7 @@ import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/cooking.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/groups/group_scope_widgets.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -171,13 +172,12 @@ class _CookRecommendTabState extends State<CookRecommendTab> {
                               .join(', ');
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              row.canCook
-                                  ? Icons.check_circle
-                                  : Icons.incomplete_circle_outlined,
-                              color: row.canCook
-                                  ? Theme.of(context).colorScheme.primary
-                                  : null,
+                            leading: RemoteThumb(
+                              url: row.recipe.imageUrl,
+                              size: 52,
+                              icon: row.canCook
+                                  ? Icons.check_circle_outline
+                                  : Icons.restaurant_menu_outlined,
                             ),
                             title: Text(row.recipe.title),
                             subtitle: Text(

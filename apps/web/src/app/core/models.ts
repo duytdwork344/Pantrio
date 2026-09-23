@@ -29,6 +29,7 @@ export type RecipeSummary = {
 export type RecipeIngredient = {
   foodId: string;
   foodName: string;
+  foodImageUrl?: string | null;
   quantity: number;
   unit: string;
   note?: string | null;

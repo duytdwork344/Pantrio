@@ -50,6 +50,9 @@ export class ShoppingListItemDto {
   foodName!: string;
 
   @ApiPropertyOptional({ nullable: true })
+  foodImageUrl?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   recipeId?: string | null;
 
   @ApiProperty()

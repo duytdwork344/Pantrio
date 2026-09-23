@@ -28,6 +28,16 @@ const BOOTSTRAP_USERS: Array<{
     roleName: 'CREATOR',
   },
   {
+    email: 'creator2@pantrio.app',
+    displayName: 'Lan Kitchen',
+    roleName: 'CREATOR',
+  },
+  {
+    email: 'creator3@pantrio.app',
+    displayName: 'Minh Home Cook',
+    roleName: 'CREATOR',
+  },
+  {
     email: 'moderator@pantrio.app',
     displayName: 'Pantrio Moderator',
     roleName: 'MODERATOR',
@@ -41,6 +51,22 @@ const ROLE_DESCRIPTIONS: Record<RoleName, string> = {
   MODERATOR: 'Community moderation and user management',
   ADMIN: 'Full system access',
 };
+
+function daysAgo(days: number, hour = 10): Date {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  return d;
+}
+
+function slugifyTitle(title: string): string {
+  return title
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 const SAMPLE_FOODS: Array<{
   slug: string;
@@ -120,7 +146,212 @@ const SAMPLE_FOODS: Array<{
       { locale: 'vi', name: 'Phô mai', category: 'dairy' },
     ],
   },
+  {
+    slug: 'rice',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Rice', category: 'pantry' },
+      { locale: 'vi', name: 'Gạo', category: 'pantry' },
+    ],
+  },
+  {
+    slug: 'garlic',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Garlic', category: 'produce' },
+      { locale: 'vi', name: 'Tỏi', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'ginger',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Ginger', category: 'produce' },
+      { locale: 'vi', name: 'Gừng', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'carrot',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Carrot', category: 'produce' },
+      { locale: 'vi', name: 'Cà rốt', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'potato',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Potato', category: 'produce' },
+      { locale: 'vi', name: 'Khoai tây', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'pork',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Pork', category: 'protein' },
+      { locale: 'vi', name: 'Thịt heo', category: 'protein' },
+    ],
+  },
+  {
+    slug: 'beef',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Beef', category: 'protein' },
+      { locale: 'vi', name: 'Thịt bò', category: 'protein' },
+    ],
+  },
+  {
+    slug: 'shrimp',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Shrimp', category: 'protein' },
+      { locale: 'vi', name: 'Tôm', category: 'protein' },
+    ],
+  },
+  {
+    slug: 'tofu',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Tofu', category: 'protein' },
+      { locale: 'vi', name: 'Đậu hũ', category: 'protein' },
+    ],
+  },
+  {
+    slug: 'mushroom',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Mushroom', category: 'produce' },
+      { locale: 'vi', name: 'Nấm', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'cucumber',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Cucumber', category: 'produce' },
+      { locale: 'vi', name: 'Dưa leo', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'green-onion',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Green onion', category: 'produce' },
+      { locale: 'vi', name: 'Hành lá', category: 'produce' },
+    ],
+  },
+  {
+    slug: 'soy-sauce',
+    measurementType: MeasurementType.VOLUME,
+    baseUnit: 'ml',
+    translations: [
+      { locale: 'en', name: 'Soy sauce', category: 'condiment' },
+      { locale: 'vi', name: 'Nước tương', category: 'condiment' },
+    ],
+  },
+  {
+    slug: 'fish-sauce',
+    measurementType: MeasurementType.VOLUME,
+    baseUnit: 'ml',
+    translations: [
+      { locale: 'en', name: 'Fish sauce', category: 'condiment' },
+      { locale: 'vi', name: 'Nước mắm', category: 'condiment' },
+    ],
+  },
+  {
+    slug: 'oil',
+    measurementType: MeasurementType.VOLUME,
+    baseUnit: 'ml',
+    translations: [
+      { locale: 'en', name: 'Cooking oil', category: 'pantry' },
+      { locale: 'vi', name: 'Dầu ăn', category: 'pantry' },
+    ],
+  },
+  {
+    slug: 'butter',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Butter', category: 'dairy' },
+      { locale: 'vi', name: 'Bơ', category: 'dairy' },
+    ],
+  },
+  {
+    slug: 'flour',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Flour', category: 'pantry' },
+      { locale: 'vi', name: 'Bột mì', category: 'pantry' },
+    ],
+  },
+  {
+    slug: 'sugar',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Sugar', category: 'pantry' },
+      { locale: 'vi', name: 'Đường', category: 'pantry' },
+    ],
+  },
+  {
+    slug: 'rice-noodles',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Rice noodles', category: 'pantry' },
+      { locale: 'vi', name: 'Bún / phở khô', category: 'pantry' },
+    ],
+  },
+  {
+    slug: 'lettuce',
+    measurementType: MeasurementType.WEIGHT,
+    baseUnit: 'g',
+    translations: [
+      { locale: 'en', name: 'Lettuce', category: 'produce' },
+      { locale: 'vi', name: 'Xà lách', category: 'produce' },
+    ],
+  },
 ];
+
+type SeedIngredient = {
+  foodSlug: string;
+  quantity: number;
+  unit: string;
+  optional?: boolean;
+  sortOrder: number;
+};
+
+type SeedRecipe = {
+  /** Prefer `seed-…` for disposable Discover content. */
+  slug: string;
+  title: string;
+  description: string;
+  servings: number;
+  prepTimeMin: number;
+  cookTimeMin: number;
+  difficulty: RecipeDifficulty;
+  instructions: string;
+  ingredients: SeedIngredient[];
+  /** Author bootstrap email */
+  authorEmail: string;
+  /** Age of createdAt for Discover “Mới” */
+  daysAgo: number;
+};
 
 async function seedRoles() {
   for (const code of Object.values(Permission)) {
@@ -252,45 +483,13 @@ async function seedBootstrapUsers() {
   );
 }
 
-async function seedRecipes() {
-  const creator = await prisma.user.findUniqueOrThrow({
-    where: { email: 'creator@pantrio.app' },
-  });
+function buildDiscoverRecipes(): SeedRecipe[] {
+  const c1 = 'creator@pantrio.app';
+  const c2 = 'creator2@pantrio.app';
+  const c3 = 'creator3@pantrio.app';
 
-  const foods = await prisma.food.findMany({
-    where: {
-      slug: {
-        in: [
-          'pasta',
-          'egg',
-          'bacon',
-          'cheese',
-          'chicken',
-          'tomato',
-          'onion',
-        ],
-      },
-    },
-  });
-  const foodBySlug = Object.fromEntries(foods.map((food) => [food.slug, food]));
-
-  const samples: Array<{
-    slug: string;
-    title: string;
-    description: string;
-    servings: number;
-    prepTimeMin: number;
-    cookTimeMin: number;
-    difficulty: RecipeDifficulty;
-    instructions: string;
-    ingredients: Array<{
-      foodSlug: string;
-      quantity: number;
-      unit: string;
-      optional?: boolean;
-      sortOrder: number;
-    }>;
-  }> = [
+  const defs: Array<Omit<SeedRecipe, 'slug'> & { slug?: string }> = [
+    // Keep legacy slugs for existing links
     {
       slug: 'classic-carbonara',
       title: 'Classic Carbonara',
@@ -307,6 +506,8 @@ async function seedRecipes() {
         { foodSlug: 'bacon', quantity: 100, unit: 'g', sortOrder: 2 },
         { foodSlug: 'cheese', quantity: 50, unit: 'g', sortOrder: 3 },
       ],
+      authorEmail: c1,
+      daysAgo: 40,
     },
     {
       slug: 'chicken-tomato-pasta',
@@ -331,10 +532,470 @@ async function seedRecipes() {
           sortOrder: 4,
         },
       ],
+      authorEmail: c1,
+      daysAgo: 35,
+    },
+    // Discover bulk — seed-* (disposable)
+    {
+      title: 'Cơm gà xào nấm',
+      description: 'Cơm nóng với gà xào nấm và hành.',
+      servings: 2,
+      prepTimeMin: 15,
+      cookTimeMin: 20,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Nấu cơm.\n2. Xào tỏi, cho gà vào.\n3. Thêm nấm, nước tương.\n4. Ăn kèm cơm.',
+      ingredients: [
+        { foodSlug: 'rice', quantity: 300, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'chicken', quantity: 250, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'mushroom', quantity: 150, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'soy-sauce', quantity: 30, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'oil', quantity: 15, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 0,
+    },
+    {
+      title: 'Trứng chiên cà chua',
+      description: 'Món Việt quen thuộc, nhanh gọn.',
+      servings: 2,
+      prepTimeMin: 5,
+      cookTimeMin: 10,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Đánh trứng.\n2. Chiên trứng.\n3. Xào cà chua với nước mắm, đường.\n4. Chan lên trứng.',
+      ingredients: [
+        { foodSlug: 'egg', quantity: 3, unit: 'pcs', sortOrder: 0 },
+        { foodSlug: 'tomato', quantity: 300, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'green-onion', quantity: 20, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'fish-sauce', quantity: 15, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'sugar', quantity: 10, unit: 'g', sortOrder: 4 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 0,
+    },
+    {
+      title: 'Tôm rang tỏi',
+      description: 'Tôm giòn nhẹ, thơm tỏi.',
+      servings: 2,
+      prepTimeMin: 10,
+      cookTimeMin: 12,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Rửa tôm.\n2. Phi tỏi.\n3. Rang tôm với nước mắm đường.\n4. Rắc hành lá.',
+      ingredients: [
+        { foodSlug: 'shrimp', quantity: 400, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'garlic', quantity: 20, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'fish-sauce', quantity: 20, unit: 'ml', sortOrder: 2 },
+        { foodSlug: 'sugar', quantity: 15, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'green-onion', quantity: 15, unit: 'g', optional: true, sortOrder: 5 },
+      ],
+      authorEmail: c3,
+      daysAgo: 1,
+    },
+    {
+      title: 'Thịt heo kho trứng',
+      description: 'Kho vừa ăn, nước màu cánh gián.',
+      servings: 4,
+      prepTimeMin: 15,
+      cookTimeMin: 45,
+      difficulty: RecipeDifficulty.MEDIUM,
+      instructions:
+        '1. Luộc trứng.\n2. Ướp thịt với nước mắm đường tỏi.\n3. Kho nhỏ lửa.\n4. Cho trứng vào kho cùng.',
+      ingredients: [
+        { foodSlug: 'pork', quantity: 500, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'egg', quantity: 4, unit: 'pcs', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 20, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'fish-sauce', quantity: 40, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'sugar', quantity: 25, unit: 'g', sortOrder: 4 },
+        { foodSlug: 'onion', quantity: 80, unit: 'g', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 1,
+    },
+    {
+      title: 'Canh chua tôm',
+      description: 'Chua nhẹ, thanh mát.',
+      servings: 3,
+      prepTimeMin: 15,
+      cookTimeMin: 20,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Nấu nước dùng.\n2. Cho cà chua, đậu hũ.\n3. Thêm tôm, nêm nước mắm.\n4. Tắt bếp, rắc hành.',
+      ingredients: [
+        { foodSlug: 'shrimp', quantity: 200, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'tomato', quantity: 200, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'tofu', quantity: 200, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'fish-sauce', quantity: 20, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'green-onion', quantity: 20, unit: 'g', sortOrder: 4 },
+      ],
+      authorEmail: c3,
+      daysAgo: 2,
+    },
+    {
+      title: 'Bò xào hành tây',
+      description: 'Nhanh tay, thịt mềm.',
+      servings: 2,
+      prepTimeMin: 10,
+      cookTimeMin: 8,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Ướp bò với nước tương tỏi.\n2. Xào hành tây.\n3. Cho bò vào xào nhanh.\n4. Ăn với cơm.',
+      ingredients: [
+        { foodSlug: 'beef', quantity: 300, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'onion', quantity: 200, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'soy-sauce', quantity: 25, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'rice', quantity: 300, unit: 'g', optional: true, sortOrder: 5 },
+      ],
+      authorEmail: c1,
+      daysAgo: 2,
+    },
+    {
+      title: 'Đậu hũ sốt cà',
+      description: 'Chay nhẹ, đậm đà.',
+      servings: 2,
+      prepTimeMin: 10,
+      cookTimeMin: 15,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Chiên đậu hũ.\n2. Xào tỏi hành, cho cà chua.\n3. Nêm nước tương đường.\n4. Chan sốt lên đậu.',
+      ingredients: [
+        { foodSlug: 'tofu', quantity: 400, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'tomato', quantity: 350, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'onion', quantity: 80, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'soy-sauce', quantity: 25, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'sugar', quantity: 10, unit: 'g', sortOrder: 5 },
+        { foodSlug: 'oil', quantity: 30, unit: 'ml', sortOrder: 6 },
+      ],
+      authorEmail: c2,
+      daysAgo: 3,
+    },
+    {
+      title: 'Khoai tây chiên bơ tỏi',
+      description: 'Giòn ngoài, thơm bơ.',
+      servings: 2,
+      prepTimeMin: 10,
+      cookTimeMin: 20,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Cắt khoai, chiên hoặc nướng.\n2. Đun bơ với tỏi.\n3. Trộn khoai với bơ tỏi.\n4. Rắc chút muối.',
+      ingredients: [
+        { foodSlug: 'potato', quantity: 500, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'butter', quantity: 40, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 20, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'oil', quantity: 30, unit: 'ml', sortOrder: 3 },
+      ],
+      authorEmail: c3,
+      daysAgo: 3,
+    },
+    {
+      title: 'Salad dưa leo trứng',
+      description: 'Mát, ăn kèm cơm hoặc sandwich.',
+      servings: 2,
+      prepTimeMin: 15,
+      cookTimeMin: 10,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Luộc trứng.\n2. Thái dưa leo, xà lách.\n3. Trộn nhẹ với dầu.\n4. Xếp trứng lên trên.',
+      ingredients: [
+        { foodSlug: 'cucumber', quantity: 250, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'lettuce', quantity: 100, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'egg', quantity: 2, unit: 'pcs', sortOrder: 2 },
+        { foodSlug: 'oil', quantity: 15, unit: 'ml', sortOrder: 3 },
+      ],
+      authorEmail: c1,
+      daysAgo: 4,
+    },
+    {
+      title: 'Mì xào thập cẩm',
+      description: 'Mì ống xào gà, cà rốt, hành.',
+      servings: 2,
+      prepTimeMin: 15,
+      cookTimeMin: 15,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Luộc mì.\n2. Xào gà và rau.\n3. Cho mì vào, nêm nước tương.\n4. Đảo đều.',
+      ingredients: [
+        { foodSlug: 'pasta', quantity: 200, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'chicken', quantity: 200, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'carrot', quantity: 100, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'onion', quantity: 80, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'soy-sauce', quantity: 30, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 5,
+    },
+    {
+      title: 'Súp khoai tây sữa',
+      description: 'Ấm bụng buổi tối.',
+      servings: 3,
+      prepTimeMin: 10,
+      cookTimeMin: 25,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Xào hành với bơ.\n2. Cho khoai, thêm sữa và nước.\n3. Nin mềm, xay hoặc tán.\n4. Nêm nhẹ.',
+      ingredients: [
+        { foodSlug: 'potato', quantity: 400, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'milk', quantity: 300, unit: 'ml', sortOrder: 1 },
+        { foodSlug: 'butter', quantity: 30, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'onion', quantity: 80, unit: 'g', sortOrder: 3 },
+      ],
+      authorEmail: c3,
+      daysAgo: 6,
+    },
+    {
+      title: 'Gà kho gừng',
+      description: 'Thơm gừng, đậm đà.',
+      servings: 3,
+      prepTimeMin: 15,
+      cookTimeMin: 35,
+      difficulty: RecipeDifficulty.MEDIUM,
+      instructions:
+        '1. Ướp gà với nước mắm đường gừng.\n2. Kho nhỏ lửa.\n3. Thêm hành tây.\n4. Ăn với cơm.',
+      ingredients: [
+        { foodSlug: 'chicken', quantity: 500, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'ginger', quantity: 40, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'fish-sauce', quantity: 35, unit: 'ml', sortOrder: 2 },
+        { foodSlug: 'sugar', quantity: 20, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'onion', quantity: 100, unit: 'g', sortOrder: 4 },
+        { foodSlug: 'oil', quantity: 15, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 7,
+    },
+    {
+      title: 'Bún tôm đơn giản',
+      description: 'Bún nước dùng tôm nhanh.',
+      servings: 2,
+      prepTimeMin: 15,
+      cookTimeMin: 20,
+      difficulty: RecipeDifficulty.MEDIUM,
+      instructions:
+        '1. Ngâm bún.\n2. Nấu nước dùng với tôm.\n3. Nêm nước mắm.\n4. Chan lên bún, thêm xà lách.',
+      ingredients: [
+        { foodSlug: 'rice-noodles', quantity: 200, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'shrimp', quantity: 250, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'tomato', quantity: 150, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'lettuce', quantity: 80, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'fish-sauce', quantity: 20, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'green-onion', quantity: 20, unit: 'g', sortOrder: 5 },
+      ],
+      authorEmail: c3,
+      daysAgo: 8,
+    },
+    {
+      title: 'Thịt heo xào nấm',
+      description: 'Ít nước, thấm gia vị.',
+      servings: 2,
+      prepTimeMin: 10,
+      cookTimeMin: 12,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Thái thịt, ướp nước tương.\n2. Xào tỏi.\n3. Cho thịt và nấm.\n4. Đảo chín tới.',
+      ingredients: [
+        { foodSlug: 'pork', quantity: 300, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'mushroom', quantity: 200, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'soy-sauce', quantity: 25, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 4 },
+      ],
+      authorEmail: c1,
+      daysAgo: 9,
+    },
+    {
+      title: 'Omlette phô mai',
+      description: 'Trứng cuộn phô mai kiểu Âu.',
+      servings: 1,
+      prepTimeMin: 5,
+      cookTimeMin: 5,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Đánh trứng với sữa.\n2. Đổ chảo bơ.\n3. Cho phô mai, cuộn lại.\n4. Ăn nóng.',
+      ingredients: [
+        { foodSlug: 'egg', quantity: 2, unit: 'pcs', sortOrder: 0 },
+        { foodSlug: 'cheese', quantity: 40, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'milk', quantity: 30, unit: 'ml', sortOrder: 2 },
+        { foodSlug: 'butter', quantity: 15, unit: 'g', sortOrder: 3 },
+      ],
+      authorEmail: c1,
+      daysAgo: 10,
+    },
+    {
+      title: 'Cà rốt xào tỏi',
+      description: 'Rau phụ nhanh cho bữa cơm.',
+      servings: 2,
+      prepTimeMin: 8,
+      cookTimeMin: 10,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Thái cà rốt.\n2. Phi tỏi.\n3. Xào nhanh, nêm nhẹ.\n4. Tắt bếp.',
+      ingredients: [
+        { foodSlug: 'carrot', quantity: 300, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'oil', quantity: 15, unit: 'ml', sortOrder: 2 },
+        { foodSlug: 'soy-sauce', quantity: 10, unit: 'ml', optional: true, sortOrder: 3 },
+      ],
+      authorEmail: c2,
+      daysAgo: 12,
+    },
+    {
+      title: 'Cơm chiên trứng',
+      description: 'Tận dụng cơm nguội.',
+      servings: 2,
+      prepTimeMin: 5,
+      cookTimeMin: 10,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Đánh trứng chiên trước.\n2. Xào cơm với dầu và nước tương.\n3. Trộn trứng.\n4. Rắc hành.',
+      ingredients: [
+        { foodSlug: 'rice', quantity: 400, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'egg', quantity: 2, unit: 'pcs', sortOrder: 1 },
+        { foodSlug: 'green-onion', quantity: 20, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'soy-sauce', quantity: 20, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'oil', quantity: 25, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'garlic', quantity: 10, unit: 'g', optional: true, sortOrder: 5 },
+      ],
+      authorEmail: c3,
+      daysAgo: 14,
+    },
+    {
+      title: 'Pasta bơ tỏi',
+      description: 'Aglio-style đơn giản.',
+      servings: 2,
+      prepTimeMin: 5,
+      cookTimeMin: 12,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Luộc pasta.\n2. Đun bơ tỏi.\n3. Trộn pasta với bơ tỏi.\n4. Rắc phô mai nếu có.',
+      ingredients: [
+        { foodSlug: 'pasta', quantity: 200, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'butter', quantity: 40, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 25, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'cheese', quantity: 30, unit: 'g', optional: true, sortOrder: 3 },
+      ],
+      authorEmail: c1,
+      daysAgo: 16,
+    },
+    {
+      title: 'Thịt bò sốt tiêu đơn',
+      description: 'Xào nhanh với hành và nước tương.',
+      servings: 2,
+      prepTimeMin: 12,
+      cookTimeMin: 10,
+      difficulty: RecipeDifficulty.MEDIUM,
+      instructions:
+        '1. Ướp bò.\n2. Xào hành tỏi.\n3. Cho bò vào đảo lửa lớn.\n4. Nêm lại và tắt bếp.',
+      ingredients: [
+        { foodSlug: 'beef', quantity: 350, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'onion', quantity: 150, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'garlic', quantity: 15, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'soy-sauce', quantity: 30, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'sugar', quantity: 10, unit: 'g', sortOrder: 4 },
+        { foodSlug: 'oil', quantity: 20, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 18,
+    },
+    {
+      title: 'Cháo gà gừng',
+      description: 'Nhẹ bụng, dễ nấu.',
+      servings: 3,
+      prepTimeMin: 10,
+      cookTimeMin: 40,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Nin gà với gừng.\n2. Cho gạo vào nấu cháo.\n3. Xé gà, nêm nước mắm.\n4. Rắc hành.',
+      ingredients: [
+        { foodSlug: 'chicken', quantity: 400, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'rice', quantity: 150, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'ginger', quantity: 30, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'fish-sauce', quantity: 15, unit: 'ml', sortOrder: 3 },
+        { foodSlug: 'green-onion', quantity: 20, unit: 'g', sortOrder: 4 },
+      ],
+      authorEmail: c3,
+      daysAgo: 21,
+    },
+    {
+      title: 'Bánh kếp bột mì sữa',
+      description: 'Pancake mỏng kiểu nhà.',
+      servings: 3,
+      prepTimeMin: 10,
+      cookTimeMin: 15,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Trộn bột, sữa, trứng.\n2. Để bột nghỉ.\n3. Đổ chảo bơ từng lớp.\n4. Ăn với đường hoặc trái cây.',
+      ingredients: [
+        { foodSlug: 'flour', quantity: 150, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'milk', quantity: 250, unit: 'ml', sortOrder: 1 },
+        { foodSlug: 'egg', quantity: 2, unit: 'pcs', sortOrder: 2 },
+        { foodSlug: 'butter', quantity: 30, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'sugar', quantity: 20, unit: 'g', sortOrder: 4 },
+      ],
+      authorEmail: c1,
+      daysAgo: 25,
+    },
+    {
+      title: 'Xà lách trộn tôm',
+      description: 'Salad nhẹ buổi trưa.',
+      servings: 2,
+      prepTimeMin: 15,
+      cookTimeMin: 8,
+      difficulty: RecipeDifficulty.EASY,
+      instructions:
+        '1. Luộc hoặc xào tôm.\n2. Thái rau.\n3. Trộn với dầu và nước tương.\n4. Xếp tôm lên.',
+      ingredients: [
+        { foodSlug: 'lettuce', quantity: 150, unit: 'g', sortOrder: 0 },
+        { foodSlug: 'shrimp', quantity: 200, unit: 'g', sortOrder: 1 },
+        { foodSlug: 'cucumber', quantity: 100, unit: 'g', sortOrder: 2 },
+        { foodSlug: 'tomato', quantity: 100, unit: 'g', sortOrder: 3 },
+        { foodSlug: 'oil', quantity: 15, unit: 'ml', sortOrder: 4 },
+        { foodSlug: 'soy-sauce', quantity: 10, unit: 'ml', sortOrder: 5 },
+      ],
+      authorEmail: c2,
+      daysAgo: 28,
     },
   ];
 
+  return defs.map((d) => ({
+    ...d,
+    slug:
+      d.slug ??
+      `seed-${slugifyTitle(d.title)}`.replace(/-+/g, '-').slice(0, 80),
+  }));
+}
+
+async function seedRecipes() {
+  const authors = await prisma.user.findMany({
+    where: {
+      email: {
+        in: BOOTSTRAP_USERS.filter((u) => u.roleName === 'CREATOR').map(
+          (u) => u.email,
+        ),
+      },
+    },
+  });
+  const authorByEmail = Object.fromEntries(
+    authors.map((u) => [u.email, u]),
+  );
+
+  const foods = await prisma.food.findMany();
+  const foodBySlug = Object.fromEntries(foods.map((food) => [food.slug, food]));
+
+  const samples = buildDiscoverRecipes();
+
   for (const sample of samples) {
+    const author = authorByEmail[sample.authorEmail];
+    if (!author) {
+      throw new Error(`Missing author ${sample.authorEmail}`);
+    }
+
     const missing = sample.ingredients.filter(
       (item) => !foodBySlug[item.foodSlug],
     );
@@ -345,6 +1006,8 @@ async function seedRecipes() {
           .join(', ')}`,
       );
     }
+
+    const createdAt = daysAgo(sample.daysAgo, 9 + (sample.daysAgo % 5));
 
     const recipe = await prisma.recipe.upsert({
       where: { slug: sample.slug },
@@ -357,7 +1020,8 @@ async function seedRecipes() {
         difficulty: sample.difficulty,
         instructions: sample.instructions,
         visibility: RecipeVisibility.PUBLIC,
-        authorId: creator.id,
+        authorId: author.id,
+        createdAt,
       },
       create: {
         slug: sample.slug,
@@ -369,7 +1033,8 @@ async function seedRecipes() {
         difficulty: sample.difficulty,
         instructions: sample.instructions,
         visibility: RecipeVisibility.PUBLIC,
-        authorId: creator.id,
+        authorId: author.id,
+        createdAt,
       },
     });
 
@@ -389,7 +1054,131 @@ async function seedRecipes() {
     });
   }
 
-  console.log(`Seeded ${samples.length} sample recipes`);
+  console.log(
+    `Seeded ${samples.length} recipes (${samples.filter((s) => s.slug.startsWith('seed-')).length} with seed- prefix)`,
+  );
+}
+
+async function seedArticles() {
+  const creators = await prisma.user.findMany({
+    where: {
+      email: { in: ['creator@pantrio.app', 'creator2@pantrio.app'] },
+    },
+  });
+  const byEmail = Object.fromEntries(creators.map((u) => [u.email, u]));
+
+  const recipes = await prisma.recipe.findMany({
+    where: {
+      slug: {
+        in: [
+          'seed-com-ga-xao-nam',
+          'seed-trung-chien-ca-chua',
+          'seed-tom-rang-toi',
+          'classic-carbonara',
+        ],
+      },
+    },
+    select: { id: true, slug: true },
+  });
+  const recipeBySlug = Object.fromEntries(recipes.map((r) => [r.slug, r]));
+
+  const articles: Array<{
+    slug: string;
+    title: string;
+    summary: string;
+    body: string;
+    authorEmail: string;
+    daysAgoPublish: number;
+    recipeSlugs: string[];
+  }> = [
+    {
+      slug: 'seed-weeknight-viet-meals',
+      title: '3 món Việt nấu tối dưới 30 phút',
+      summary: 'Gợi ý từ tủ lạnh: trứng cà, tôm rang, cơm gà nấm.',
+      body: 'Khi về muộn, ưu tiên món ít bước: trứng chiên cà chua, tôm rang tỏi, cơm gà xào nấm. Chuẩn bị hành tỏi sẵn sẽ cắt thời gian còn hơn.\n\nPantrio giúp bạn thấy món nào gần khớp tủ — thử cụm Gợi ý từ tủ trên Discover.',
+      authorEmail: 'creator2@pantrio.app',
+      daysAgoPublish: 0,
+      recipeSlugs: [
+        'seed-trung-chien-ca-chua',
+        'seed-tom-rang-toi',
+        'seed-com-ga-xao-nam',
+      ],
+    },
+    {
+      slug: 'seed-pantry-pasta-night',
+      title: 'Pasta night từ pantry cơ bản',
+      summary: 'Carbonara và biến tấu cà chua gà khi thiếu bacon.',
+      body: 'Pasta + trứng + phô mai là bộ khung. Có bacon thì carbonara; không có thì chuyển sang chicken tomato pasta.\n\nĐừng quên kiểm tra đơn vị g/ml/pcs cho khớp inventory.',
+      authorEmail: 'creator@pantrio.app',
+      daysAgoPublish: 2,
+      recipeSlugs: ['classic-carbonara', 'chicken-tomato-pasta'],
+    },
+    {
+      slug: 'seed-how-we-plan-meals',
+      title: 'Lên kế hoạch bữa ăn với Planned + Shopping',
+      summary: 'Từ recipe đã lưu đến list mua và purchase vào tủ.',
+      body: '1. Save món thích.\n2. Plan servings.\n3. Generate shopping từ planned.\n4. Purchase → inventory.\n\nMobile đang làm vòng này trọn; Web tập trung discovery và article.',
+      authorEmail: 'creator@pantrio.app',
+      daysAgoPublish: 5,
+      recipeSlugs: [],
+    },
+    {
+      slug: 'seed-discover-feed-notes',
+      title: 'Discover sẽ đổi theo ngày như thế nào?',
+      summary: 'Ghi chú sản phẩm: Hôm nay / Mới / Gợi ý từ tủ.',
+      body: 'Chúng ta tách cụm thay vì một list phẳng. Featured-of-day có thể xoay deterministic; Mới dựa trên createdAt; pantry recommend giữ trục khớp tủ.\n\nSeed recipe dùng prefix seed- để dễ dọn khi học xong.',
+      authorEmail: 'creator2@pantrio.app',
+      daysAgoPublish: 1,
+      recipeSlugs: ['seed-com-ga-xao-nam'],
+    },
+  ];
+
+  for (const a of articles) {
+    const author = byEmail[a.authorEmail];
+    if (!author) {
+      throw new Error(`Missing article author ${a.authorEmail}`);
+    }
+    const publishedAt = daysAgo(a.daysAgoPublish, 14);
+    const article = await prisma.article.upsert({
+      where: { slug: a.slug },
+      update: {
+        title: a.title,
+        summary: a.summary,
+        body: a.body,
+        authorId: author.id,
+        publishedAt,
+      },
+      create: {
+        slug: a.slug,
+        title: a.title,
+        summary: a.summary,
+        body: a.body,
+        authorId: author.id,
+        publishedAt,
+      },
+    });
+
+    await prisma.articleRecipe.deleteMany({ where: { articleId: article.id } });
+    const links = a.recipeSlugs
+      .map((slug, index) => {
+        const recipe = recipeBySlug[slug];
+        if (!recipe) {
+          return null;
+        }
+        return {
+          articleId: article.id,
+          recipeId: recipe.id,
+          sortOrder: index,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    if (links.length) {
+      await prisma.articleRecipe.createMany({ data: links });
+    }
+  }
+
+  console.log(`Seeded ${articles.length} articles (seed-*)`);
 }
 
 async function seed() {
@@ -397,6 +1186,7 @@ async function seed() {
   await seedBootstrapUsers();
   await seedFoods();
   await seedRecipes();
+  await seedArticles();
 }
 
 seed()

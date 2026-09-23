@@ -34,6 +34,7 @@ class ShoppingListItem {
     required this.status,
     this.recipeId,
     this.note,
+    this.foodImageUrl,
   });
 
   final String id;
@@ -44,6 +45,7 @@ class ShoppingListItem {
   final String status;
   final String? recipeId;
   final String? note;
+  final String? foodImageUrl;
 
   factory ShoppingListItem.fromJson(Map<String, dynamic> json) {
     return ShoppingListItem(
@@ -55,6 +57,7 @@ class ShoppingListItem {
       status: json['status'] as String,
       recipeId: json['recipeId'] as String?,
       note: json['note'] as String?,
+      foodImageUrl: json['foodImageUrl'] as String?,
     );
   }
 }

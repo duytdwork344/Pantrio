@@ -6,6 +6,7 @@ class FoodItem {
     required this.baseUnit,
     required this.visibility,
     this.category,
+    this.imageUrl,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class FoodItem {
   final String baseUnit;
   final String visibility;
   final String? category;
+  final String? imageUrl;
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
     return FoodItem(
@@ -23,6 +25,7 @@ class FoodItem {
       baseUnit: json['baseUnit'] as String,
       visibility: json['visibility'] as String,
       category: json['category'] as String?,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }

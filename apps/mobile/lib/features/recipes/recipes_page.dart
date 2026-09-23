@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/recipes/cook_recommend_tab.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_detail_page.dart';
@@ -202,6 +203,11 @@ class _DiscoverTab extends StatelessWidget {
               final recipe = recipes[index];
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: RemoteThumb(
+                  url: recipe.imageUrl,
+                  size: 52,
+                  icon: Icons.restaurant_menu_outlined,
+                ),
                 title: Text(recipe.title),
                 subtitle: Text(
                   '${recipe.servings} servings · ${recipe.difficulty}'
@@ -263,6 +269,11 @@ class _SavedTab extends StatelessWidget {
               final row = rows[index];
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: RemoteThumb(
+                  url: row.recipe.imageUrl,
+                  size: 52,
+                  icon: Icons.bookmark_outline,
+                ),
                 title: Text(row.recipe.title),
                 subtitle: Text('${row.recipe.servings} servings'),
                 trailing: const Icon(Icons.chevron_right),
@@ -340,6 +351,11 @@ class _PlannedTab extends StatelessWidget {
               final row = rows[index - 1];
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: RemoteThumb(
+                  url: row.recipe.imageUrl,
+                  size: 52,
+                  icon: Icons.event_note_outlined,
+                ),
                 title: Text(row.recipe.title),
                 subtitle: Text('${row.servings} servings planned'),
                 trailing: IconButton(

@@ -60,6 +60,9 @@ export class RecipeIngredientDto {
   @ApiProperty()
   foodName!: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  foodImageUrl?: string | null;
+
   @ApiProperty()
   quantity!: number;
 

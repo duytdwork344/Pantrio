@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/food_item.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:provider/provider.dart';
 
 const _units = ['g', 'kg', 'ml', 'l', 'pcs'];
@@ -218,6 +219,11 @@ class _AddInventoryPageState extends State<AddInventoryPage> {
           ..._results.take(12).map(
                 (food) => ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: RemoteThumb(
+                    url: food.imageUrl,
+                    size: 44,
+                    icon: Icons.egg_outlined,
+                  ),
                   title: Text(food.name),
                   subtitle: Text(
                     '${food.baseUnit} · ${food.visibility}'

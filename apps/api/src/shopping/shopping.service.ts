@@ -574,6 +574,7 @@ export class ShoppingService {
       note: string | null;
       food: {
         slug: string;
+        imageUrl: string | null;
         translations: Array<{
           locale: string;
           name: string;
@@ -598,6 +599,7 @@ export class ShoppingService {
     note: string | null;
     food: {
       slug: string;
+      imageUrl: string | null;
       translations: Array<{
         locale: string;
         name: string;
@@ -610,6 +612,7 @@ export class ShoppingService {
       id: item.id,
       foodId: item.foodId,
       foodName: translation?.name ?? item.food.slug,
+      foodImageUrl: item.food.imageUrl ?? null,
       recipeId: item.recipeId,
       quantity: item.quantity,
       unit: item.unit,

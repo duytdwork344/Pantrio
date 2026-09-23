@@ -4,6 +4,7 @@ import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
+import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:provider/provider.dart';
 
 class RecipeDetailPage extends StatefulWidget {
@@ -315,6 +316,27 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
+              if (recipe.imageUrl != null && recipe.imageUrl!.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 10,
+                    child: Image.network(
+                      recipe.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceVariant,
+                        child: const Center(
+                          child: Icon(Icons.restaurant_menu_outlined, size: 40),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text(
                 recipe.title,
                 style: Theme.of(context).textTheme.headlineSmall,
@@ -420,6 +442,11 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                 final inInv = ing.inInventory == true;
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: RemoteThumb(
+                    url: ing.foodImageUrl,
+                    size: 44,
+                    icon: Icons.egg_outlined,
+                  ),
                   title: Text(ing.foodName),
                   subtitle: Text(
                     '${_fmtQty(ing.quantity)} ${ing.unit}'

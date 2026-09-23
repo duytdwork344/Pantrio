@@ -12,6 +12,7 @@ class InventoryItem {
     this.expiryDate,
     this.purchaseDate,
     this.notes,
+    this.foodImageUrl,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class InventoryItem {
   final String? expiryDate;
   final String? purchaseDate;
   final String? notes;
+  final String? foodImageUrl;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) {
     return InventoryItem(
@@ -41,6 +43,7 @@ class InventoryItem {
       expiryDate: json['expiryDate'] as String?,
       purchaseDate: json['purchaseDate'] as String?,
       notes: json['notes'] as String?,
+      foodImageUrl: json['foodImageUrl'] as String?,
     );
   }
 }
