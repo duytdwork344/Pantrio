@@ -1,6 +1,6 @@
 /**
  * Placeholder map of planned domain modules.
- * Implemented: auth, users, rbac, recipes, inventory, shopping, health, media(planned).
+ * Implemented: auth, users, rbac, recipes, inventory, shopping, health, media.
  */
 export const DOMAIN_MODULES = [
   'auth',

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/food_item.dart';
@@ -28,6 +31,9 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
   final _ingredients = <_DraftIngredient>[_DraftIngredient()];
   bool _saving = false;
   List<FoodItem> _foodHits = const [];
+  String? _imagePath;
+  String? _uploadedImageUrl;
+  bool _uploadingImage = false;
 
   static const _units = ['g', 'kg', 'ml', 'l', 'pcs'];
 
@@ -53,6 +59,39 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
       if (mounted) setState(() => _foodHits = hits);
     } on ApiException {
       if (mounted) setState(() => _foodHits = const []);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    setState(() {
+      _imagePath = picked.path;
+      _uploadedImageUrl = null;
+    });
+  }
+
+  Future<String?> _ensureUploadedImage() async {
+    if (_uploadedImageUrl != null) return _uploadedImageUrl;
+    if (_imagePath == null) return null;
+    final api = context.read<AuthSession>().api;
+    setState(() => _uploadingImage = true);
+    try {
+      final url = await api.uploadImage(
+            filePath: _imagePath!,
+            folder: 'recipes',
+          );
+      if (mounted) {
+        setState(() => _uploadedImageUrl = url);
+      }
+      return url;
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
     }
   }
 
@@ -84,20 +123,25 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
     }
 
     setState(() => _saving = true);
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
     try {
-      await context.read<AuthSession>().api.createGroupCookbookRecipe(
+      final imageUrl = await _ensureUploadedImage();
+      await api.createGroupCookbookRecipe(
             title: title,
             instructions: instructions,
             description: _description.text.trim().isEmpty
                 ? null
                 : _description.text.trim(),
+            imageUrl: imageUrl,
             ingredients: ingredients,
           );
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      nav.pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     } finally {
@@ -132,6 +176,41 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
               labelText: 'Title',
               border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: _imagePath != null
+                      ? Image.file(File(_imagePath!), fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          child: const Icon(Icons.image_outlined),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: (_saving || _uploadingImage) ? null : _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: Text(_imagePath == null ? 'Add photo' : 'Change photo'),
+                    ),
+                    Text(
+                      'Optional — you can add a photo after cooking too.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           TextField(

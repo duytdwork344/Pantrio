@@ -7,6 +7,7 @@ import { CookingModule } from './cooking/cooking.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { MediaModule } from './media/media.module';
 import { PlanningModule } from './planning/planning.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RbacModule } from './rbac/rbac.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     InventoryModule,
     ShoppingModule,
     CookingModule,
+    MediaModule,
   ],
 })
 export class AppModule {}

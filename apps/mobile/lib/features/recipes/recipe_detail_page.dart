@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
@@ -228,6 +229,33 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     await _refresh();
   }
 
+  Future<void> _setGroupPhoto(RecipeDetail recipe) async {
+    if (!widget.useGroupCookbook) return;
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    if (!mounted) return;
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.showSnackBar(const SnackBar(content: Text('Uploading photo…')));
+      final url = await api.uploadImage(filePath: picked.path, folder: 'recipes');
+      final updated = await api.updateGroupCookbookRecipe(
+        recipe.id,
+        imageUrl: url,
+      );
+      if (!mounted) return;
+      setState(() => _recipe = updated);
+      messenger.showSnackBar(const SnackBar(content: Text('Photo updated')));
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _cook(RecipeDetail recipe) async {
     final api = context.read<AuthSession>().api;
     final messenger = ScaffoldMessenger.of(context);
@@ -338,6 +366,21 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                           child: Icon(Icons.restaurant_menu_outlined, size: 40),
                         ),
                       ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (widget.useGroupCookbook) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _setGroupPhoto(recipe),
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: Text(
+                      recipe.imageUrl == null || recipe.imageUrl!.isEmpty
+                          ? 'Add photo'
+                          : 'Change photo',
                     ),
                   ),
                 ),

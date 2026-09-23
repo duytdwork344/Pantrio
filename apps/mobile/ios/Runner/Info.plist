@@ -45,9 +45,15 @@
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Pantrio needs photo access to add recipe images to your group cookbook.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Pantrio needs camera access to photograph cooked dishes for your cookbook.</string>
 		<key>NSAppTransportSecurity</key>
 		<dict>
 			<key>NSAllowsLocalNetworking</key>
+			<true/>
+			<key>NSAllowsArbitraryLoads</key>
 			<true/>
 		</dict>
 		<key>UIStatusBarHidden</key>

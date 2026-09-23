@@ -304,6 +304,40 @@ class PantrioApiClient {
     return list.map(RecipeSummary.fromJson).toList();
   }
 
+  /// Multipart upload → public MinIO/S3 URL for Recipe.imageUrl.
+  Future<String> uploadImage({
+    required String filePath,
+    String folder = 'recipes',
+  }) async {
+    try {
+      final fileName = filePath.split('/').last;
+      final form = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+      final response = await _dio.post<dynamic>(
+        'media',
+        data: form,
+        queryParameters: {'folder': folder},
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+          headers: {
+            // Override JSON default so Dio can set multipart boundary.
+            Headers.contentTypeHeader: Headers.multipartFormDataContentType,
+          },
+        ),
+      );
+      final data = _asMap(response.data);
+      final url = data['url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw ApiException('Upload succeeded but no url returned');
+      }
+      return url;
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
   Future<List<RecipeSummary>> getGroupCookbookRecipes() async {
     final list = await _getList('groups/me/recipes');
     return list.map(RecipeSummary.fromJson).toList();
@@ -319,6 +353,7 @@ class PantrioApiClient {
     required String instructions,
     required List<Map<String, dynamic>> ingredients,
     String? description,
+    String? imageUrl,
     int servings = 2,
     String difficulty = 'EASY',
   }) async {
@@ -328,8 +363,31 @@ class PantrioApiClient {
       'ingredients': ingredients,
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
+      if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
       'servings': servings,
       'difficulty': difficulty,
+    });
+    return RecipeDetail.fromJson(data);
+  }
+
+  Future<RecipeDetail> updateGroupCookbookRecipe(
+    String id, {
+    String? title,
+    String? description,
+    String? instructions,
+    String? imageUrl,
+    List<Map<String, dynamic>>? ingredients,
+    int? servings,
+    String? difficulty,
+  }) async {
+    final data = await _patch('groups/me/recipes/$id', {
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (instructions != null) 'instructions': instructions,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (ingredients != null) 'ingredients': ingredients,
+      if (servings != null) 'servings': servings,
+      if (difficulty != null) 'difficulty': difficulty,
     });
     return RecipeDetail.fromJson(data);
   }

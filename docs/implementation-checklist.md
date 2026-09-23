@@ -120,14 +120,14 @@ Tham chiếu: requirements **4.2c**. Cookbook nội bộ theo InventoryGroup; US
 Object storage MinIO (local) → S3-compatible (prod). Không file server tự viết trên VPS. `imageUrl` string đủ MVP.
 
 - [x] Docs đã ghi hướng (**4.2d**) — MinIO/`S3_*`, form-data MVP, presign sau, tạo+sửa+sau cook
-- [ ] Media module API: client S3 (MinIO) từ env `S3_*`; bucket `pantrio-media`
-- [ ] `POST /media` multipart form-data (JWT) → validate mime/size → put object → `{ url }`
+- [x] Media module API: client S3 (MinIO) từ env `S3_*`; bucket `pantrio-media`
+- [x] `POST /media` multipart form-data (JWT) → validate mime/size → put object → `{ url }`
 - [ ] (Sau) `POST /media/presign` + client PUT thẳng storage
-- [ ] Policy: user-generated URL thuộc bucket hệ thống; optional xóa object cũ khi thay ảnh
-- [ ] Wire **Group cookbook**: optional ảnh lúc tạo; **sửa recipe** gắn/đổi ảnh; UX “thêm ảnh sau khi nấu”
-- [ ] Mobile: image picker + upload + PATCH `/groups/me/recipes/:id`
+- [x] Policy: user-generated URL thuộc bucket hệ thống (MVP: trả URL từ `S3_PUBLIC_BASE_URL`); xóa object cũ — sau
+- [x] Wire **Group cookbook**: optional ảnh lúc tạo; **Add/Change photo** trên detail (PATCH imageUrl)
+- [x] Mobile: image picker + upload + PATCH `/groups/me/recipes/:id`
 - [ ] (Cùng pipeline) Catalog CREATOR / Food / Article cover khi sẵn sàng
-- [ ] Deploy note: VPS chạy API; đổi `S3_*` sang MinIO/S3 prod — không đổi schema Recipe
+- [ ] Deploy note: VPS chạy API; đổi `S3_*` sang MinIO/S3 prod — không đổi schema Recipe (khi lên prod)
 
 ---
 
