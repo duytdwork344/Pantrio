@@ -251,6 +251,110 @@ Không làm:
 - Tạo thẳng Food `PUBLIC` từ recipe chưa duyệt (tránh rác catalog khi recipe bị reject).
 - Auto-promote mọi Food PRIVATE của recipe khi approve mà bỏ qua bước check trùng / merge.
 
+4.2c. Group Cookbook — sổ tay công thức nhóm (ưu tiên trước 4.2b)
+
+**Đã chốt:** Nhóm (InventoryGroup) có thể có cookbook riêng — công thức nội bộ theo sở thích nhà — **không** yêu cầu role CREATOR và **không** đưa lên Discover / kiểm duyệt nội dung công khai.
+
+Tách hai bề mặt Recipe:
+
+| | Catalog / Discover | Group Cookbook |
+|--|--------------------|----------------|
+| Ai tạo | CREATOR (+ ADMIN) | Mọi **member** của group (USER thường) |
+| Permission | `recipe:create` / `recipe:update` | Membership group (JWT); không cần CREATOR |
+| Ai thấy | Public (sau **4.2b** khi mở cộng đồng) | Chỉ member của group đó |
+| Duyệt nội dung | Có (**4.2b**, phase sau) | Không — không lên Discover |
+| Food mới kèm | Theo **4.2b** / **7b** (PRIVATE → merge/promote khi approve) | Ưu tiên Food **PUBLIC**; thiếu thì Food **PRIVATE** của actor (`assertFoodUsable` / **7c**) |
+
+Schema / visibility:
+
+1. `Recipe.groupId` nullable → FK `InventoryGroup` (`onDelete: Cascade`).
+2. `RecipeVisibility` thêm `GROUP`. Khi `groupId` set → bắt buộc `visibility = GROUP`; khi `groupId` null → không được `GROUP`.
+3. Discovery `GET /recipes` (và article gắn recipe công khai): **không** trả recipe `GROUP`.
+4. Recommend / cook theo `groupId`: lấy `PUBLIC` **và** cookbook `GROUP` của group đó.
+
+Quyền trong group (MVP):
+
+- **Tạo:** mọi member.
+- **Sửa / xóa:** author của recipe; **OWNER** group được xóa (và sửa) mọi cookbook recipe của group.
+- Không chuyển cookbook → catalog trong MVP (muốn public → tạo lại / phase sau “promote to catalog” + CREATOR + **4.2b**).
+
+Member rời / dissolve:
+
+- Member rời: cookbook **ở lại** group (`authorId` giữ nguyên; author không còn member thì không sửa/xóa trừ khi được mời lại hoặc OWNER xử lý).
+- Sole OWNER leave → dissolve group → **cascade xóa** cookbook (cùng pantry/lists).
+
+API (JWT, membership):
+
+- `GET /groups/me/recipes` — list cookbook group hiện tại
+- `POST /groups/me/recipes` — tạo (force `GROUP` + `groupId` của membership)
+- `GET /groups/me/recipes/:slug` — detail (pantry flags theo group)
+- `PATCH /groups/me/recipes/:id` — update (author hoặc OWNER)
+- `DELETE /groups/me/recipes/:id` — delete (author hoặc OWNER)
+
+`GET /recipes/:slug` với recipe `GROUP`: chỉ trả nếu caller là member của `recipe.groupId` (404 nếu không).
+
+Thứ tự triển khai: **4.2c trước 4.2b** (cookbook nhóm phục vụ USER ngay; moderation catalog để phase cộng đồng).
+
+Không làm:
+
+- Bắt USER xin CREATOR chỉ để ghi món nhà.
+- Đưa cookbook group lên Discover / share công khai mặc định.
+- Moderator duyệt từng cookbook group.
+- Multi-group cookbook picker (MVP vẫn 1 group/user — **7c**).
+
+
+4.2d. Media — upload ảnh hệ thống (phase sau; sau Group Cookbook CRUD)
+
+**Đã chốt:** Ảnh user-generated (recipe cookbook, sau đó food/article/avatar) lưu trên **object storage** thuộc hệ thống — không phụ thuộc URL báo mạng. Dev dùng **MinIO** (đã có trong Docker Compose, bucket `pantrio-media`, env `S3_*`). Prod: cùng S3-compatible API (MinIO trên VPS hoặc S3/R2 managed); **VPS chạy Backend**, blob không tự viết file server / static folder riêng.
+
+Bối cảnh hiện tại:
+
+- `Recipe.imageUrl` / `Food.imageUrl` là string URL; seed/dev nhiều ảnh là URL ngoài.
+- Group cookbook tạo mới thường **chưa có ảnh** — cần upload lúc tạo **và** lúc sửa (nấu xong mới có ảnh thành quả).
+
+Kiến trúc:
+
+| Lớp | Vai trò |
+|-----|---------|
+| Client (Mobile/Web) | Chọn ảnh → upload → nhận URL → gắn vào create/update recipe |
+| API Nest (`media` module) | Auth, validate mime/size, ghi object, trả URL công khai |
+| Object storage | MinIO local / S3-compatible prod (`S3_ENDPOINT`, `S3_BUCKET`, …) |
+
+Upload:
+
+1. **MVP gần:** `POST /media` (multipart **form-data**, JWT) → `{ url, key? }`. Client rồi `POST/PATCH` recipe với `imageUrl`.
+2. **Phase sau (mobile/file lớn):** `POST /media/presign` → client PUT thẳng storage → `PATCH` recipe `imageUrl` (API không nhận binary mọi request).
+3. Một pipeline media **dùng chung** (recipe, food, article cover, avatar) — không API upload silo theo từng entity.
+
+Model dữ liệu (MVP):
+
+- Giữ `imageUrl` string trên Recipe/Food/Article là đủ.
+- Phase muộn hơn (optional): bảng `MediaAsset` (owner, key, mime, size, linked entity) để dọn orphan / quota — không bắt buộc lúc mở upload.
+
+Ràng buộc:
+
+- Mime: jpeg / webp / png; size ~2–5MB; ưu tiên compress/resize phía client (hoặc worker nhẹ).
+- User-generated: URL phải thuộc bucket hệ thống (không chấp nhận dán URL ngoài tùy ý khi policy siết).
+- Seed/catalog tạm vẫn có thể dùng URL ngoài cho đến khi migrate.
+- Thay ảnh: upload mới + (optional) xóa object cũ.
+- **Quyền:** group cookbook — member (author/OWNER theo **4.2c**); catalog CREATOR — ảnh public vẫn thuộc kiểm soát **4.2b** khi mở cộng đồng.
+
+UX ưu tiên:
+
+1. Tạo cookbook group: optional ảnh.
+2. Sửa cookbook / “Thêm ảnh sau khi nấu” (từ detail hoặc sau Cook session).
+3. Cùng flow cho catalog recipe (CREATOR) khi sẵn sàng.
+
+Không làm:
+
+- Tự host thư mục ảnh kiểu static folder trên VPS thay cho object storage.
+- Bắt buộc ảnh lúc tạo recipe (ảnh optional; sửa sau mới có là hợp lệ).
+- Upload binary nhét trong mọi `POST /recipes` khi đã có endpoint media riêng (tránh phình payload).
+- Moderator duyệt từng ảnh cookbook group (không lên Discover).
+
+Thứ tự: Media upload MinIO local → wire tạo/sửa group cookbook (+ sau cook) → catalog/creator → deploy VPS (đổi `S3_*`, không đổi schema).
+
+
 4.3 Ingredient
 
 Ingredient
@@ -1199,7 +1303,9 @@ AI Food Scan
 Expiry Notification
 Advanced Search
 Creator (UX xin quyền CREATOR + duyệt — xem mục **3c**; assign tay vẫn dùng được từ MVP)
-Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; MVP CRUD chưa bắt buộc)
+Group Cookbook (**4.2c** — ưu tiên trước moderation)
+Media / upload ảnh MinIO→S3 (**4.2d** — form-data MVP; tạo + sửa recipe; sau cook)
+Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; sau cookbook nhóm)
 Community
 OAuth 2.0 (Google / Apple, …) — xem mục **3b**
 

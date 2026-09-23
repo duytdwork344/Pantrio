@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   ContentEventType,
+  GroupMemberRole,
   Prisma,
   RecipeDifficulty,
   RecipeVisibility,
@@ -17,12 +18,14 @@ import { pickTranslation } from '../common/i18n/locale';
 import { GroupsService } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  CreateGroupRecipeDto,
   CreateRecipeDto,
   RecipeDetailDto,
   RecipeIngredientInputDto,
   RecipeSummaryDto,
   ShareChannel,
   ShareRecipeResultDto,
+  UpdateGroupRecipeDto,
   UpdateRecipeDto,
 } from './dto/recipe.dto';
 
@@ -57,11 +60,24 @@ export class RecipesService {
 
   async list(): Promise<RecipeSummaryDto[]> {
     const recipes = await this.prisma.recipe.findMany({
-      where: { visibility: 'PUBLIC' },
+      where: { visibility: RecipeVisibility.PUBLIC, groupId: null },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
+    return recipes.map((recipe) => this.toSummary(recipe));
+  }
+
+  async listGroupCookbook(userId: string): Promise<RecipeSummaryDto[]> {
+    const membership = await this.groups.requireMembership(userId);
+    const recipes = await this.prisma.recipe.findMany({
+      where: {
+        groupId: membership.groupId,
+        visibility: RecipeVisibility.GROUP,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
     return recipes.map((recipe) => this.toSummary(recipe));
   }
 
@@ -79,7 +95,35 @@ export class RecipesService {
       return null;
     }
 
+    if (recipe.visibility === RecipeVisibility.GROUP || recipe.groupId) {
+      if (!viewerUserId || !recipe.groupId) {
+        return null;
+      }
+      await this.groups.requireMembership(viewerUserId, recipe.groupId);
+      // Pantry flags default to the recipe's group when not overridden.
+      return this.toDetail(recipe, viewerUserId, groupId ?? recipe.groupId);
+    }
+
     return this.toDetail(recipe, viewerUserId, groupId);
+  }
+
+  async findGroupBySlug(
+    userId: string,
+    slug: string,
+  ): Promise<RecipeDetailDto | null> {
+    const membership = await this.groups.requireMembership(userId);
+    const recipe = await this.prisma.recipe.findFirst({
+      where: {
+        slug,
+        groupId: membership.groupId,
+        visibility: RecipeVisibility.GROUP,
+      },
+      include: this.detailInclude(),
+    });
+    if (!recipe) {
+      return null;
+    }
+    return this.toDetail(recipe, userId, membership.groupId);
   }
 
   async saveRecipe(userId: string, recipeId: string) {
@@ -190,6 +234,13 @@ export class RecipesService {
     author: AuthUser,
     dto: CreateRecipeDto,
   ): Promise<RecipeDetailDto> {
+    if (dto.visibility === RecipeVisibility.GROUP) {
+      throw new BadRequestException(
+        'Use POST /groups/me/recipes to create group cookbook recipes',
+      );
+    }
+
+    const visibility = dto.visibility ?? RecipeVisibility.PUBLIC;
     const slug = dto.slug?.trim()
       ? await this.resolveUniqueSlug(dto.slug, { allowSuffix: false })
       : await this.resolveUniqueSlug(dto.title, { allowSuffix: true });
@@ -198,6 +249,7 @@ export class RecipesService {
     const recipe = await this.prisma.recipe.create({
       data: {
         authorId: author.id,
+        groupId: null,
         title: dto.title.trim(),
         slug,
         description: dto.description?.trim() || null,
@@ -207,7 +259,7 @@ export class RecipesService {
         difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
         instructions: dto.instructions.trim(),
         imageUrl: dto.imageUrl ?? null,
-        visibility: dto.visibility ?? RecipeVisibility.PUBLIC,
+        visibility,
         ingredients: {
           create: this.mapIngredientCreates(dto.ingredients),
         },
@@ -216,6 +268,40 @@ export class RecipesService {
     });
 
     return this.toDetail(recipe);
+  }
+
+  async createForGroup(
+    author: AuthUser,
+    dto: CreateGroupRecipeDto,
+  ): Promise<RecipeDetailDto> {
+    const membership = await this.groups.requireMembership(author.id);
+    const slug = dto.slug?.trim()
+      ? await this.resolveUniqueSlug(dto.slug, { allowSuffix: false })
+      : await this.resolveUniqueSlug(dto.title, { allowSuffix: true });
+    await this.assertFoodsUsable(dto.ingredients, author);
+
+    const recipe = await this.prisma.recipe.create({
+      data: {
+        authorId: author.id,
+        groupId: membership.groupId,
+        title: dto.title.trim(),
+        slug,
+        description: dto.description?.trim() || null,
+        servings: dto.servings ?? 2,
+        prepTimeMin: dto.prepTimeMin ?? null,
+        cookTimeMin: dto.cookTimeMin ?? null,
+        difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
+        instructions: dto.instructions.trim(),
+        imageUrl: dto.imageUrl ?? null,
+        visibility: RecipeVisibility.GROUP,
+        ingredients: {
+          create: this.mapIngredientCreates(dto.ingredients),
+        },
+      },
+      include: this.detailInclude(),
+    });
+
+    return this.toDetail(recipe, author.id, membership.groupId);
   }
 
   async update(
@@ -228,26 +314,92 @@ export class RecipesService {
       throw new NotFoundException(`Recipe '${id}' not found`);
     }
 
-    this.assertCanEdit(existing.authorId, actor);
+    if (existing.groupId || existing.visibility === RecipeVisibility.GROUP) {
+      throw new BadRequestException(
+        'Use PATCH /groups/me/recipes/:id for group cookbook recipes',
+      );
+    }
+
+    this.assertCanEditCatalog(existing.authorId, actor);
+
+    if (dto.visibility === RecipeVisibility.GROUP) {
+      throw new BadRequestException(
+        'Cannot set visibility GROUP on a catalog recipe',
+      );
+    }
 
     if (dto.ingredients?.length) {
       await this.assertFoodsUsable(dto.ingredients, actor);
     }
 
-    let slug = existing.slug;
+    const recipe = await this.applyRecipePatch(id, existing.slug, existing.title, dto);
+    return this.toDetail(recipe);
+  }
+
+  async updateForGroup(
+    id: string,
+    actor: AuthUser,
+    dto: UpdateGroupRecipeDto,
+  ): Promise<RecipeDetailDto> {
+    const existing = await this.prisma.recipe.findUnique({ where: { id } });
+    if (!existing || !existing.groupId) {
+      throw new NotFoundException(`Group recipe '${id}' not found`);
+    }
+
+    const membership = await this.groups.requireMembership(
+      actor.id,
+      existing.groupId,
+    );
+    this.assertCanEditGroup(existing.authorId, membership.role, actor);
+
+    if (dto.ingredients?.length) {
+      await this.assertFoodsUsable(dto.ingredients, actor);
+    }
+
+    const recipe = await this.applyRecipePatch(id, existing.slug, existing.title, {
+      ...dto,
+      // Keep GROUP invariant
+      visibility: RecipeVisibility.GROUP,
+    });
+    return this.toDetail(recipe, actor.id, existing.groupId);
+  }
+
+  async deleteForGroup(id: string, actor: AuthUser): Promise<{ deleted: true; id: string }> {
+    const existing = await this.prisma.recipe.findUnique({ where: { id } });
+    if (!existing || !existing.groupId) {
+      throw new NotFoundException(`Group recipe '${id}' not found`);
+    }
+
+    const membership = await this.groups.requireMembership(
+      actor.id,
+      existing.groupId,
+    );
+    this.assertCanEditGroup(existing.authorId, membership.role, actor);
+
+    await this.prisma.recipe.delete({ where: { id } });
+    return { deleted: true, id };
+  }
+
+  private async applyRecipePatch(
+    id: string,
+    existingSlug: string,
+    existingTitle: string,
+    dto: UpdateRecipeDto | (UpdateGroupRecipeDto & { visibility?: RecipeVisibility }),
+  ) {
+    let slug = existingSlug;
     if (dto.slug?.trim()) {
       slug = await this.resolveUniqueSlug(dto.slug, {
         excludeRecipeId: id,
         allowSuffix: false,
       });
-    } else if (dto.title?.trim() && dto.title.trim() !== existing.title) {
+    } else if (dto.title?.trim() && dto.title.trim() !== existingTitle) {
       slug = await this.resolveUniqueSlug(dto.title, {
         excludeRecipeId: id,
         allowSuffix: true,
       });
     }
 
-    const recipe = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       if (dto.ingredients) {
         await tx.recipeIngredient.deleteMany({ where: { recipeId: id } });
       }
@@ -288,11 +440,9 @@ export class RecipesService {
         include: this.detailInclude(),
       });
     });
-
-    return this.toDetail(recipe);
   }
 
-  private assertCanEdit(authorId: string, actor: AuthUser) {
+  private assertCanEditCatalog(authorId: string, actor: AuthUser) {
     const isAuthor = authorId === actor.id;
     const isElevated =
       actor.permissions.includes('system:manage') ||
@@ -300,6 +450,24 @@ export class RecipesService {
 
     if (!isAuthor && !isElevated) {
       throw new ForbiddenException('You can only edit your own recipes');
+    }
+  }
+
+  private assertCanEditGroup(
+    authorId: string,
+    role: GroupMemberRole,
+    actor: AuthUser,
+  ) {
+    const isAuthor = authorId === actor.id;
+    const isOwner = role === GroupMemberRole.OWNER;
+    const isElevated =
+      actor.permissions.includes('system:manage') ||
+      actor.permissions.includes('moderation:manage');
+
+    if (!isAuthor && !isOwner && !isElevated) {
+      throw new ForbiddenException(
+        'Only the author or group owner can edit this cookbook recipe',
+      );
     }
   }
 
@@ -443,6 +611,7 @@ export class RecipesService {
     return {
       ...this.toSummary(recipe),
       authorId: recipe.authorId,
+      groupId: recipe.groupId ?? null,
       visibility: recipe.visibility,
       instructions: recipe.instructions,
       ...(viewerUserId ? { saved } : {}),

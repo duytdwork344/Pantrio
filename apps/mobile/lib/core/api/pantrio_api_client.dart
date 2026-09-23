@@ -304,6 +304,40 @@ class PantrioApiClient {
     return list.map(RecipeSummary.fromJson).toList();
   }
 
+  Future<List<RecipeSummary>> getGroupCookbookRecipes() async {
+    final list = await _getList('groups/me/recipes');
+    return list.map(RecipeSummary.fromJson).toList();
+  }
+
+  Future<RecipeDetail> getGroupCookbookRecipe(String slug) async {
+    final data = await _get('groups/me/recipes/$slug');
+    return RecipeDetail.fromJson(data);
+  }
+
+  Future<RecipeDetail> createGroupCookbookRecipe({
+    required String title,
+    required String instructions,
+    required List<Map<String, dynamic>> ingredients,
+    String? description,
+    int servings = 2,
+    String difficulty = 'EASY',
+  }) async {
+    final data = await _post('groups/me/recipes', {
+      'title': title,
+      'instructions': instructions,
+      'ingredients': ingredients,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      'servings': servings,
+      'difficulty': difficulty,
+    });
+    return RecipeDetail.fromJson(data);
+  }
+
+  Future<void> deleteGroupCookbookRecipe(String id) async {
+    await _delete('groups/me/recipes/$id');
+  }
+
   Future<RecipeDetail> getRecipeBySlug(
     String slug, {
     String? groupId,

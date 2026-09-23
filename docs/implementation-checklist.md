@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **7b**, **7c**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **7b**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -97,6 +97,37 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
   - [ ] Moderator API: list pending + approve/reject (`moderation:manage`)
   - [ ] Approve recipe → check trùng Food PRIVATE mới → merge (Moderator) hoặc promote PUBLIC; reject không auto-public Food
   - [ ] Orphan Food: Moderator list/dọn; không auto-delete
+
+---
+
+## 3b. Group Cookbook (API + Mobile) — ưu tiên trước 4.2b
+
+Tham chiếu: requirements **4.2c**. Cookbook nội bộ theo InventoryGroup; USER không cần CREATOR.
+
+- [x] Schema: `Recipe.groupId` (nullable FK InventoryGroup, Cascade) + `RecipeVisibility.GROUP` — migration `20260923140000_recipe_group_cookbook`
+- [x] Invariant: `groupId` set ⇔ `visibility = GROUP` (create/update paths force GROUP; catalog rejects GROUP)
+- [x] `GET/POST /groups/me/recipes`, `GET …/:slug`, `PATCH/DELETE …/:id` (membership; author hoặc OWNER sửa/xóa)
+- [x] Discovery `GET /recipes` loại trừ `GROUP`; `GET /recipes/:slug` chỉ member thấy group recipe
+- [x] Recommend/cook `groupId`: gồm `PUBLIC` + cookbook `GROUP` của group
+- [x] Food usable: PUBLIC hoặc PRIVATE của actor (reuse `assertFoodUsable` — **7c**)
+- [x] Mobile: tab **Group** cookbook (list + tạo tối thiểu) khi user có group
+- [x] Leave/dissolve: cookbook ở lại khi member leave; cascade khi dissolve group (`onDelete: Cascade`)
+
+---
+
+## 3c. Media — upload ảnh (phase sau; requirements **4.2d**)
+
+Object storage MinIO (local) → S3-compatible (prod). Không file server tự viết trên VPS. `imageUrl` string đủ MVP.
+
+- [x] Docs đã ghi hướng (**4.2d**) — MinIO/`S3_*`, form-data MVP, presign sau, tạo+sửa+sau cook
+- [ ] Media module API: client S3 (MinIO) từ env `S3_*`; bucket `pantrio-media`
+- [ ] `POST /media` multipart form-data (JWT) → validate mime/size → put object → `{ url }`
+- [ ] (Sau) `POST /media/presign` + client PUT thẳng storage
+- [ ] Policy: user-generated URL thuộc bucket hệ thống; optional xóa object cũ khi thay ảnh
+- [ ] Wire **Group cookbook**: optional ảnh lúc tạo; **sửa recipe** gắn/đổi ảnh; UX “thêm ảnh sau khi nấu”
+- [ ] Mobile: image picker + upload + PATCH `/groups/me/recipes/:id`
+- [ ] (Cùng pipeline) Catalog CREATOR / Food / Article cover khi sẵn sàng
+- [ ] Deploy note: VPS chạy API; đổi `S3_*` sang MinIO/S3 prod — không đổi schema Recipe
 
 ---
 
@@ -287,6 +318,7 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 - [x] requirements: Moderator merge (**7b.7**)
 - [x] requirements: FoodAlias phase sau (**7b.8**)
 - [x] requirements: InventoryGroup dual scope (**7c**)
+- [x] requirements: Media / upload ảnh (**4.2d**)
 - [ ] OpenAPI export + regenerate `packages/api-client` sau mỗi domain lớn
 - [ ] Seed admin user dev (optional)
 - [ ] E2E smoke: register → create recipe → save → add inventory foodId
@@ -306,7 +338,9 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 7. **InventoryGroup (checklist 6a)** — schema → group API → inventory/shopping scope → Mobile tabs → race → cook/recommend group  
 8. **Web/Mobile hydrate** còn lại (Creator recipe trên Web; Mobile Cook UI nếu chưa gộp vào 6a)  
 9. **Discover cụm + intent share + pantry multi-signal** (checklist **8a**) — trước OG/deep-link attribution  
-10. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
+10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
+11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
+12. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
 
 ---
 
@@ -318,3 +352,4 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 - Khớp recipe ↔ inventory **chỉ qua `foodId`**, không qua tên string.
 - Unit MVP chuẩn: `g` | `kg` | `ml` | `l` | `pcs` (`@pantrio/shared` `Unit`).
 - InventoryGroup (**7c** / checklist **6a**): Personal | Group tabs; share Inventory + Shopping; 1 group/user MVP; invite code; purchase cùng scope.
+- Media (**4.2d** / checklist **3c**): MinIO `pantrio-media` + `S3_*`; form-data MVP; tạo+sửa recipe (đặc biệt cookbook group / sau cook).

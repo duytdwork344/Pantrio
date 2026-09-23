@@ -44,6 +44,8 @@ enum RecipeVisibility {
   PUBLIC
   PRIVATE
   UNLISTED
+  /// Cookbook nội bộ InventoryGroup — không lên Discover (xem requirements 4.2c).
+  GROUP
 }
 
 enum FoodVisibility {
@@ -167,6 +169,8 @@ model FoodTranslation {
 model Recipe {
   id           String           @id @default(cuid())
   authorId     String
+  /// When set, recipe is group cookbook (visibility must be GROUP).
+  groupId      String?
   title        String
   slug         String           @unique
   description  String?
@@ -183,6 +187,7 @@ model Recipe {
   updatedAt    DateTime         @updatedAt
 
   author            User               @relation("RecipeAuthor", fields: [authorId], references: [id])
+  group             InventoryGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   ingredients       RecipeIngredient[]
   tags              RecipeTag[]
   savedBy           SavedRecipe[]
@@ -194,6 +199,7 @@ model Recipe {
   contentEvents     ContentEvent[]
 
   @@index([authorId])
+  @@index([groupId])
   @@index([title])
 }
 
@@ -322,6 +328,7 @@ model InventoryGroup {
   members       GroupMembership[]
   inventoryItems InventoryItem[]
   shoppingLists ShoppingList[]
+  recipes       Recipe[]
 
   @@index([inviteCode])
 }

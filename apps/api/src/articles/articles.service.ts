@@ -188,11 +188,17 @@ export class ArticlesService {
       return;
     }
     const found = await this.prisma.recipe.findMany({
-      where: { id: { in: recipeIds } },
+      where: {
+        id: { in: recipeIds },
+        visibility: { not: 'GROUP' },
+        groupId: null,
+      },
       select: { id: true },
     });
     if (found.length !== recipeIds.length) {
-      throw new BadRequestException('One or more recipeIds were not found');
+      throw new BadRequestException(
+        'One or more recipeIds were not found or are group cookbook recipes',
+      );
     }
   }
 

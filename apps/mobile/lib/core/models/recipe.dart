@@ -94,9 +94,11 @@ class RecipeDetail extends RecipeSummary {
     super.imageUrl,
     super.shareCount,
     this.saved,
+    this.groupId,
   });
 
   final String authorId;
+  final String? groupId;
   final String visibility;
   final String instructions;
   final List<RecipeIngredient> ingredients;
@@ -110,6 +112,7 @@ class RecipeDetail extends RecipeSummary {
       servings: servings,
       difficulty: difficulty,
       authorId: authorId,
+      groupId: groupId,
       visibility: visibility,
       instructions: instructions,
       ingredients: ingredients,
@@ -135,6 +138,7 @@ class RecipeDetail extends RecipeSummary {
       imageUrl: json['imageUrl'] as String?,
       shareCount: json['shareCount'] as int? ?? 0,
       authorId: json['authorId'] as String,
+      groupId: json['groupId'] as String?,
       visibility: json['visibility'] as String,
       instructions: json['instructions'] as String,
       saved: json['saved'] as bool?,

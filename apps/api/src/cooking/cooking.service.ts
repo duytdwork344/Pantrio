@@ -289,7 +289,14 @@ export class CookingService {
 
     const [recipes, inventory] = await Promise.all([
       this.prisma.recipe.findMany({
-        where: { visibility: 'PUBLIC' },
+        where: groupId
+          ? {
+              OR: [
+                { visibility: 'PUBLIC', groupId: null },
+                { visibility: 'GROUP', groupId },
+              ],
+            }
+          : { visibility: 'PUBLIC', groupId: null },
         include: {
           ingredients: {
             include: { food: { include: { translations: true } } },

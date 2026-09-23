@@ -89,6 +89,12 @@ export class RecipeDetailDto extends RecipeSummaryDto {
   @ApiProperty()
   authorId!: string;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Set when visibility = GROUP (group cookbook)',
+  })
+  groupId?: string | null;
+
   @ApiProperty({ enum: RecipeVisibility })
   visibility!: RecipeVisibility;
 
@@ -223,7 +229,72 @@ export class CreateRecipeDto {
   ingredients!: RecipeIngredientInputDto[];
 }
 
+/** Catalog create/update — do not set groupId / GROUP here (use /groups/me/recipes). */
 export class UpdateRecipeDto extends PartialType(CreateRecipeDto) {}
+
+/** Body for POST /groups/me/recipes — visibility/groupId are forced by the server. */
+export class CreateGroupRecipeDto {
+  @ApiProperty({ example: 'Cơm chiên nhà làm' })
+  @IsString()
+  @MinLength(2)
+  title!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: 2, default: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  servings?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  prepTimeMin?: number;
+
+  @ApiPropertyOptional({ example: 15 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cookTimeMin?: number;
+
+  @ApiPropertyOptional({
+    enum: RecipeDifficulty,
+    default: RecipeDifficulty.EASY,
+  })
+  @IsOptional()
+  @IsEnum(RecipeDifficulty)
+  difficulty?: RecipeDifficulty;
+
+  @ApiProperty({ example: '1. Chiên trứng...\n2. Xào cơm...' })
+  @IsString()
+  @MinLength(1)
+  instructions!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
+
+  @ApiProperty({ type: [RecipeIngredientInputDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RecipeIngredientInputDto)
+  ingredients!: RecipeIngredientInputDto[];
+}
+
+export class UpdateGroupRecipeDto extends PartialType(CreateGroupRecipeDto) {}
 
 export const SHARE_CHANNELS = [
   'copy',

@@ -13,6 +13,7 @@ class RecipeDetailPage extends StatefulWidget {
     required this.slug,
     this.initialServings,
     this.pantryGroupId,
+    this.useGroupCookbook = false,
   });
 
   final String slug;
@@ -20,6 +21,8 @@ class RecipeDetailPage extends StatefulWidget {
   final int? initialServings;
   /// When set, inInventory flags + cook use this InventoryGroup pantry.
   final String? pantryGroupId;
+  /// Load via /groups/me/recipes/:slug (group cookbook).
+  final bool useGroupCookbook;
 
   @override
   State<RecipeDetailPage> createState() => _RecipeDetailPageState();
@@ -40,10 +43,13 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   }
 
   Future<RecipeDetail> _load() async {
-    final recipe = await context.read<AuthSession>().api.getRecipeBySlug(
-          widget.slug,
-          groupId: _pantryGroupId,
-        );
+    final api = context.read<AuthSession>().api;
+    final recipe = widget.useGroupCookbook
+        ? await api.getGroupCookbookRecipe(widget.slug)
+        : await api.getRecipeBySlug(
+            widget.slug,
+            groupId: _pantryGroupId,
+          );
     if (!mounted) return recipe;
     setState(() {
       _recipe = recipe;
