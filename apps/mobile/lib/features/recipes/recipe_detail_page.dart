@@ -251,6 +251,44 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     }
   }
 
+  Future<void> _deleteGroupRecipe(RecipeDetail recipe) async {
+    if (!widget.useGroupCookbook) return;
+    final api = context.read<AuthSession>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete recipe?'),
+        content: Text(
+          'Remove “${recipe.title}” from the group cookbook? '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await api.deleteGroupCookbookRecipe(recipe.id);
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Recipe deleted')));
+      nav.pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _cook(RecipeDetail recipe) async {
     final api = context.read<AuthSession>().api;
     final messenger = ScaffoldMessenger.of(context);
@@ -306,8 +344,14 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recipe'),
+        title: Text(widget.useGroupCookbook ? 'Cookbook recipe' : 'Recipe'),
         actions: [
+          if (widget.useGroupCookbook && _recipe != null)
+            IconButton(
+              tooltip: 'Delete',
+              onPressed: () => _deleteGroupRecipe(_recipe!),
+              icon: const Icon(Icons.delete_outline),
+            ),
           IconButton(
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
@@ -367,17 +411,33 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                 const SizedBox(height: 12),
               ],
               if (widget.useGroupCookbook) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _setGroupPhoto(recipe),
-                    icon: const Icon(Icons.add_a_photo_outlined),
-                    label: Text(
-                      recipe.imageUrl == null || recipe.imageUrl!.isEmpty
-                          ? 'Add photo'
-                          : 'Change photo',
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _setGroupPhoto(recipe),
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      label: Text(
+                        recipe.imageUrl == null || recipe.imageUrl!.isEmpty
+                            ? 'Add photo'
+                            : 'Change photo',
+                      ),
                     ),
-                  ),
+                    OutlinedButton.icon(
+                      onPressed: () => _deleteGroupRecipe(recipe),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      label: Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
               ],

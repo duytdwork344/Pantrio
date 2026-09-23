@@ -177,10 +177,11 @@ class _DiscoverTab extends StatelessWidget {
     return FutureBuilder<List<RecipeSummary>>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        // Initial load only — keep previous list visible while refreshing.
+        if (!snapshot.hasData && !snapshot.hasError) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError && !snapshot.hasData) {
           return _ErrorBody(message: snapshot.error.toString(), onRetry: onRefresh);
         }
         final recipes = snapshot.data ?? const <RecipeSummary>[];
@@ -243,10 +244,11 @@ class _SavedTab extends StatelessWidget {
     return FutureBuilder<List<SavedRecipe>>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        // Initial load only — keep previous list visible while refreshing.
+        if (!snapshot.hasData && !snapshot.hasError) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError && !snapshot.hasData) {
           return _ErrorBody(message: snapshot.error.toString(), onRetry: onRefresh);
         }
         final rows = snapshot.data ?? const <SavedRecipe>[];
@@ -310,10 +312,11 @@ class _PlannedTab extends StatelessWidget {
     return FutureBuilder<List<PlannedRecipe>>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        // Initial load only — keep previous list visible while refreshing.
+        if (!snapshot.hasData && !snapshot.hasError) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError && !snapshot.hasData) {
           return _ErrorBody(message: snapshot.error.toString(), onRetry: onRefresh);
         }
         final rows = snapshot.data ?? const <PlannedRecipe>[];

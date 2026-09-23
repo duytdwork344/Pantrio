@@ -106,10 +106,10 @@ class _CookRecommendTabState extends State<CookRecommendTab> {
               : FutureBuilder<List<RecipeRecommendation>>(
                   future: _future,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
+                    if (!snapshot.hasData && !snapshot.hasError) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (snapshot.hasError) {
+                    if (snapshot.hasError && !snapshot.hasData) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),

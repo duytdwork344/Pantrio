@@ -16,28 +16,50 @@ class GroupCookbookTab extends StatefulWidget {
   State<GroupCookbookTab> createState() => _GroupCookbookTabState();
 }
 
-class _GroupCookbookTabState extends State<GroupCookbookTab> {
-  late Future<({InventoryGroup? group, List<RecipeSummary> recipes})> _future;
+class _GroupCookbookTabState extends State<GroupCookbookTab>
+    with AutomaticKeepAliveClientMixin {
+  InventoryGroup? _group;
+  List<RecipeSummary> _recipes = const [];
+  bool _loading = true;
+  Object? _error;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
   }
 
-  Future<({InventoryGroup? group, List<RecipeSummary> recipes})> _load() async {
+  Future<void> _reload() async {
     final api = context.read<AuthSession>().api;
-    final group = await api.getMyGroup();
-    if (group == null) {
-      return (group: null, recipes: const <RecipeSummary>[]);
+    setState(() {
+      _error = null;
+      // Keep existing list visible while refreshing (don't blank the screen).
+      if (_group == null && _recipes.isEmpty) {
+        _loading = true;
+      }
+    });
+    try {
+      final group = await api.getMyGroup();
+      final recipes = group == null
+          ? const <RecipeSummary>[]
+          : await api.getGroupCookbookRecipes();
+      if (!mounted) return;
+      setState(() {
+        _group = group;
+        _recipes = List<RecipeSummary>.from(recipes);
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
     }
-    final recipes = await api.getGroupCookbookRecipes();
-    return (group: group, recipes: recipes);
-  }
-
-  Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
   }
 
   Future<void> _open(RecipeSummary recipe, {required String groupId}) async {
@@ -50,7 +72,7 @@ class _GroupCookbookTabState extends State<GroupCookbookTab> {
         ),
       ),
     );
-    if (mounted) await _refresh();
+    if (mounted) await _reload();
   }
 
   Future<void> _create(InventoryGroup group) async {
@@ -59,91 +81,102 @@ class _GroupCookbookTabState extends State<GroupCookbookTab> {
         builder: (_) => CreateGroupRecipePage(groupName: group.name),
       ),
     );
-    if (created == true && mounted) await _refresh();
+    if (created == true && mounted) await _reload();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<({InventoryGroup? group, List<RecipeSummary> recipes})>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          final msg = snapshot.error is ApiException
-              ? (snapshot.error! as ApiException).message
-              : snapshot.error.toString();
-          return Center(child: Text(msg));
-        }
+    super.build(context);
 
-        final data = snapshot.data!;
-        final group = data.group;
-        if (group == null) {
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              children: const [
-                SizedBox(height: 80),
-                Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
+    if (_loading && _group == null && _recipes.isEmpty && _error == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _group == null && _recipes.isEmpty) {
+      final msg = _error is ApiException
+          ? (_error! as ApiException).message
+          : _error.toString();
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(msg, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: _reload, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final group = _group;
+    if (group == null) {
+      return RefreshIndicator(
+        onRefresh: _reload,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 80),
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Join or create a household group first.\n'
+                  'Open Inventory → Group tab to set one up.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _create(group),
+        icon: const Icon(Icons.add),
+        label: const Text('Add recipe'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _reload,
+        child: _recipes.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 48),
+                  Center(
                     child: Text(
-                      'Join or create a household group first.\n'
-                      'Open Inventory → Group tab to set one up.',
+                      'No cookbook recipes for ${group.name} yet.\n'
+                      'Add house favorites — no creator role needed.',
                       textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final recipes = data.recipes;
-        return Scaffold(
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _create(group),
-            icon: const Icon(Icons.add),
-            label: const Text('Add recipe'),
-          ),
-          body: RefreshIndicator(
-            onRefresh: _refresh,
-            child: recipes.isEmpty
-                ? ListView(
-                    children: [
-                      const SizedBox(height: 48),
-                      Center(
-                        child: Text(
-                          'No cookbook recipes for ${group.name} yet.\n'
-                          'Add house favorites — no creator role needed.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
-                    itemCount: recipes.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final recipe = recipes[index];
-                      return ListTile(
-                        leading: RemoteThumb(
-                          url: recipe.imageUrl,
-                          size: 48,
-                        ),
-                        title: Text(recipe.title),
-                        subtitle: Text(
-                          '${recipe.servings} servings · ${recipe.difficulty}',
-                        ),
-                        onTap: () => _open(recipe, groupId: group.id),
-                      );
-                    },
-                  ),
-          ),
-        );
-      },
+                ],
+              )
+            : ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
+                itemCount: _recipes.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final recipe = _recipes[index];
+                  return ListTile(
+                    leading: RemoteThumb(
+                      url: recipe.imageUrl,
+                      size: 48,
+                    ),
+                    title: Text(recipe.title),
+                    subtitle: Text(
+                      '${recipe.servings} servings · ${recipe.difficulty}',
+                    ),
+                    onTap: () => _open(recipe, groupId: group.id),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

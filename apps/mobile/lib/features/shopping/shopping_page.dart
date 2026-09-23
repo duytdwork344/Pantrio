@@ -160,7 +160,7 @@ class _ShoppingPageState extends State<ShoppingPage> {
     return FutureBuilder<List<ShoppingListSummary>>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (!snapshot.hasData && !snapshot.hasError) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
