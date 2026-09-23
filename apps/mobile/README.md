@@ -64,7 +64,7 @@ MinIO console (optional): http://localhost:9001 (`pantrio` / `pantriodev`).
 ## Media upload
 
 - `POST /api/media` (multipart `file`) → `{ url }` stored on `Recipe.imageUrl`.
-- Group cookbook: optional photo on **create**; **Add/Change photo** on recipe detail.
+- Group cookbook: optional photo on **create**; **Add/Change photo** on recipe detail (camera or library).
 - Bucket: `pantrio-media` (anonymous download enabled in Compose).
 
 ## MVP flows

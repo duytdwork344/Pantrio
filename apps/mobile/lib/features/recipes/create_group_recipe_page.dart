@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:pantrio_mobile/core/widgets/pick_recipe_image.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/food_item.dart';
@@ -63,12 +63,7 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-    );
+    final picked = await pickRecipeImage(context);
     if (picked == null) return;
     setState(() {
       _imagePath = picked.path;
@@ -200,11 +195,11 @@ class _CreateGroupRecipePageState extends State<CreateGroupRecipePage> {
                   children: [
                     OutlinedButton.icon(
                       onPressed: (_saving || _uploadingImage) ? null : _pickImage,
-                      icon: const Icon(Icons.photo_library_outlined),
+                      icon: const Icon(Icons.add_a_photo_outlined),
                       label: Text(_imagePath == null ? 'Add photo' : 'Change photo'),
                     ),
                     Text(
-                      'Optional — you can add a photo after cooking too.',
+                      'Camera or library — optional; add after cooking if needed.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

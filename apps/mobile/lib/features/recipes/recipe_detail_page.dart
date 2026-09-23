@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:pantrio_mobile/core/widgets/pick_recipe_image.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
@@ -231,12 +231,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
 
   Future<void> _setGroupPhoto(RecipeDetail recipe) async {
     if (!widget.useGroupCookbook) return;
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-    );
+    final picked = await pickRecipeImage(context);
     if (picked == null) return;
     if (!mounted) return;
     final api = context.read<AuthSession>().api;
