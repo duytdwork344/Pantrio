@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -25,13 +26,20 @@ export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Get('me')
+  @HttpCode(200)
   @RequirePermissions(Permission.INVENTORY_MANAGE)
   @ApiOperation({
-    summary: 'Get current user InventoryGroup (null if not a member)',
+    summary: 'Get current user InventoryGroup (JSON null if not a member)',
   })
   @ApiOkResponse({ type: InventoryGroupDto })
-  getMine(@CurrentUser() user: AuthUser): Promise<InventoryGroupDto | null> {
-    return this.groupsService.getMine(user.id);
+  async getMine(
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const group = await this.groupsService.getMine(user.id);
+    // ExpressAdapter drops a returned `null` into an empty body. Clients
+    // then fail to parse "no group". Send JSON null explicitly.
+    res.status(200).json(group);
   }
 
   @Post()

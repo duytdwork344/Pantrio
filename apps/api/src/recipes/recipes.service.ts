@@ -70,6 +70,16 @@ export class RecipesService {
     return recipes.map((recipe) => this.toSummary(recipe));
   }
 
+  /** Catalog recipes authored by the user (excludes group cookbook). */
+  async listMine(userId: string): Promise<RecipeSummaryDto[]> {
+    const recipes = await this.prisma.recipe.findMany({
+      where: { authorId: userId, groupId: null },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+    return recipes.map((recipe) => this.toSummary(recipe));
+  }
+
   async listGroupCookbook(userId: string): Promise<RecipeSummaryDto[]> {
     const membership = await this.groups.requireMembership(userId);
     const recipes = await this.prisma.recipe.findMany({

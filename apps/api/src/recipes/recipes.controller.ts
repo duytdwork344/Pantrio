@@ -147,6 +147,16 @@ export class RecipesController {
 export class MeController {
   constructor(private readonly recipesService: RecipesService) {}
 
+  @Get('recipes')
+  @RequirePermissions(Permission.RECIPE_CREATE)
+  @ApiOperation({
+    summary: 'List catalog recipes authored by the current user',
+  })
+  @ApiOkResponse({ type: [RecipeSummaryDto] })
+  listMyRecipes(@CurrentUser() user: AuthUser): Promise<RecipeSummaryDto[]> {
+    return this.recipesService.listMine(user.id);
+  }
+
   @Get('saved-recipes')
   @ApiOperation({ summary: 'List recipes saved by the current user' })
   @ApiOkResponse({ type: [SavedRecipeDto] })
