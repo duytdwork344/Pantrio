@@ -7,6 +7,8 @@ import { ArticlesPageComponent } from './pages/articles/articles-page.component'
 import { ArticleDetailPageComponent } from './pages/articles/article-detail-page.component';
 import { StudioArticlesPageComponent } from './pages/studio/studio-articles-page.component';
 import { StudioArticleEditorPageComponent } from './pages/studio/studio-article-editor-page.component';
+import { StudioRecipesPageComponent } from './pages/studio/studio-recipes-page.component';
+import { StudioRecipeEditorPageComponent } from './pages/studio/studio-recipe-editor-page.component';
 
 export const routes: Routes = [
   { path: '', component: DiscoverPageComponent },
@@ -18,5 +20,8 @@ export const routes: Routes = [
   { path: 'studio/articles/new', component: StudioArticleEditorPageComponent },
   { path: 'studio/articles/:id', component: StudioArticleEditorPageComponent },
   { path: 'studio/articles', component: StudioArticlesPageComponent },
+  { path: 'studio/recipes/new', component: StudioRecipeEditorPageComponent },
+  { path: 'studio/recipes/:slug', component: StudioRecipeEditorPageComponent },
+  { path: 'studio/recipes', component: StudioRecipesPageComponent },
   { path: '**', redirectTo: '' },
 ];

@@ -4,6 +4,7 @@ import { environment } from '../../environments/environment';
 import type {
   ArticleDetail,
   ArticleSummary,
+  FoodHit,
   RecipeDetail,
   RecipeRecommendation,
   RecipeSummary,
@@ -16,6 +17,26 @@ export type ArticleWriteBody = {
   coverUrl?: string | null;
   publish?: boolean;
   recipeIds?: string[];
+};
+
+export type RecipeWriteBody = {
+  title: string;
+  description?: string;
+  servings: number;
+  prepTimeMin?: number;
+  cookTimeMin?: number;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  visibility: 'PUBLIC' | 'PRIVATE' | 'UNLISTED';
+  imageUrl?: string;
+  steps: Array<{ body: string; imageUrl?: string; sortOrder: number }>;
+  ingredients: Array<{
+    foodId: string;
+    quantity: number;
+    unit: string;
+    optional?: boolean;
+    note?: string;
+    sortOrder: number;
+  }>;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -76,5 +97,31 @@ export class ApiService {
 
   updateArticle(id: string, body: Partial<ArticleWriteBody>) {
     return this.http.patch<ArticleDetail>(`${this.base}/articles/${id}`, body);
+  }
+
+  listMyRecipes() {
+    return this.http.get<RecipeSummary[]>(`${this.base}/me/recipes`);
+  }
+
+  searchFoods(q: string, locale = 'vi') {
+    const params = new URLSearchParams({ q, locale });
+    return this.http.get<FoodHit[]>(`${this.base}/foods?${params.toString()}`);
+  }
+
+  uploadImage(file: File, folder = 'recipes') {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<{ url: string }>(
+      `${this.base}/media?folder=${encodeURIComponent(folder)}`,
+      body,
+    );
+  }
+
+  createRecipe(body: RecipeWriteBody) {
+    return this.http.post<RecipeDetail>(`${this.base}/recipes`, body);
+  }
+
+  updateRecipe(id: string, body: RecipeWriteBody) {
+    return this.http.patch<RecipeDetail>(`${this.base}/recipes/${id}`, body);
   }
 }

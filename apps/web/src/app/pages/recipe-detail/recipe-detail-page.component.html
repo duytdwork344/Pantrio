@@ -34,6 +34,9 @@
         >
           {{ sharing() ? 'Sharing…' : 'Share' }}
         </button>
+        @if (auth.user()?.id === r.authorId) {
+          <a class="edit" [routerLink]="['/studio/recipes', r.slug]">Sửa</a>
+        }
         @if (shareHint()) {
           <span class="share-hint">{{ shareHint() }}</span>
         }
@@ -62,8 +65,21 @@
         }
       </ul>
 
-      <h2>Instructions</h2>
-      <pre class="instructions">{{ r.instructions }}</pre>
+      <h2>Steps</h2>
+      @if (r.steps?.length) {
+        <ol class="steps">
+          @for (step of r.steps; track step.id) {
+            <li>
+              <p>{{ step.body }}</p>
+              @if (step.imageUrl) {
+                <img [src]="step.imageUrl" alt="" />
+              }
+            </li>
+          }
+        </ol>
+      } @else {
+        <pre class="instructions">{{ r.instructions }}</pre>
+      }
     </article>
   }
 }

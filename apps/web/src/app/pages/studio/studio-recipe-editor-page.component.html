@@ -1,0 +1,166 @@
+<section class="editor">
+  <a routerLink="/studio/recipes" class="back">← Studio · Recipes</a>
+  <h1>{{ recipeId() ? 'Sửa recipe' : 'Recipe mới' }}</h1>
+  <p class="lede">Chọn nguyên liệu có sẵn. Ảnh bìa và ảnh từng bước là tùy chọn.</p>
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else {
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    <form class="form" [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Tiêu đề
+        <input type="text" formControlName="title" />
+      </label>
+      <label>
+        Mô tả (optional)
+        <input type="text" formControlName="description" />
+      </label>
+
+      <div class="grid">
+        <label>
+          Servings
+          <input type="number" min="1" formControlName="servings" />
+        </label>
+        <label>
+          Prep (phút)
+          <input type="number" min="0" formControlName="prepTimeMin" />
+        </label>
+        <label>
+          Cook (phút)
+          <input type="number" min="0" formControlName="cookTimeMin" />
+        </label>
+      </div>
+
+      <div class="grid">
+        <label>
+          Độ khó
+          <select formControlName="difficulty">
+            <option value="EASY">EASY</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HARD">HARD</option>
+          </select>
+        </label>
+        <label>
+          Visibility
+          <select formControlName="visibility">
+            <option value="PUBLIC">PUBLIC</option>
+            <option value="UNLISTED">UNLISTED</option>
+            <option value="PRIVATE">PRIVATE</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="cover">
+        @if (coverPreview()) {
+          <img [src]="coverPreview()" alt="" />
+        }
+        <label>
+          Ảnh bìa
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            (change)="onCover($any($event.target).files?.[0] ?? null)"
+          />
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>Bước nấu</legend>
+        @for (step of steps(); track step.key; let i = $index) {
+          <div class="row">
+            <span class="index">{{ i + 1 }}</span>
+            <textarea
+              rows="3"
+              [value]="step.body"
+              (input)="patchStep(step.key, $any($event.target).value)"
+              placeholder="Nội dung bước"
+            ></textarea>
+            <div class="step-photo">
+              @if (step.previewUrl) {
+                <img [src]="step.previewUrl" alt="" />
+              }
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                (change)="onStepImage(step.key, $any($event.target).files?.[0] ?? null)"
+              />
+            </div>
+            <button type="button" class="text" (click)="removeStep(step.key)">Xóa</button>
+          </div>
+        }
+        <button type="button" class="text" (click)="addStep()">+ Thêm bước</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Nguyên liệu</legend>
+        <label>
+          Tìm food
+          <input
+            type="text"
+            [value]="foodQuery()"
+            (input)="onFoodQuery($any($event.target).value)"
+            placeholder="Gõ ít nhất 2 ký tự"
+          />
+        </label>
+        @if (foodHits().length) {
+          <ul class="hits">
+            @for (food of foodHits(); track food.id) {
+              <li>
+                <button type="button" class="text" (click)="pickFood(food)">
+                  {{ food.name }} · {{ food.baseUnit }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        @for (row of ingredients(); track row.key) {
+          <div class="row ingredient">
+            <strong>{{ row.foodName || 'Chưa chọn món' }}</strong>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              [value]="row.quantity"
+              (input)="patchIngredient(row.key, { quantity: +$any($event.target).value })"
+            />
+            <select
+              [value]="row.unit"
+              (change)="patchIngredient(row.key, { unit: $any($event.target).value })"
+            >
+              @for (unit of units; track unit) {
+                <option [value]="unit">{{ unit }}</option>
+              }
+            </select>
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="row.optional"
+                (change)="patchIngredient(row.key, { optional: $any($event.target).checked })"
+              />
+              Optional
+            </label>
+            <input
+              type="text"
+              [value]="row.note"
+              placeholder="Ghi chú"
+              (input)="patchIngredient(row.key, { note: $any($event.target).value })"
+            />
+            <button type="button" class="text" (click)="removeIngredient(row.key)">Xóa</button>
+          </div>
+        }
+        <button type="button" class="text" (click)="addIngredient()">+ Nguyên liệu trống</button>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" [disabled]="saving()">
+          {{ saving() ? 'Đang lưu…' : recipeId() ? 'Cập nhật' : 'Tạo' }}
+        </button>
+        <a routerLink="/studio/recipes">Hủy</a>
+      </div>
+    </form>
+  }
+</section>

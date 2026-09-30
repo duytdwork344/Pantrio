@@ -12,7 +12,7 @@ import type { ArticleSummary } from '../../core/models';
 })
 export class StudioArticlesPageComponent {
   private readonly api = inject(ApiService);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly mine = signal<ArticleSummary[]>([]);

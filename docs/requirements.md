@@ -1347,6 +1347,7 @@ Brand
 IoT
 Smart Recommendation
 Semantic Search
+Quét barcode → tủ; catalog Mart / giá / nhập lúc thanh toán (đã bàn, chưa làm — xem **27**)
 
 26. Design Principles
 
@@ -1461,3 +1462,28 @@ Cần định nghĩa chính xác:
 Khi nào hệ thống kết luận user "đủ nguyên liệu" để nấu một recipe nếu Inventory chỉ mang tính approximate?
 
 Đây là một trong những bài toán domain quan trọng nhất của hệ thống.
+
+27. Barcode, catalog Mart và nhập tủ — Future (đã bàn 2026-09-30, chưa triển khai)
+
+Mục đích ghi lại để mổ xẻ sau. Không chặn MVP. Không thêm cột SKU Mart lên `Food`. Không cần database cluster.
+
+Ba lớp tách nhau:
+
+| Lớp | Là gì | Hệ thống hiện tại |
+|---|---|---|
+| Nguyên liệu | "Gừng" — nấu, gợi ý, shopping theo `foodId` | `Food` + `FoodTranslation` |
+| Sản phẩm bán | Gói cụ thể: hãng, quy cách, barcode, giá tại một Mart | Chưa có |
+| Cổng nhập tủ | Mã biết đổ hàng vào tủ nào (personal / group) | Chưa có |
+
+Đã chốt khi bàn:
+
+1. Siêu thị có quản lý hàng bằng barcode (EAN/GTIN). Hàng cân ký thường là mã nội bộ của chuỗi, in tại cân.
+2. Tồn kho lúc nhập hàng nằm trong POS/ERP của chính Mart (có thể thuê phần mềm). GS1 chỉ cấp mã sản phẩm, không giữ tồn. Pantrio không đọc được tồn hay giỏ thanh toán trừ khi chuỗi mở API.
+3. Một `foodId` có nhiều mã vạch. SKU Mart sống ở bảng riêng (hướng: sản phẩm retailer + map → `foodId` + độ tin cậy). Chưa map thì xếp hàng đợi, không tự tạo `Food` public.
+4. QR trên tủ là cổng nhập (ai được đẩy, hết hạn, không nhập đúp cùng hóa đơn). Khác barcode trên hộp.
+5. Quét barcode trong app → map `foodId` → tạo batch là bước đầu, không cần Mart. `expiryDate` đã có trên `InventoryItem`; hạn dùng vẫn do người dùng xác nhận.
+6. Giá là quan sát theo thời gian (sản phẩm, Mart, cửa hàng, lúc lấy giá), không phải một cột trên `Food` hay batch.
+7. Shopping list vẫn theo nguyên liệu. Gói bán (túi 250g) phải làm tròn so với nhu cầu công thức.
+8. Thanh toán xong tự nhập tủ, chỉ đường trong siêu thị, mua online: phase đối tác. Trùng bill, hủy bill, privacy lịch sử mua, map dùng chung cần duyệt.
+
+Thứ tự khi quay lại: quét trong app → catalog mã do user gắn vào `Food` có sẵn → giá Mart khi có nguồn hợp lệ → QR cổng nhập → API thanh toán của một chuỗi cụ thể.

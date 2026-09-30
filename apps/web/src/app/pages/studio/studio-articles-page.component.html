@@ -1,4 +1,10 @@
 <section class="studio">
+  <nav class="studio__tabs">
+    @if (auth.canCreateRecipe()) {
+      <a routerLink="/studio/recipes">Recipes</a>
+    }
+    <a routerLink="/studio/articles" class="is-current">Articles</a>
+  </nav>
   <div class="studio__head">
     <div>
       <h1>Studio · Articles</h1>

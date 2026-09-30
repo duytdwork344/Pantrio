@@ -109,6 +109,29 @@ h2 {
   }
 }
 
+.actions a.edit {
+  color: var(--color-brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 1rem;
+
+  p {
+    margin: 0 0 0.5rem;
+  }
+
+  img {
+    width: min(100%, 28rem);
+    border-radius: 0.6rem;
+    object-fit: cover;
+  }
+}
+
 .instructions {
   white-space: pre-wrap;
   font-family: var(--font-sans);

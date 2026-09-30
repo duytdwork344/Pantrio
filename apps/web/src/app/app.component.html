@@ -9,8 +9,13 @@
         Discover
       </a>
       <a routerLink="/articles" routerLinkActive="is-active">Articles</a>
-      @if (auth.canCreateArticle()) {
-        <a routerLink="/studio/articles" routerLinkActive="is-active">Studio</a>
+      @if (auth.canCreateArticle() || auth.canCreateRecipe()) {
+        <a
+          [routerLink]="auth.canCreateRecipe() ? '/studio/recipes' : '/studio/articles'"
+          routerLinkActive="is-active"
+        >
+          Studio
+        </a>
       }
       @if (auth.isAuthenticated()) {
         <span class="shell__user">{{ auth.user()?.displayName }}</span>

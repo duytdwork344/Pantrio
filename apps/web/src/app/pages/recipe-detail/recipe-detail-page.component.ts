@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import type { RecipeDetail } from '../../core/models';
 
 @Component({
@@ -13,6 +14,7 @@ import type { RecipeDetail } from '../../core/models';
 export class RecipeDetailPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ApiService);
+  readonly auth = inject(AuthService);
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);

@@ -22,6 +22,9 @@ export class AuthService {
   readonly canCreateArticle = computed(() =>
     (this.userSignal()?.permissions ?? []).includes('article:create'),
   );
+  readonly canCreateRecipe = computed(() =>
+    (this.userSignal()?.permissions ?? []).includes('recipe:create'),
+  );
 
   login(email: string, password: string) {
     return this.http

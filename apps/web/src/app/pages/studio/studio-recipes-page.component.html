@@ -1,0 +1,40 @@
+<section class="studio">
+  <nav class="studio__tabs">
+    <a routerLink="/studio/recipes" class="is-current">Recipes</a>
+    @if (auth.canCreateArticle()) {
+      <a routerLink="/studio/articles">Articles</a>
+    }
+  </nav>
+  <div class="studio__head">
+    <div>
+      <h1>Studio · Recipes</h1>
+      <p class="lede">Tạo và sửa công thức catalog: nguyên liệu, bước, ảnh bìa.</p>
+    </div>
+    <a routerLink="/studio/recipes/new" class="btn">+ Recipe mới</a>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else if (mine().length === 0) {
+    <p class="muted">Chưa có recipe nào của bạn.</p>
+  } @else {
+    <ul class="mine">
+      @for (r of mine(); track r.id) {
+        <li>
+          <div>
+            <a [routerLink]="['/studio/recipes', r.slug]" class="title">{{ r.title }}</a>
+            <p class="meta">{{ r.difficulty }} · {{ r.servings }} servings</p>
+          </div>
+          <div class="actions">
+            <a [routerLink]="['/studio/recipes', r.slug]">Sửa</a>
+            <a [routerLink]="['/recipes', r.slug]">Xem</a>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

@@ -38,12 +38,27 @@ export type RecipeIngredient = {
   inInventory?: boolean;
 };
 
+export type RecipeStep = {
+  id: string;
+  sortOrder: number;
+  body: string;
+  imageUrl?: string | null;
+};
+
 export type RecipeDetail = RecipeSummary & {
   authorId: string;
   visibility: string;
   instructions: string;
+  steps?: RecipeStep[];
   ingredients: RecipeIngredient[];
   saved?: boolean;
+};
+
+export type FoodHit = {
+  id: string;
+  slug: string;
+  name: string;
+  baseUnit: string;
 };
 
 /** Pantry recommend row from GET /recommendations/recipes */

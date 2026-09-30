@@ -138,7 +138,7 @@ Object storage MinIO (local) → S3-compatible (prod). Không file server tự v
 - [x] API detail trả `steps[]`; create/update nhận `steps` hoặc split `instructions`
 - [x] Derive `instructions` từ steps khi ghi (tương thích cũ)
 - [x] Mobile group cookbook: editor bước (text + ảnh optional) + viewer từng bước
-- [ ] (Sau) Web catalog/creator step editor
+- [x] Web catalog/creator step editor
 
 ---
 
@@ -247,7 +247,7 @@ Không làm trong 6a: FoodAlias, OR-foodId, multi-group, reservation kiểu TMĐ
 - [x] Auth (register / login / lưu JWT + interceptor)
 - [x] Discover + recipe detail hydrate từ API
 - [x] Article / blog list + detail + Studio (tag recipes; draft mở editor `/studio/articles/:id`)
-- [ ] Creator: tạo/sửa recipe + ingredients (typeahead Food)
+- [x] Creator: tạo/sửa recipe + ingredients (typeahead Food)
 - [ ] Saved recipes
 - [ ] (Inventory chủ yếu Mobile; Web có thể read-only sau)
 
@@ -317,7 +317,8 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 - [x] Generate shopping from planned recipes (UI)
 - [x] Inventory + Shopping: tab Personal | Group + create/join group (invite code)
 - [x] Recipes: Cook tab (recommend Personal|Group) + recipe detail Cook / pantry scope
-- [ ] Mode CREATOR/ADMIN/MODERATOR (surface theo `/users/me` permissions)
+- [x] Cooking sessions: danh sách + chi tiết mức tiêu thụ + undo (Mobile, từ tab Cook)
+- [x] Mode CREATOR/ADMIN: tab Studio trên Recipes khi có `recipe:create` (tạo/sửa catalog). MODERATOR surface — sau
 - [ ] Notifications expiry — Phase 2
 - [x] Cook / recommendations UI
 
@@ -353,7 +354,7 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
-13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, …
+13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 
