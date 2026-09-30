@@ -4,6 +4,7 @@ import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
+import 'package:pantrio_mobile/features/groups/group_scope_widgets.dart';
 import 'package:pantrio_mobile/features/recipes/create_group_recipe_page.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -18,48 +19,53 @@ class GroupCookbookTab extends StatefulWidget {
 
 class _GroupCookbookTabState extends State<GroupCookbookTab>
     with AutomaticKeepAliveClientMixin {
-  InventoryGroup? _group;
   List<RecipeSummary> _recipes = const [];
-  bool _loading = true;
   Object? _error;
+  String? _loadedId;
+  String? _pendingId;
 
   @override
   bool get wantKeepAlive => true;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
-  }
-
-  Future<void> _reload() async {
+  Future<void> _load(String groupId) async {
     final api = context.read<AuthSession>().api;
     setState(() {
+      _pendingId = groupId;
       _error = null;
-      // Keep existing list visible while refreshing (don't blank the screen).
-      if (_group == null && _recipes.isEmpty) {
-        _loading = true;
-      }
     });
     try {
-      final group = await api.getMyGroup();
-      final recipes = group == null
-          ? const <RecipeSummary>[]
-          : await api.getGroupCookbookRecipes();
+      final recipes = await api.getGroupCookbookRecipes();
       if (!mounted) return;
+      if (context.read<AuthSession>().membership?.id != groupId) return;
       setState(() {
-        _group = group;
         _recipes = List<RecipeSummary>.from(recipes);
-        _loading = false;
+        _loadedId = groupId;
         _error = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e;
-        _loading = false;
+        _loadedId = groupId;
       });
     }
+  }
+
+  Future<void> _reload() async {
+    final session = context.read<AuthSession>();
+    await session.reloadMembership();
+    if (!mounted) return;
+    final id = session.membership?.id;
+    if (id == null) {
+      setState(() {
+        _recipes = const [];
+        _loadedId = null;
+        _pendingId = null;
+        _error = null;
+      });
+      return;
+    }
+    await _load(id);
   }
 
   Future<void> _open(RecipeSummary recipe, {required String groupId}) async {
@@ -87,12 +93,67 @@ class _GroupCookbookTabState extends State<GroupCookbookTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
-    if (_loading && _group == null && _recipes.isEmpty && _error == null) {
+    final session = context.watch<AuthSession>();
+    if (!session.membershipReady) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_error != null && _group == null && _recipes.isEmpty) {
+    final group = session.membership;
+    if (group == null) {
+      if (_loadedId != null || _recipes.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (context.read<AuthSession>().membership != null) return;
+          setState(() {
+            _recipes = const [];
+            _loadedId = null;
+            _pendingId = null;
+            _error = null;
+          });
+        });
+      }
+      return RefreshIndicator(
+        onRefresh: _reload,
+        child: GroupJoinPane(
+          onJoined: _reload,
+          message:
+              'Create a household group or join with an invite code to open this cookbook.',
+        ),
+      );
+    }
+
+    if (_loadedId != group.id) {
+      if (_pendingId != group.id) {
+        final id = group.id;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (context.read<AuthSession>().membership?.id != id) return;
+          if (_loadedId == id || _pendingId == id) return;
+          _load(id);
+        });
+      }
+      if (_error != null && _recipes.isEmpty) {
+        final msg = _error is ApiException
+            ? (_error! as ApiException).message
+            : _error.toString();
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(msg, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                FilledButton(onPressed: _reload, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _recipes.isEmpty) {
       final msg = _error is ApiException
           ? (_error! as ApiException).message
           : _error.toString();
@@ -107,29 +168,6 @@ class _GroupCookbookTabState extends State<GroupCookbookTab>
               FilledButton(onPressed: _reload, child: const Text('Retry')),
             ],
           ),
-        ),
-      );
-    }
-
-    final group = _group;
-    if (group == null) {
-      return RefreshIndicator(
-        onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 80),
-            Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Join or create a household group first.\n'
-                  'Open Inventory → Group tab to set one up.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
         ),
       );
     }

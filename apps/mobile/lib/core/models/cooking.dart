@@ -96,6 +96,7 @@ class CookingSession {
     required this.cookedAt,
     required this.consumptions,
     this.notes,
+    this.recipe,
   });
 
   final String id;
@@ -103,15 +104,22 @@ class CookingSession {
   final int servings;
   final String cookedAt;
   final String? notes;
+  final RecipeSummary? recipe;
   final List<CookingConsumptionLine> consumptions;
 
   factory CookingSession.fromJson(Map<String, dynamic> json) {
+    final recipe = json['recipe'];
     return CookingSession(
       id: json['id'] as String,
       recipeId: json['recipeId'] as String,
       servings: json['servings'] as int,
       cookedAt: json['cookedAt'] as String,
       notes: json['notes'] as String?,
+      recipe: recipe is Map<String, dynamic>
+          ? RecipeSummary.fromJson(recipe)
+          : recipe is Map
+              ? RecipeSummary.fromJson(Map<String, dynamic>.from(recipe))
+              : null,
       consumptions: (json['consumptions'] as List<dynamic>? ?? const [])
           .map(
             (e) =>

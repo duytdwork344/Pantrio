@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:pantrio_mobile/core/api/api_config.dart';
 import 'package:pantrio_mobile/core/api/pantrio_api_client.dart';
+import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/user_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,6 +23,11 @@ class AuthSession extends ChangeNotifier {
   UserProfile? user;
   bool restoring = true;
 
+  /// Household membership shared by the recipe Cook and Group tabs.
+  /// Null means the user is not in a group.
+  InventoryGroup? membership;
+  bool membershipReady = false;
+
   bool get isAuthenticated =>
       accessToken != null && accessToken!.isNotEmpty;
 
@@ -38,6 +44,7 @@ class AuthSession extends ChangeNotifier {
       }
       accessToken = token;
       user = await api.me();
+      await _assignMembership();
     } catch (_) {
       await logout(notify: false);
     } finally {
@@ -55,16 +62,39 @@ class AuthSession extends ChangeNotifier {
     user = result.user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, result.accessToken);
+    await _assignMembership();
+    notifyListeners();
+  }
+
+  /// Re-read GET /groups/me and notify every tab that shows group state.
+  Future<void> reloadMembership() async {
+    await _assignMembership();
     notifyListeners();
   }
 
   Future<void> logout({bool notify = true}) async {
     accessToken = null;
     user = null;
+    membership = null;
+    membershipReady = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     if (notify) {
       notifyListeners();
     }
+  }
+
+  Future<void> _assignMembership() async {
+    if (!isAuthenticated) {
+      membership = null;
+      membershipReady = true;
+      return;
+    }
+    try {
+      membership = await api.getMyGroup();
+    } catch (_) {
+      membership = null;
+    }
+    membershipReady = true;
   }
 }

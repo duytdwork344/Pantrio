@@ -6,6 +6,7 @@ import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/recipes/cook_recommend_tab.dart';
 import 'package:pantrio_mobile/features/recipes/group_cookbook_tab.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
+import 'package:pantrio_mobile/features/recipes/studio_recipes_tab.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_detail_page.dart';
 import 'package:provider/provider.dart';
 
@@ -19,6 +20,7 @@ class RecipesPage extends StatefulWidget {
 class _RecipesPageState extends State<RecipesPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  late final bool _showStudio;
   late Future<List<RecipeSummary>> _discover;
   late Future<List<SavedRecipe>> _saved;
   late Future<List<PlannedRecipe>> _planned;
@@ -35,7 +37,13 @@ class _RecipesPageState extends State<RecipesPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this);
+    _showStudio = context
+            .read<AuthSession>()
+            .user
+            ?.permissions
+            .contains('recipe:create') ??
+        false;
+    _tabs = TabController(length: _showStudio ? 6 : 5, vsync: this);
     final api = context.read<AuthSession>().api;
     _discover = api.getRecipes();
     _saved = api.getSavedRecipes();
@@ -119,12 +127,13 @@ class _RecipesPageState extends State<RecipesPage>
         TabBar(
           controller: _tabs,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'Discover'),
-            Tab(text: 'Cook'),
-            Tab(text: 'Group'),
-            Tab(text: 'Saved'),
-            Tab(text: 'Planned'),
+          tabs: [
+            const Tab(text: 'Discover'),
+            const Tab(text: 'Cook'),
+            const Tab(text: 'Group'),
+            const Tab(text: 'Saved'),
+            const Tab(text: 'Planned'),
+            if (_showStudio) const Tab(text: 'Studio'),
           ],
         ),
         Expanded(
@@ -153,6 +162,7 @@ class _RecipesPageState extends State<RecipesPage>
                 onRemove: _removePlanned,
                 onShop: _shopFromPlanned,
               ),
+              if (_showStudio) const StudioRecipesTab(),
             ],
           ),
         ),

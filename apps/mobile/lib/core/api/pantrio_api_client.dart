@@ -61,7 +61,12 @@ class PantrioApiClient {
     try {
       final response = await _dio.get<dynamic>('groups/me');
       final data = response.data;
-      if (data == null) return null;
+      // Nest sends an empty body for `null` (no membership). JSON null and
+      // 204 mean the same thing: this user is not in a group.
+      if (response.statusCode == 204 || data == null) return null;
+      if (data is String && (data.trim().isEmpty || data.trim() == 'null')) {
+        return null;
+      }
       return InventoryGroup.fromJson(_asMap(data));
     } on DioException catch (e) {
       throw _toApiException(e);
@@ -304,6 +309,67 @@ class PantrioApiClient {
     return list.map(RecipeSummary.fromJson).toList();
   }
 
+  Future<List<RecipeSummary>> getMyRecipes() async {
+    final list = await _getList('me/recipes');
+    return list.map(RecipeSummary.fromJson).toList();
+  }
+
+  Future<RecipeDetail> createCatalogRecipe({
+    required String title,
+    required List<Map<String, dynamic>> ingredients,
+    required List<Map<String, dynamic>> steps,
+    String? description,
+    String? imageUrl,
+    int servings = 2,
+    String difficulty = 'EASY',
+    String visibility = 'PUBLIC',
+    int? prepTimeMin,
+    int? cookTimeMin,
+  }) async {
+    final data = await _post('recipes', {
+      'title': title,
+      'ingredients': ingredients,
+      'steps': steps,
+      'servings': servings,
+      'difficulty': difficulty,
+      'visibility': visibility,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
+      if (prepTimeMin != null) 'prepTimeMin': prepTimeMin,
+      if (cookTimeMin != null) 'cookTimeMin': cookTimeMin,
+    });
+    return RecipeDetail.fromJson(data);
+  }
+
+  Future<RecipeDetail> updateCatalogRecipe(
+    String id, {
+    required String title,
+    required List<Map<String, dynamic>> ingredients,
+    required List<Map<String, dynamic>> steps,
+    String? description,
+    String? imageUrl,
+    required int servings,
+    required String difficulty,
+    required String visibility,
+    int? prepTimeMin,
+    int? cookTimeMin,
+  }) async {
+    final data = await _patch('recipes/$id', {
+      'title': title,
+      'ingredients': ingredients,
+      'steps': steps,
+      'servings': servings,
+      'difficulty': difficulty,
+      'visibility': visibility,
+      'description': description?.trim() ?? '',
+      if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl.trim(),
+      if (prepTimeMin != null) 'prepTimeMin': prepTimeMin,
+      if (cookTimeMin != null) 'cookTimeMin': cookTimeMin,
+    });
+    return RecipeDetail.fromJson(data);
+  }
+
   /// Multipart upload → public MinIO/S3 URL for Recipe.imageUrl.
   Future<String> uploadImage({
     required String filePath,
@@ -438,6 +504,16 @@ class PantrioApiClient {
       if (groupId != null && groupId.isNotEmpty) 'groupId': groupId,
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     });
+    return CookingSession.fromJson(data);
+  }
+
+  Future<List<CookingSession>> getCookingSessions() async {
+    final list = await _getList('cooking-sessions');
+    return list.map(CookingSession.fromJson).toList();
+  }
+
+  Future<CookingSession> getCookingSession(String id) async {
+    final data = await _get('cooking-sessions/$id');
     return CookingSession.fromJson(data);
   }
 

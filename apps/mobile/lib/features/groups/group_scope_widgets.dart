@@ -37,12 +37,16 @@ class GroupJoinPane extends StatelessWidget {
   const GroupJoinPane({
     super.key,
     required this.onJoined,
+    this.message =
+        'Create a household group or join with an invite code to share inventory and shopping lists.',
   });
 
   final Future<void> Function() onJoined;
+  final String message;
 
   Future<void> _create(BuildContext context) async {
-    final api = context.read<AuthSession>().api;
+    final session = context.read<AuthSession>();
+    final api = session.api;
     final messenger = ScaffoldMessenger.of(context);
     final name = await showDialog<String>(
       context: context,
@@ -51,6 +55,7 @@ class GroupJoinPane extends StatelessWidget {
     if (name == null || name.isEmpty) return;
     try {
       await api.createGroup(name: name);
+      await session.reloadMembership();
       messenger.showSnackBar(
         const SnackBar(content: Text('Group created')),
       );
@@ -63,7 +68,8 @@ class GroupJoinPane extends StatelessWidget {
   }
 
   Future<void> _join(BuildContext context) async {
-    final api = context.read<AuthSession>().api;
+    final session = context.read<AuthSession>();
+    final api = session.api;
     final messenger = ScaffoldMessenger.of(context);
     final code = await showDialog<String>(
       context: context,
@@ -72,6 +78,7 @@ class GroupJoinPane extends StatelessWidget {
     if (code == null || code.isEmpty) return;
     try {
       await api.joinGroup(code: code);
+      await session.reloadMembership();
       messenger.showSnackBar(
         const SnackBar(content: Text('Joined group')),
       );
@@ -102,8 +109,8 @@ class GroupJoinPane extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Create a household group or join with an invite code to share inventory and shopping lists.',
+        Text(
+          message,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -142,8 +149,10 @@ class GroupHeaderBar extends StatelessWidget {
   }
 
   Future<void> _rotate(BuildContext context) async {
+    final session = context.read<AuthSession>();
     try {
-      await context.read<AuthSession>().api.rotateGroupInvite();
+      await session.api.rotateGroupInvite();
+      await session.reloadMembership();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invite code rotated')),
@@ -158,7 +167,8 @@ class GroupHeaderBar extends StatelessWidget {
   }
 
   Future<void> _leave(BuildContext context) async {
-    final api = context.read<AuthSession>().api;
+    final session = context.read<AuthSession>();
+    final api = session.api;
     final messenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
@@ -184,6 +194,7 @@ class GroupHeaderBar extends StatelessWidget {
     if (confirm != true) return;
     try {
       final result = await api.leaveGroup();
+      await session.reloadMembership();
       messenger.showSnackBar(
         SnackBar(
           content: Text(

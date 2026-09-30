@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/cooking.dart';
-import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
 import 'package:pantrio_mobile/features/groups/group_scope_widgets.dart';
+import 'package:pantrio_mobile/features/recipes/cooking_sessions_page.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_detail_page.dart';
 import 'package:provider/provider.dart';
 
@@ -18,60 +17,52 @@ class CookRecommendTab extends StatefulWidget {
 
 class _CookRecommendTabState extends State<CookRecommendTab> {
   int _scope = 0;
-  InventoryGroup? _group;
-  bool _groupLoading = true;
+  String? _loadedKey;
   late Future<List<RecipeRecommendation>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _loadRecs();
-    _reloadGroup();
+    _future = Future.value(const []);
   }
 
-  String? get _activeGroupId => _scope == 1 ? _group?.id : null;
+  String? _groupId(AuthSession session) =>
+      _scope == 1 ? session.membership?.id : null;
 
-  Future<List<RecipeRecommendation>> _loadRecs() {
-    return context.read<AuthSession>().api.getRecipeRecommendations(
-          groupId: _activeGroupId,
-        );
-  }
-
-  Future<void> _reloadGroup() async {
-    setState(() => _groupLoading = true);
-    try {
-      final group = await context.read<AuthSession>().api.getMyGroup();
-      if (!mounted) return;
-      setState(() {
-        _group = group;
-        _groupLoading = false;
-      });
-      if (_scope == 1) {
-        await _refresh();
-      }
-    } on ApiException catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _group = null;
-        _groupLoading = false;
-      });
-    }
+  String _scopeKey(AuthSession session) {
+    if (_scope == 0) return 'personal';
+    if (!session.membershipReady) return 'pending';
+    return 'group:${session.membership?.id ?? '-'}';
   }
 
   Future<void> _refresh() async {
+    final session = context.read<AuthSession>();
+    await session.reloadMembership();
+    if (!mounted) return;
+    final groupId = _groupId(session);
     setState(() {
-      _future = _loadRecs();
+      _loadedKey = _scopeKey(session);
+      _future = session.api.getRecipeRecommendations(
+        groupId: _scope == 1 ? groupId : null,
+      );
     });
     await _future;
   }
 
   Future<void> _onScopeChanged(int value) async {
     setState(() => _scope = value);
-    if (value == 1) {
-      await _reloadGroup();
-    } else {
-      await _refresh();
+    final session = context.read<AuthSession>();
+    if (!session.membershipReady) {
+      await session.reloadMembership();
     }
+    if (!mounted) return;
+    final groupId = _groupId(session);
+    setState(() {
+      _loadedKey = _scopeKey(session);
+      _future = session.api.getRecipeRecommendations(
+        groupId: _scope == 1 ? groupId : null,
+      );
+    });
   }
 
   Future<void> _open(RecipeRecommendation row) async {
@@ -79,7 +70,9 @@ class _CookRecommendTabState extends State<CookRecommendTab> {
       MaterialPageRoute(
         builder: (_) => RecipeDetailPage(
           slug: row.recipe.slug,
-          pantryGroupId: _activeGroupId,
+          pantryGroupId: _scope == 1
+              ? context.read<AuthSession>().membership?.id
+              : null,
         ),
       ),
     );
@@ -88,20 +81,45 @@ class _CookRecommendTabState extends State<CookRecommendTab> {
 
   @override
   Widget build(BuildContext context) {
-    final inGroup = _group != null;
+    final session = context.watch<AuthSession>();
+    final group = session.membership;
+    final key = _scopeKey(session);
+    if (key != 'pending' && key != _loadedKey) {
+      _loadedKey = key;
+      _future = session.api.getRecipeRecommendations(
+        groupId: _scope == 1 ? group?.id : null,
+      );
+    }
+    final waiting = _scope == 1 && !session.membershipReady;
+    final inGroup = group != null;
 
     return Column(
       children: [
         ScopeSegmentBar(index: _scope, onChanged: _onScopeChanged),
-        if (_scope == 1 && _groupLoading)
-          const LinearProgressIndicator(minHeight: 2),
-        if (_scope == 1 && !_groupLoading && inGroup)
-          GroupHeaderBar(group: _group!, onChanged: _reloadGroup),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CookingSessionsPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.history),
+            label: const Text('Sessions'),
+          ),
+        ),
+        if (waiting) const LinearProgressIndicator(minHeight: 2),
+        if (_scope == 1 && !waiting && inGroup)
+          GroupHeaderBar(group: group, onChanged: _refresh),
         Expanded(
-          child: _scope == 1 && !_groupLoading && !inGroup
+          child: waiting
+              ? const Center(child: CircularProgressIndicator())
+              : _scope == 1 && !inGroup
               ? RefreshIndicator(
-                  onRefresh: _reloadGroup,
-                  child: GroupJoinPane(onJoined: _reloadGroup),
+                  onRefresh: _refresh,
+                  child: GroupJoinPane(onJoined: _refresh),
                 )
               : FutureBuilder<List<RecipeRecommendation>>(
                   future: _future,
