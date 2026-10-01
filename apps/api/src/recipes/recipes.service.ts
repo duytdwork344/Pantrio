@@ -10,6 +10,7 @@ import {
   GroupMemberRole,
   Prisma,
   RecipeDifficulty,
+  RecipeModerationStatus,
   RecipeVisibility,
 } from '@prisma/client';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
@@ -23,6 +24,7 @@ import {
   RecipeDetailDto,
   RecipeIngredientInputDto,
   RecipeStepInputDto,
+  ReviewRecipeDto,
   RecipeSummaryDto,
   ShareChannel,
   ShareRecipeResultDto,
@@ -62,7 +64,11 @@ export class RecipesService {
 
   async list(): Promise<RecipeSummaryDto[]> {
     const recipes = await this.prisma.recipe.findMany({
-      where: { visibility: RecipeVisibility.PUBLIC, groupId: null },
+      where: {
+        visibility: RecipeVisibility.PUBLIC,
+        groupId: null,
+        publishedVersion: { not: null },
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -74,10 +80,34 @@ export class RecipesService {
   async listMine(userId: string): Promise<RecipeSummaryDto[]> {
     const recipes = await this.prisma.recipe.findMany({
       where: { authorId: userId, groupId: null },
+      include: {
+        revisions: { orderBy: { version: 'desc' }, take: 1 },
+      },
       orderBy: { updatedAt: 'desc' },
       take: 100,
     });
-    return recipes.map((recipe) => this.toSummary(recipe));
+    return recipes.map((recipe) => {
+      const latest = recipe.revisions[0];
+      const showingDraft =
+        latest != null && latest.version !== recipe.publishedVersion;
+      return {
+        ...this.toSummary(recipe),
+        ...(showingDraft
+          ? {
+              title: latest.title,
+              description: latest.description,
+              servings: latest.servings,
+              prepTimeMin: latest.prepTimeMin,
+              cookTimeMin: latest.cookTimeMin,
+              difficulty: latest.difficulty,
+              imageUrl: latest.imageUrl,
+            }
+          : {}),
+        contentVersion: latest?.version ?? recipe.publishedVersion ?? null,
+        moderationStatus: latest?.moderationStatus ?? null,
+        publishedVersion: recipe.publishedVersion,
+      };
+    });
   }
 
   async listGroupCookbook(userId: string): Promise<RecipeSummaryDto[]> {
@@ -95,7 +125,7 @@ export class RecipesService {
 
   async findBySlug(
     slug: string,
-    viewerUserId?: string,
+    viewer?: AuthUser,
     groupId?: string,
   ): Promise<RecipeDetailDto | null> {
     const recipe = await this.prisma.recipe.findUnique({
@@ -107,13 +137,30 @@ export class RecipesService {
       return null;
     }
 
+    const viewerUserId = viewer?.id;
+
     if (recipe.visibility === RecipeVisibility.GROUP || recipe.groupId) {
       if (!viewerUserId || !recipe.groupId) {
         return null;
       }
       await this.groups.requireMembership(viewerUserId, recipe.groupId);
-      // Pantry flags default to the recipe's group when not overridden.
       return this.toDetail(recipe, viewerUserId, groupId ?? recipe.groupId);
+    }
+
+    const latest = await this.latestRevision(recipe.id);
+    const draftIsNewer =
+      latest != null && latest.version !== recipe.publishedVersion;
+    const canSeeDraft =
+      draftIsNewer &&
+      viewer != null &&
+      (viewer.id === recipe.authorId || this.canModerate(viewer));
+
+    if (recipe.publishedVersion == null && !canSeeDraft) {
+      return null;
+    }
+
+    if (canSeeDraft && latest) {
+      return this.toDetailFromRevision(recipe, latest, viewerUserId, groupId);
     }
 
     return this.toDetail(recipe, viewerUserId, groupId);
@@ -283,7 +330,15 @@ export class RecipesService {
       include: this.detailInclude(),
     });
 
-    return this.toDetail(recipe);
+    await this.prisma.recipeRevision.create({
+      data: this.revisionData(recipe, 1, RecipeModerationStatus.PENDING),
+    });
+
+    return this.toDetail(recipe, author.id, undefined, {
+      contentVersion: 1,
+      moderationStatus: RecipeModerationStatus.PENDING,
+      publishedVersion: null,
+    });
   }
 
   async createForGroup(
@@ -352,8 +407,12 @@ export class RecipesService {
       await this.assertFoodsUsable(dto.ingredients, actor);
     }
 
-    const recipe = await this.applyRecipePatch(id, existing.slug, existing.title, dto);
-    return this.toDetail(recipe);
+    const revision = await this.submitCatalogRevision(id, dto);
+    const recipe = await this.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+      include: this.detailInclude(),
+    });
+    return this.toDetailFromRevision(recipe, revision, actor.id);
   }
 
   async updateForGroup(
@@ -657,6 +716,11 @@ export class RecipesService {
     recipe: RecipeWithIngredients,
     viewerUserId?: string,
     groupId?: string,
+    meta?: {
+      contentVersion?: number | null;
+      moderationStatus?: RecipeModerationStatus | null;
+      publishedVersion?: number | null;
+    },
   ): Promise<RecipeDetailDto> {
     let inventoryFoodIds = new Set<string>();
     let saved = false;
@@ -706,6 +770,13 @@ export class RecipesService {
         imageUrl: step.imageUrl,
       })),
       ...(viewerUserId ? { saved } : {}),
+      contentVersion: meta?.contentVersion ?? recipe.publishedVersion ?? null,
+      moderationStatus:
+        meta?.moderationStatus ??
+        (recipe.publishedVersion != null
+          ? RecipeModerationStatus.APPROVED
+          : null),
+      publishedVersion: meta?.publishedVersion ?? recipe.publishedVersion ?? null,
       ingredients: recipe.ingredients.map((item) => {
         const translation = pickTranslation(item.food.translations);
         return {
@@ -723,5 +794,367 @@ export class RecipesService {
         };
       }),
     };
+  }
+
+  async listPendingRevisions() {
+    const recipes = await this.prisma.recipe.findMany({
+      where: { groupId: null },
+      include: { revisions: { orderBy: { version: 'desc' }, take: 1 } },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+    return recipes
+      .filter((recipe) => recipe.revisions[0]?.moderationStatus === RecipeModerationStatus.PENDING)
+      .map((recipe) => {
+        const latest = recipe.revisions[0];
+        return {
+          recipeId: recipe.id,
+          slug: recipe.slug,
+          version: latest.version,
+          title: latest.title,
+          visibility: latest.visibility,
+          authorId: recipe.authorId,
+          publishedVersion: recipe.publishedVersion,
+          submittedAt: latest.createdAt,
+        };
+      });
+  }
+
+  async getRevisionForReview(recipeId: string, version?: number) {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      include: this.detailInclude(),
+    });
+    if (!recipe || recipe.groupId) {
+      throw new NotFoundException(`Recipe '${recipeId}' not found`);
+    }
+    const revision = version
+      ? await this.prisma.recipeRevision.findUnique({
+          where: { recipeId_version: { recipeId, version } },
+        })
+      : await this.latestRevision(recipeId);
+    if (!revision) {
+      throw new NotFoundException(`Recipe '${recipeId}' has no revision`);
+    }
+    return this.toDetailFromRevision(recipe, revision);
+  }
+
+  async approveRevision(recipeId: string, actor: AuthUser, dto: ReviewRecipeDto) {
+    return this.reviewRevision(recipeId, actor, dto, 'approve');
+  }
+
+  async rejectRevision(recipeId: string, actor: AuthUser, dto: ReviewRecipeDto) {
+    return this.reviewRevision(recipeId, actor, dto, 'reject');
+  }
+
+  private async reviewRevision(
+    recipeId: string,
+    actor: AuthUser,
+    dto: ReviewRecipeDto,
+    action: 'approve' | 'reject',
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const latest = await tx.recipeRevision.findFirst({
+        where: { recipeId },
+        orderBy: { version: 'desc' },
+      });
+      if (!latest || latest.version !== dto.version) {
+        throw new ConflictException(
+          'Recipe changed since this review. Reload the latest version before deciding.',
+        );
+      }
+      if (latest.moderationStatus !== RecipeModerationStatus.PENDING) {
+        throw new BadRequestException('Only a pending version can be reviewed');
+      }
+
+      if (action === 'reject') {
+        await tx.recipeRevision.update({
+          where: { id: latest.id },
+          data: {
+            moderationStatus: RecipeModerationStatus.REJECTED,
+            rejectReason: dto.reason?.trim() || null,
+            reviewedAt: new Date(),
+            reviewedByUserId: actor.id,
+          },
+        });
+        return tx.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          include: this.detailInclude(),
+        });
+      }
+
+      const ingredients = this.parseIngredientSnaps(latest.ingredientsJson);
+      const steps = this.parseStepSnaps(latest.stepsJson);
+      await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+      await tx.recipeStep.deleteMany({ where: { recipeId } });
+      await tx.recipe.update({
+        where: { id: recipeId },
+        data: {
+          title: latest.title,
+          description: latest.description,
+          servings: latest.servings,
+          prepTimeMin: latest.prepTimeMin,
+          cookTimeMin: latest.cookTimeMin,
+          difficulty: latest.difficulty,
+          instructions: latest.instructions,
+          imageUrl: latest.imageUrl,
+          visibility: latest.visibility,
+          publishedVersion: latest.version,
+          ingredients: { create: this.mapIngredientCreates(ingredients) },
+          steps: { create: this.mapStepCreates(steps) },
+        },
+      });
+      await tx.recipeRevision.update({
+        where: { id: latest.id },
+        data: {
+          moderationStatus: RecipeModerationStatus.APPROVED,
+          reviewedAt: new Date(),
+          reviewedByUserId: actor.id,
+          rejectReason: null,
+        },
+      });
+      return tx.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        include: this.detailInclude(),
+      });
+    });
+
+    return this.getRevisionForReview(recipeId, dto.version);
+  }
+
+  private async submitCatalogRevision(recipeId: string, dto: UpdateRecipeDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const recipe = await tx.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        include: this.detailInclude(),
+      });
+      const latest = await tx.recipeRevision.findFirst({
+        where: { recipeId },
+        orderBy: { version: 'desc' },
+      });
+      const baseIngredients = latest
+        ? this.parseIngredientSnaps(latest.ingredientsJson)
+        : recipe.ingredients.map((item) => ({
+            foodId: item.foodId,
+            quantity: item.quantity,
+            unit: item.unit,
+            note: item.note ?? undefined,
+            optional: item.optional,
+            sortOrder: item.sortOrder,
+          }));
+      const baseSteps = latest
+        ? this.parseStepSnaps(latest.stepsJson)
+        : recipe.steps.map((step) => ({
+            body: step.body,
+            imageUrl: step.imageUrl,
+            sortOrder: step.sortOrder,
+          }));
+      const replaceSteps =
+        dto.steps !== undefined || dto.instructions !== undefined;
+      const steps = replaceSteps
+        ? this.resolveStepsInput(dto.steps, dto.instructions)
+        : baseSteps;
+      const ingredients = dto.ingredients?.length
+        ? this.mapIngredientCreates(dto.ingredients)
+        : baseIngredients;
+
+      await tx.recipe.update({
+        where: { id: recipeId },
+        data: { updatedAt: new Date() },
+      });
+      const created = await tx.recipeRevision.create({
+        data: {
+          recipeId,
+          version: (latest?.version ?? 0) + 1,
+          moderationStatus: RecipeModerationStatus.PENDING,
+          title: dto.title?.trim() || latest?.title || recipe.title,
+          description:
+            dto.description !== undefined
+              ? dto.description?.trim() || null
+              : (latest?.description ?? recipe.description),
+          servings: dto.servings ?? latest?.servings ?? recipe.servings,
+          prepTimeMin:
+            dto.prepTimeMin !== undefined
+              ? dto.prepTimeMin
+              : (latest?.prepTimeMin ?? recipe.prepTimeMin),
+          cookTimeMin:
+            dto.cookTimeMin !== undefined
+              ? dto.cookTimeMin
+              : (latest?.cookTimeMin ?? recipe.cookTimeMin),
+          difficulty: dto.difficulty ?? latest?.difficulty ?? recipe.difficulty,
+          instructions: this.deriveInstructions(steps),
+          imageUrl:
+            dto.imageUrl !== undefined
+              ? dto.imageUrl
+              : (latest?.imageUrl ?? recipe.imageUrl),
+          visibility: dto.visibility ?? latest?.visibility ?? recipe.visibility,
+          ingredientsJson: ingredients as unknown as Prisma.InputJsonValue,
+          stepsJson: steps as unknown as Prisma.InputJsonValue,
+        },
+      });
+      return created;
+    });
+  }
+
+  private revisionData(
+    recipe: RecipeWithIngredients,
+    version: number,
+    moderationStatus: RecipeModerationStatus,
+  ) {
+    return {
+      recipeId: recipe.id,
+      version,
+      moderationStatus,
+      title: recipe.title,
+      description: recipe.description,
+      servings: recipe.servings,
+      prepTimeMin: recipe.prepTimeMin,
+      cookTimeMin: recipe.cookTimeMin,
+      difficulty: recipe.difficulty,
+      instructions: recipe.instructions,
+      imageUrl: recipe.imageUrl,
+      visibility: recipe.visibility,
+      ingredientsJson: recipe.ingredients.map((item) => ({
+        foodId: item.foodId,
+        quantity: item.quantity,
+        unit: item.unit,
+        note: item.note,
+        optional: item.optional,
+        sortOrder: item.sortOrder,
+      })),
+      stepsJson: recipe.steps.map((step) => ({
+        body: step.body,
+        imageUrl: step.imageUrl,
+        sortOrder: step.sortOrder,
+      })),
+    };
+  }
+
+  private latestRevision(recipeId: string) {
+    return this.prisma.recipeRevision.findFirst({
+      where: { recipeId },
+      orderBy: { version: 'desc' },
+    });
+  }
+
+  private canModerate(actor?: AuthUser | null) {
+    const permissions = actor?.permissions ?? [];
+    return (
+      permissions.includes('moderation:manage') ||
+      permissions.includes('system:manage')
+    );
+  }
+
+  private async toDetailFromRevision(
+    recipe: RecipeWithIngredients,
+    revision: {
+      version: number;
+      moderationStatus: RecipeModerationStatus;
+      title: string;
+      description: string | null;
+      servings: number;
+      prepTimeMin: number | null;
+      cookTimeMin: number | null;
+      difficulty: RecipeDifficulty;
+      instructions: string;
+      imageUrl: string | null;
+      visibility: RecipeVisibility;
+      ingredientsJson: Prisma.JsonValue;
+      stepsJson: Prisma.JsonValue;
+    },
+    viewerUserId?: string,
+    groupId?: string,
+  ) {
+    const ingredients = this.parseIngredientSnaps(revision.ingredientsJson);
+    const steps = this.parseStepSnaps(revision.stepsJson);
+    const foodIds = ingredients.map((item) => item.foodId);
+    const foods = foodIds.length
+      ? await this.prisma.food.findMany({
+          where: { id: { in: foodIds } },
+          include: { translations: true },
+        })
+      : [];
+    const foodById = new Map(foods.map((food) => [food.id, food]));
+    const overlaid = {
+      ...recipe,
+      title: revision.title,
+      description: revision.description,
+      servings: revision.servings,
+      prepTimeMin: revision.prepTimeMin,
+      cookTimeMin: revision.cookTimeMin,
+      difficulty: revision.difficulty,
+      instructions: revision.instructions,
+      imageUrl: revision.imageUrl,
+      visibility: revision.visibility,
+      ingredients: ingredients.map((item, index) => {
+        const food = foodById.get(item.foodId) ?? {
+          id: item.foodId,
+          slug: item.foodId,
+          imageUrl: null,
+          translations: [],
+        };
+        return {
+          id: `draft-${index}`,
+          recipeId: recipe.id,
+          foodId: item.foodId,
+          quantity: item.quantity,
+          unit: item.unit,
+          note: item.note ?? null,
+          optional: item.optional ?? false,
+          sortOrder: item.sortOrder ?? index,
+          food,
+        };
+      }),
+      steps: steps.map((step, index) => ({
+        id: `draft-step-${index}`,
+        recipeId: recipe.id,
+        sortOrder: step.sortOrder ?? index,
+        body: step.body,
+        imageUrl: step.imageUrl,
+      })),
+    } as RecipeWithIngredients;
+
+    return this.toDetail(overlaid, viewerUserId, groupId, {
+      contentVersion: revision.version,
+      moderationStatus: revision.moderationStatus,
+      publishedVersion: recipe.publishedVersion,
+    });
+  }
+
+  private parseIngredientSnaps(value: Prisma.JsonValue): RecipeIngredientInputDto[] {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const row = item as Record<string, unknown>;
+      if (typeof row.foodId !== 'string') return [];
+      return [
+        {
+          foodId: row.foodId,
+          quantity: Number(row.quantity ?? 0),
+          unit: String(row.unit ?? 'g') as RecipeIngredientInputDto['unit'],
+          note: typeof row.note === 'string' ? row.note : undefined,
+          optional: Boolean(row.optional),
+          sortOrder: Number(row.sortOrder ?? 0),
+        },
+      ];
+    });
+  }
+
+  private parseStepSnaps(
+    value: Prisma.JsonValue,
+  ): Array<{ body: string; imageUrl: string | null; sortOrder: number }> {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const row = item as Record<string, unknown>;
+      if (typeof row.body !== 'string') return [];
+      return [
+        {
+          body: row.body,
+          imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : null,
+          sortOrder: Number(row.sortOrder ?? index),
+        },
+      ];
+    });
   }
 }

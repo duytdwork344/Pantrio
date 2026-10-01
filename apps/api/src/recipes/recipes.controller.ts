@@ -131,7 +131,7 @@ export class RecipesController {
   ): Promise<RecipeDetailDto> {
     const recipe = await this.recipesService.findBySlug(
       slug,
-      user?.id,
+      user,
       groupId?.trim() || undefined,
     );
     if (!recipe) {

@@ -48,6 +48,12 @@ enum RecipeVisibility {
   GROUP
 }
 
+enum RecipeModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum FoodVisibility {
   PUBLIC
   PRIVATE
@@ -183,6 +189,8 @@ model Recipe {
   visibility   RecipeVisibility @default(PUBLIC)
   /// Denormalized intent-share count (see ContentEvent SHARE).
   shareCount   Int              @default(0)
+  /// Catalog only. Discover / cook read this revision. Null until first approve.
+  publishedVersion Int?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -190,6 +198,7 @@ model Recipe {
   group             InventoryGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   ingredients       RecipeIngredient[]
   steps             RecipeStep[]
+  revisions         RecipeRevision[]
   tags              RecipeTag[]
   savedBy           SavedRecipe[]
   plannedBy         PlannedRecipe[]
@@ -215,6 +224,35 @@ model RecipeStep {
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([recipeId, sortOrder])
+}
+
+/// One submitted catalog snapshot. Discover serves Recipe.publishedVersion only.
+/// Group cookbook recipes do not use this table.
+model RecipeRevision {
+  id                 String                 @id @default(cuid())
+  recipeId           String
+  version            Int
+  moderationStatus   RecipeModerationStatus
+  title              String
+  description        String?
+  servings           Int
+  prepTimeMin        Int?
+  cookTimeMin        Int?
+  difficulty         RecipeDifficulty
+  instructions       String
+  imageUrl           String?
+  visibility         RecipeVisibility
+  ingredientsJson    Json
+  stepsJson          Json
+  rejectReason       String?
+  createdAt          DateTime               @default(now())
+  reviewedAt         DateTime?
+  reviewedByUserId   String?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, version])
+  @@index([moderationStatus, createdAt])
 }
 
 model RecipeIngredient {

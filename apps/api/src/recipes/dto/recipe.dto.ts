@@ -51,6 +51,15 @@ export class RecipeSummaryDto {
     description: 'Intent-share count (denormalized)',
   })
   shareCount?: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  contentVersion?: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  moderationStatus?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  publishedVersion?: number | null;
 }
 
 export class RecipeIngredientDto {
@@ -398,4 +407,17 @@ export class ShareRecipeResultDto {
     description: 'True when rate-limited; shareCount unchanged',
   })
   rateLimited?: boolean;
+}
+
+export class ReviewRecipeDto {
+  @ApiProperty({ description: 'Revision the moderator reviewed' })
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  version!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

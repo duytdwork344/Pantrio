@@ -292,11 +292,19 @@ export class CookingService {
         where: groupId
           ? {
               OR: [
-                { visibility: 'PUBLIC', groupId: null },
+                {
+                  visibility: 'PUBLIC',
+                  groupId: null,
+                  publishedVersion: { not: null },
+                },
                 { visibility: 'GROUP', groupId },
               ],
             }
-          : { visibility: 'PUBLIC', groupId: null },
+          : {
+              visibility: 'PUBLIC',
+              groupId: null,
+              publishedVersion: { not: null },
+            },
         include: {
           ingredients: {
             include: { food: { include: { translations: true } } },

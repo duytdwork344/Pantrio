@@ -90,13 +90,14 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [ ] Tags (optional MVP)
 - [x] Seed 1–2 recipe mẫu (Carbonara, Chicken Tomato Pasta) + ingredients
 - [x] `GET /recipes/:slug` kèm cờ `inInventory` / `saved` khi có JWT — **7b.3**
-- [ ] **Kiểm duyệt nội dung Recipe** (phase sau — requirements **4.2b**; không chặn MVP CRUD)
-  - [ ] Schema: `moderationStatus` PENDING \| APPROVED \| REJECTED (tách khỏi `visibility`)
-  - [ ] Create/update → PENDING khi submit discovery; author vẫn xem/sửa bản mình
-  - [ ] Discovery list/detail chỉ `PUBLIC` + `APPROVED`
-  - [ ] Moderator API: list pending + approve/reject (`moderation:manage`)
-  - [ ] Approve recipe → check trùng Food PRIVATE mới → merge (Moderator) hoặc promote PUBLIC; reject không auto-public Food
-  - [ ] Orphan Food: Moderator list/dọn; không auto-delete
+- [x] **Kiểm duyệt nội dung Recipe** (API — requirements **4.2b**; Food merge + UI moderator còn mở)
+- [x] Schema: `RecipeRevision` + `Recipe.publishedVersion` (catalog; cookbook không version)
+- [x] Create/update catalog → revision `PENDING`; Discover chỉ bản `publishedVersion` + `PUBLIC`
+- [x] Author/moderator đọc revision đang chờ; public không thấy draft
+- [x] `POST /moderation/recipes/:id/approve|reject` kèm `version`; lệch version → 409
+- [ ] Approve recipe → check trùng Food PRIVATE mới → merge (Moderator) hoặc promote PUBLIC; reject không auto-public Food
+- [ ] Orphan Food: Moderator list/dọn; không auto-delete
+- [ ] UI moderator (Web)
 
 ---
 
@@ -354,7 +355,7 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
-13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Recipe moderation (**4.2b**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Food merge khi approve recipe (**4.2b** bước 9) + UI moderator, FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 
