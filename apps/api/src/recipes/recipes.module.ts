@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CatalogModule } from '../catalog/catalog.module';
 import { GroupsModule } from '../groups/groups.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { GroupRecipesController } from './group-recipes.controller';
@@ -7,7 +8,7 @@ import { MeController, RecipesController } from './recipes.controller';
 import { RecipesService } from './recipes.service';
 
 @Module({
-  imports: [PrismaModule, GroupsModule],
+  imports: [PrismaModule, GroupsModule, CatalogModule],
   controllers: [
     RecipesController,
     MeController,

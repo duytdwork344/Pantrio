@@ -1,0 +1,104 @@
+.back {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+h1,
+h2,
+legend {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
+
+.lead,
+.lede,
+.muted,
+.meta {
+  color: var(--color-muted);
+}
+
+.ingredients,
+.steps {
+  padding-left: 1.1rem;
+}
+
+.steps img {
+  max-width: 16rem;
+  border-radius: 0.5rem;
+}
+
+.instructions {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+}
+
+fieldset {
+  margin: 0.85rem 0;
+  border: 1px solid color-mix(in srgb, var(--color-brand) 25%, transparent);
+  border-radius: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+
+.search {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+
+  input {
+    flex: 1;
+    font: inherit;
+    padding: 0.4rem 0.55rem;
+  }
+}
+
+.reason {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+
+  textarea {
+    font: inherit;
+    padding: 0.5rem;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.danger {
+  background: transparent;
+  color: #9b2c2c;
+  border: 1px solid #9b2c2c;
+}
+
+.error {
+  color: #9b2c2c;
+}

@@ -34,6 +34,52 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function normalizeFoodName(value: string): string {
+  return slugify(value).replace(/-/g, '');
+}
+
+function namesOverlap(left: string, right: string): boolean {
+  if (left.length < 3 || right.length < 3) return left === right && left.length > 0;
+  if (left === right || left.includes(right) || right.includes(left)) return true;
+  let index = 0;
+  while (index < left.length && index < right.length && left[index] === right[index]) {
+    index += 1;
+  }
+  return index >= 6;
+}
+
+function rewriteIngredientSnapshot(
+  value: Prisma.JsonValue,
+  fromFoodId: string,
+  toFoodId: string,
+): Prisma.InputJsonValue | null {
+  if (!Array.isArray(value)) return null;
+  let changed = false;
+  const rows = value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [item];
+    const row = item as Record<string, Prisma.JsonValue>;
+    if (row.foodId !== fromFoodId) return [row];
+    changed = true;
+    return [{ ...row, foodId: toFoodId }];
+  });
+  if (!changed) return null;
+
+  const collapsed: Array<Record<string, Prisma.JsonValue>> = [];
+  for (const item of rows) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const row = item as Record<string, Prisma.JsonValue>;
+    const previous = collapsed.find((entry) => entry.foodId === row.foodId);
+    if (!previous) {
+      collapsed.push({ ...row });
+      continue;
+    }
+    if (previous.unit === row.unit && typeof previous.quantity === 'number') {
+      previous.quantity = previous.quantity + Number(row.quantity ?? 0);
+    }
+  }
+  return collapsed;
+}
+
 type FoodWithTranslations = Prisma.FoodGetPayload<{
   include: { translations: true };
 }>;
@@ -330,71 +376,131 @@ export class CatalogService {
       throw new NotFoundException(`toFoodId '${dto.toFoodId}' not found`);
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const fromIngredients = await tx.recipeIngredient.findMany({
-        where: { foodId: dto.fromFoodId },
+    return this.prisma.$transaction((tx) =>
+      this.mergeFoods(tx, dto.fromFoodId, dto.toFoodId),
+    );
+  }
+
+  /**
+   * Remap every reference of fromFoodId onto toFoodId, including revision snapshots.
+   * toFood is promoted to PUBLIC when it was PRIVATE. fromFood is deleted.
+   */
+  async mergeFoods(
+    tx: Prisma.TransactionClient,
+    fromFoodId: string,
+    toFoodId: string,
+  ): Promise<MergeFoodResultDto> {
+    if (fromFoodId === toFoodId) {
+      throw new BadRequestException('fromFoodId and toFoodId must differ');
+    }
+    const toFood = await tx.food.findUnique({ where: { id: toFoodId } });
+    if (!toFood) {
+      throw new NotFoundException(`toFoodId '${toFoodId}' not found`);
+    }
+    const fromFood = await tx.food.findUnique({ where: { id: fromFoodId } });
+    if (!fromFood) {
+      throw new NotFoundException(`fromFoodId '${fromFoodId}' not found`);
+    }
+
+    const fromIngredients = await tx.recipeIngredient.findMany({
+      where: { foodId: fromFoodId },
+    });
+    let remappedRecipeIngredients = 0;
+    for (const ing of fromIngredients) {
+      const conflict = await tx.recipeIngredient.findUnique({
+        where: {
+          recipeId_foodId: { recipeId: ing.recipeId, foodId: toFoodId },
+        },
       });
-      let remappedRecipeIngredients = 0;
-      for (const ing of fromIngredients) {
-        const conflict = await tx.recipeIngredient.findUnique({
-          where: {
-            recipeId_foodId: {
-              recipeId: ing.recipeId,
-              foodId: dto.toFoodId,
-            },
+      if (conflict) {
+        await tx.recipeIngredient.update({
+          where: { id: conflict.id },
+          data: {
+            quantity: conflict.quantity + ing.quantity,
+            optional: conflict.optional && ing.optional,
           },
         });
-        if (conflict) {
-          await tx.recipeIngredient.update({
-            where: { id: conflict.id },
-            data: {
-              quantity: conflict.quantity + ing.quantity,
-              optional: conflict.optional && ing.optional,
-            },
-          });
-          await tx.recipeIngredient.delete({ where: { id: ing.id } });
-        } else {
-          await tx.recipeIngredient.update({
-            where: { id: ing.id },
-            data: { foodId: dto.toFoodId },
-          });
-        }
-        remappedRecipeIngredients += 1;
-      }
-
-      const inventory = await tx.inventoryItem.updateMany({
-        where: { foodId: dto.fromFoodId },
-        data: { foodId: dto.toFoodId },
-      });
-
-      const shopping = await tx.shoppingListItem.updateMany({
-        where: { foodId: dto.fromFoodId },
-        data: { foodId: dto.toFoodId },
-      });
-
-      const promotedToPublic =
-        toFood.visibility !== FoodVisibility.PUBLIC;
-      if (promotedToPublic) {
-        await tx.food.update({
-          where: { id: dto.toFoodId },
-          data: { visibility: FoodVisibility.PUBLIC },
+        await tx.recipeIngredient.delete({ where: { id: ing.id } });
+      } else {
+        await tx.recipeIngredient.update({
+          where: { id: ing.id },
+          data: { foodId: toFoodId },
         });
       }
+      remappedRecipeIngredients += 1;
+    }
 
-      await tx.food.delete({ where: { id: dto.fromFoodId } });
+    await this.rewriteRevisionFoodIds(tx, fromFoodId, toFoodId);
 
-      return {
-        fromFoodId: dto.fromFoodId,
-        toFoodId: dto.toFoodId,
-        remappedRecipeIngredients,
-        remappedInventoryItems: inventory.count,
-        remappedShoppingListItems: shopping.count,
-        deletedFromFood: true,
-        promotedToPublic,
-      };
+    const inventory = await tx.inventoryItem.updateMany({
+      where: { foodId: fromFoodId },
+      data: { foodId: toFoodId },
+    });
+    const shopping = await tx.shoppingListItem.updateMany({
+      where: { foodId: fromFoodId },
+      data: { foodId: toFoodId },
     });
 
-    return result;
+    const promotedToPublic = toFood.visibility !== FoodVisibility.PUBLIC;
+    if (promotedToPublic) {
+      await tx.food.update({
+        where: { id: toFoodId },
+        data: { visibility: FoodVisibility.PUBLIC },
+      });
+    }
+    await tx.food.delete({ where: { id: fromFoodId } });
+
+    return {
+      fromFoodId,
+      toFoodId,
+      remappedRecipeIngredients,
+      remappedInventoryItems: inventory.count,
+      remappedShoppingListItems: shopping.count,
+      deletedFromFood: true,
+      promotedToPublic,
+    };
+  }
+
+  async promoteFoods(
+    tx: Prisma.TransactionClient,
+    foodIds: string[],
+  ): Promise<void> {
+    if (!foodIds.length) return;
+    await tx.food.updateMany({
+      where: { id: { in: foodIds }, visibility: FoodVisibility.PRIVATE },
+      data: { visibility: FoodVisibility.PUBLIC },
+    });
+  }
+
+  async privateFoodsForReview(foodIds: string[]): Promise<
+    Array<{
+      foodId: string;
+      name: string;
+      slug: string;
+      suggestions: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        visibility: FoodVisibility;
+      }>;
+    }>
+  > {
+    const unique = [...new Set(foodIds)];
+    if (!unique.length) return [];
+    const foods = await this.prisma.food.findMany({
+      where: { id: { in: unique }, visibility: FoodVisibility.PRIVATE },
+      include: { translations: true },
+    });
+    const rows = [];
+    for (const food of foods) {
+      rows.push({
+        foodId: food.id,
+        name: pickTranslation(food.translations, 'vi')?.name ?? food.slug,
+        slug: food.slug,
+        suggestions: await this.suggestSimilar(food),
+      });
+    }
+    return rows;
   }
 
   async deleteOrphan(id: string, actor: AuthUser) {
@@ -418,6 +524,91 @@ export class CatalogService {
 
     await this.prisma.food.delete({ where: { id } });
     return { deleted: true, id };
+  }
+
+  private async rewriteRevisionFoodIds(
+    tx: Prisma.TransactionClient,
+    fromFoodId: string,
+    toFoodId: string,
+  ): Promise<void> {
+    const revisions = await tx.recipeRevision.findMany({
+      where: { ingredientsJson: { string_contains: fromFoodId } },
+      select: { id: true, ingredientsJson: true },
+    });
+    for (const revision of revisions) {
+      const next = rewriteIngredientSnapshot(
+        revision.ingredientsJson,
+        fromFoodId,
+        toFoodId,
+      );
+      if (!next) continue;
+      await tx.recipeRevision.update({
+        where: { id: revision.id },
+        data: { ingredientsJson: next },
+      });
+    }
+  }
+
+  private async suggestSimilar(food: FoodWithTranslations): Promise<
+    Array<{
+      id: string;
+      name: string;
+      slug: string;
+      visibility: FoodVisibility;
+    }>
+  > {
+    const needles = [
+      ...food.translations.map((item) => item.name),
+      food.slug.replace(/-/g, ' '),
+    ]
+      .map((value) => value.trim())
+      .filter((value) => normalizeFoodName(value).length >= 3);
+    if (!needles.length) return [];
+
+    const or: Prisma.FoodWhereInput[] = [];
+    for (const needle of needles.slice(0, 4)) {
+      const slug = slugify(needle);
+      if (slug.length >= 3) {
+        or.push({ slug: { contains: slug, mode: 'insensitive' } });
+        const parts = slug.split('-').filter((part) => part.length >= 3);
+        if (parts.length >= 2) {
+          or.push({
+            slug: { contains: parts.slice(0, 2).join('-'), mode: 'insensitive' },
+          });
+        }
+      }
+      or.push({
+        translations: {
+          some: { name: { contains: needle, mode: 'insensitive' } },
+        },
+      });
+    }
+
+    const candidates = await this.prisma.food.findMany({
+      where: { id: { not: food.id }, OR: or },
+      include: { translations: true },
+      take: 20,
+    });
+
+    const selfNames = needles.map((value) => normalizeFoodName(value));
+    return candidates
+      .filter((candidate) => {
+        const names = [
+          ...candidate.translations.map((item) => item.name),
+          candidate.slug.replace(/-/g, ' '),
+        ];
+        return names.some((name) =>
+          selfNames.some((needle) => namesOverlap(needle, normalizeFoodName(name))),
+        );
+      })
+      .slice(0, 5)
+      .map((candidate) => ({
+        id: candidate.id,
+        name:
+          pickTranslation(candidate.translations, 'vi')?.name ?? candidate.slug,
+        slug: candidate.slug,
+        visibility: candidate.visibility,
+      }));
   }
 
   private async listModerated(

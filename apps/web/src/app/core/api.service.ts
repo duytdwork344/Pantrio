@@ -6,6 +6,9 @@ import type {
   ArticleSummary,
   FoodHit,
   RecipeDetail,
+  ModerationRecipe,
+  ModeratedFood,
+  PendingRecipe,
   RecipeRecommendation,
   RecipeSummary,
 } from './models';
@@ -123,5 +126,51 @@ export class ApiService {
 
   updateRecipe(id: string, body: RecipeWriteBody) {
     return this.http.patch<RecipeDetail>(`${this.base}/recipes/${id}`, body);
+  }
+
+  listPendingRecipes() {
+    return this.http.get<PendingRecipe[]>(`${this.base}/moderation/recipes`);
+  }
+
+  getModerationRecipe(id: string) {
+    return this.http.get<ModerationRecipe>(
+      `${this.base}/moderation/recipes/${encodeURIComponent(id)}`,
+    );
+  }
+
+  approveRecipe(
+    id: string,
+    body: {
+      version: number;
+      foods?: Array<{
+        foodId: string;
+        action: 'promote' | 'merge';
+        toFoodId?: string;
+      }>;
+    },
+  ) {
+    return this.http.post<ModerationRecipe>(
+      `${this.base}/moderation/recipes/${encodeURIComponent(id)}/approve`,
+      body,
+    );
+  }
+
+  rejectRecipe(id: string, body: { version: number; reason?: string }) {
+    return this.http.post<ModerationRecipe>(
+      `${this.base}/moderation/recipes/${encodeURIComponent(id)}/reject`,
+      body,
+    );
+  }
+
+  listOrphanFoods() {
+    return this.http.get<ModeratedFood[]>(
+      `${this.base}/foods/moderation/orphans?locale=vi`,
+    );
+  }
+
+  deleteOrphanFood(id: string) {
+    return this.http.delete<{ deleted: boolean; id: string }>(
+      `${this.base}/foods/${encodeURIComponent(id)}`,
+    );
   }
 }

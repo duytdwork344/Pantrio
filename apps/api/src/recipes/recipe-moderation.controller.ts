@@ -13,7 +13,7 @@ import {
   type AuthUser,
 } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
-import { RecipeDetailDto, ReviewRecipeDto } from './dto/recipe.dto';
+import { ModerationRecipeDetailDto, ReviewRecipeDto } from './dto/recipe.dto';
 import { RecipesService } from './recipes.service';
 
 @ApiTags('moderation')
@@ -38,7 +38,7 @@ export class RecipeModerationController {
       'Read one revision. Omit version to load the latest snapshot the author submitted.',
   })
   @ApiQuery({ name: 'version', required: false })
-  @ApiOkResponse({ type: RecipeDetailDto })
+  @ApiOkResponse({ type: ModerationRecipeDetailDto })
   getOne(@Param('id') id: string, @Query('version') version?: string) {
     const parsed = version ? Number(version) : undefined;
     return this.recipesService.getRevisionForReview(
@@ -51,9 +51,9 @@ export class RecipeModerationController {
   @RequirePermissions(Permission.MODERATION)
   @ApiOperation({
     summary:
-      'Publish this version. 409 if the author saved a newer revision after the moderator opened it.',
+      'Publish this version after private foods are merged or promoted. 409 if the author saved a newer revision.',
   })
-  @ApiOkResponse({ type: RecipeDetailDto })
+  @ApiOkResponse({ type: ModerationRecipeDetailDto })
   @ApiConflictResponse({ description: 'A newer revision exists' })
   approve(
     @Param('id') id: string,
@@ -69,7 +69,7 @@ export class RecipeModerationController {
     summary:
       'Reject this version. The previously published snapshot stays on Discover.',
   })
-  @ApiOkResponse({ type: RecipeDetailDto })
+  @ApiOkResponse({ type: ModerationRecipeDetailDto })
   @ApiConflictResponse({ description: 'A newer revision exists' })
   reject(
     @Param('id') id: string,

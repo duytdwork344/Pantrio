@@ -1,0 +1,56 @@
+<section class="moderation">
+  <div class="moderation__head">
+    <div>
+      <h1>Moderation</h1>
+      <p class="lede">Recipe catalog đang chờ duyệt. Discover giữ bản đã public cho đến khi bạn approve đúng version.</p>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else if (pending().length === 0) {
+    <p class="muted">Không có recipe nào đang chờ.</p>
+  } @else {
+    <ul class="queue">
+      @for (row of pending(); track row.recipeId) {
+        <li>
+          <div>
+            <a class="title" [routerLink]="['/moderation/recipes', row.recipeId]">{{ row.title }}</a>
+            <p class="meta">
+              version {{ row.version }}
+              @if (row.publishedVersion) {
+                · đang public v{{ row.publishedVersion }}
+              } @else {
+                · chưa từng public
+              }
+              · {{ row.visibility }}
+            </p>
+          </div>
+          <a [routerLink]="['/moderation/recipes', row.recipeId]">Duyệt</a>
+        </li>
+      }
+    </ul>
+  }
+
+  <h2>Food PRIVATE không còn được tham chiếu</h2>
+  <p class="lede">Xóa tay sau reject hoặc sau khi đã gộp. Recipe đang chờ không nằm trong danh sách này.</p>
+  @if (orphans().length === 0) {
+    <p class="muted">Không có food mồ côi.</p>
+  } @else {
+    <ul class="queue">
+      @for (food of orphans(); track food.id) {
+        <li>
+          <div>
+            <strong>{{ food.name }}</strong>
+            <p class="meta">{{ food.slug }}</p>
+          </div>
+          <button type="button" (click)="removeOrphan(food)">Xóa</button>
+        </li>
+      }
+    </ul>
+  }
+</section>

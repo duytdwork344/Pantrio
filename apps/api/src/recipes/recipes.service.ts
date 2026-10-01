@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   ContentEventType,
+  FoodVisibility,
   GroupMemberRole,
   Prisma,
   RecipeDifficulty,
@@ -17,6 +18,7 @@ import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { assertFoodsUsable as ensureFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
 import { GroupsService } from '../groups/groups.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateGroupRecipeDto,
@@ -24,6 +26,7 @@ import {
   RecipeDetailDto,
   RecipeIngredientInputDto,
   RecipeStepInputDto,
+  ReviewFoodDecisionDto,
   ReviewRecipeDto,
   RecipeSummaryDto,
   ShareChannel,
@@ -31,6 +34,27 @@ import {
   UpdateGroupRecipeDto,
   UpdateRecipeDto,
 } from './dto/recipe.dto';
+
+function collapseIngredients(
+  items: RecipeIngredientInputDto[],
+): RecipeIngredientInputDto[] {
+  const collapsed: RecipeIngredientInputDto[] = [];
+  for (const item of items) {
+    const previous = collapsed.find((entry) => entry.foodId === item.foodId);
+    if (!previous) {
+      collapsed.push({ ...item });
+      continue;
+    }
+    if (previous.unit !== item.unit) {
+      throw new BadRequestException(
+        `Merged food '${item.foodId}' would mix units ${previous.unit} and ${item.unit}`,
+      );
+    }
+    previous.quantity += item.quantity;
+    previous.optional = Boolean(previous.optional && item.optional);
+  }
+  return collapsed.map((item, index) => ({ ...item, sortOrder: index }));
+}
 
 function slugify(value: string): string {
   return value
@@ -60,6 +84,7 @@ export class RecipesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly groups: GroupsService,
+    private readonly catalog: CatalogService,
   ) {}
 
   async list(): Promise<RecipeSummaryDto[]> {
@@ -836,7 +861,11 @@ export class RecipesService {
     if (!revision) {
       throw new NotFoundException(`Recipe '${recipeId}' has no revision`);
     }
-    return this.toDetailFromRevision(recipe, revision);
+    const detail = await this.toDetailFromRevision(recipe, revision);
+    const privateFoods = await this.catalog.privateFoodsForReview(
+      detail.ingredients.map((item) => item.foodId),
+    );
+    return { ...detail, privateFoods };
   }
 
   async approveRevision(recipeId: string, actor: AuthUser, dto: ReviewRecipeDto) {
@@ -883,8 +912,12 @@ export class RecipesService {
         });
       }
 
-      const ingredients = this.parseIngredientSnaps(latest.ingredientsJson);
       const steps = this.parseStepSnaps(latest.stepsJson);
+      const ingredients = await this.resolveFoodsForApproval(
+        tx,
+        this.parseIngredientSnaps(latest.ingredientsJson),
+        dto.foods ?? [],
+      );
       await tx.recipeIngredient.deleteMany({ where: { recipeId } });
       await tx.recipeStep.deleteMany({ where: { recipeId } });
       await tx.recipe.update({
@@ -911,6 +944,7 @@ export class RecipesService {
           reviewedAt: new Date(),
           reviewedByUserId: actor.id,
           rejectReason: null,
+          ingredientsJson: ingredients as unknown as Prisma.InputJsonValue,
         },
       });
       return tx.recipe.findUniqueOrThrow({
@@ -920,6 +954,97 @@ export class RecipesService {
     });
 
     return this.getRevisionForReview(recipeId, dto.version);
+  }
+
+  private async resolveFoodsForApproval(
+    tx: Prisma.TransactionClient,
+    ingredients: RecipeIngredientInputDto[],
+    decisions: ReviewFoodDecisionDto[],
+  ): Promise<RecipeIngredientInputDto[]> {
+    const foodIds = [...new Set(ingredients.map((item) => item.foodId))];
+    const foods = foodIds.length
+      ? await tx.food.findMany({
+          where: { id: { in: foodIds } },
+          include: { translations: true },
+        })
+      : [];
+    const byId = new Map(foods.map((food) => [food.id, food]));
+    const decisionByFood = new Map(
+      decisions.map((decision) => [decision.foodId, decision]),
+    );
+    const replacements = new Map<string, string>();
+    const promoteIds: string[] = [];
+
+    for (const food of foods) {
+      if (food.visibility !== FoodVisibility.PRIVATE) continue;
+      const name =
+        food.translations.find((item) => item.locale === 'vi')?.name ??
+        food.slug;
+      const suggestions = await this.catalog.privateFoodsForReview([food.id]);
+      const suggestionList = suggestions[0]?.suggestions ?? [];
+      const decision = decisionByFood.get(food.id);
+      if (suggestionList.length && !decision) {
+        throw new BadRequestException(
+          `Choose merge or promote for private food '${name}' before approving`,
+        );
+      }
+      if (!decision || decision.action === 'promote') {
+        promoteIds.push(food.id);
+        continue;
+      }
+      if (!decision.toFoodId) {
+        throw new BadRequestException(
+          `Merge for '${name}' needs toFoodId`,
+        );
+      }
+      if (decision.toFoodId === food.id) {
+        throw new BadRequestException(`Cannot merge '${name}' into itself`);
+      }
+      const target = await tx.food.findUnique({
+        where: { id: decision.toFoodId },
+      });
+      if (!target) {
+        throw new NotFoundException(
+          `Food '${decision.toFoodId}' not found`,
+        );
+      }
+      replacements.set(food.id, decision.toFoodId);
+    }
+
+    const finalTarget = (foodId: string): string => {
+      const seen = new Set<string>();
+      let current = foodId;
+      while (replacements.has(current)) {
+        if (seen.has(current)) {
+          throw new BadRequestException('Food merge decisions form a cycle');
+        }
+        seen.add(current);
+        current = replacements.get(current)!;
+      }
+      return current;
+    };
+
+    const merges = new Map<string, string>();
+    for (const foodId of replacements.keys()) {
+      const target = finalTarget(foodId);
+      if (target !== foodId) merges.set(foodId, target);
+    }
+
+    const rewritten = collapseIngredients(
+      ingredients.map((item) => ({
+        ...item,
+        foodId: finalTarget(item.foodId),
+      })),
+    );
+
+    for (const [fromFoodId, toFoodId] of merges) {
+      if (!byId.has(fromFoodId)) continue;
+      await this.catalog.mergeFoods(tx, fromFoodId, toFoodId);
+    }
+
+    const stillPromote = promoteIds.filter((id) => !merges.has(id));
+    await this.catalog.promoteFoods(tx, stillPromote);
+    return rewritten;
   }
 
   private async submitCatalogRevision(recipeId: string, dto: UpdateRecipeDto) {

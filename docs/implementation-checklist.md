@@ -90,14 +90,14 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [ ] Tags (optional MVP)
 - [x] Seed 1–2 recipe mẫu (Carbonara, Chicken Tomato Pasta) + ingredients
 - [x] `GET /recipes/:slug` kèm cờ `inInventory` / `saved` khi có JWT — **7b.3**
-- [x] **Kiểm duyệt nội dung Recipe** (API — requirements **4.2b**; Food merge + UI moderator còn mở)
+- [x] **Kiểm duyệt nội dung Recipe** (API + màn Web `/moderation` — requirements **4.2b**)
 - [x] Schema: `RecipeRevision` + `Recipe.publishedVersion` (catalog; cookbook không version)
 - [x] Create/update catalog → revision `PENDING`; Discover chỉ bản `publishedVersion` + `PUBLIC`
 - [x] Author/moderator đọc revision đang chờ; public không thấy draft
 - [x] `POST /moderation/recipes/:id/approve|reject` kèm `version`; lệch version → 409
-- [ ] Approve recipe → check trùng Food PRIVATE mới → merge (Moderator) hoặc promote PUBLIC; reject không auto-public Food
-- [ ] Orphan Food: Moderator list/dọn; không auto-delete
-- [ ] UI moderator (Web)
+- [x] Approve recipe → Food PRIVATE có gợi ý thì bắt `merge` hoặc `promote`; không gợi ý thì promote PUBLIC; reject không public Food
+- [x] Orphan Food: màn moderator list + xóa tay; không auto-delete
+- [x] UI moderator (Web `/moderation`)
 
 ---
 
@@ -355,7 +355,7 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
-13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), Food merge khi approve recipe (**4.2b** bước 9) + UI moderator, FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 

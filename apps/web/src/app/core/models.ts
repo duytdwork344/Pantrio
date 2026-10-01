@@ -51,7 +51,47 @@ export type RecipeDetail = RecipeSummary & {
   instructions: string;
   steps?: RecipeStep[];
   ingredients: RecipeIngredient[];
+  contentVersion?: number | null;
+  moderationStatus?: string | null;
+  publishedVersion?: number | null;
   saved?: boolean;
+};
+
+export type FoodCandidate = {
+  id: string;
+  name: string;
+  slug: string;
+  visibility: string;
+};
+
+export type PrivateFoodReview = {
+  foodId: string;
+  name: string;
+  slug: string;
+  suggestions: FoodCandidate[];
+};
+
+export type ModerationRecipe = RecipeDetail & {
+  privateFoods: PrivateFoodReview[];
+};
+
+export type PendingRecipe = {
+  recipeId: string;
+  slug: string;
+  version: number;
+  title: string;
+  visibility: string;
+  authorId: string;
+  publishedVersion: number | null;
+  submittedAt: string;
+};
+
+export type ModeratedFood = {
+  id: string;
+  slug: string;
+  name: string;
+  visibility: string;
+  references: { total: number };
 };
 
 export type FoodHit = {

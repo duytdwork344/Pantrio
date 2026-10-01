@@ -9,6 +9,8 @@ import { StudioArticlesPageComponent } from './pages/studio/studio-articles-page
 import { StudioArticleEditorPageComponent } from './pages/studio/studio-article-editor-page.component';
 import { StudioRecipesPageComponent } from './pages/studio/studio-recipes-page.component';
 import { StudioRecipeEditorPageComponent } from './pages/studio/studio-recipe-editor-page.component';
+import { ModerationPageComponent } from './pages/moderation/moderation-page.component';
+import { ModerationReviewPageComponent } from './pages/moderation/moderation-review-page.component';
 
 export const routes: Routes = [
   { path: '', component: DiscoverPageComponent },
@@ -23,5 +25,7 @@ export const routes: Routes = [
   { path: 'studio/recipes/new', component: StudioRecipeEditorPageComponent },
   { path: 'studio/recipes/:slug', component: StudioRecipeEditorPageComponent },
   { path: 'studio/recipes', component: StudioRecipesPageComponent },
+  { path: 'moderation/recipes/:id', component: ModerationReviewPageComponent },
+  { path: 'moderation', component: ModerationPageComponent },
   { path: '**', redirectTo: '' },
 ];

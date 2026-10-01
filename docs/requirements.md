@@ -228,7 +228,7 @@ Hai lớp duyệt khác nhau:
 | Duyệt **người** lên CREATOR | Ai được phép viết | **3c** |
 | Duyệt **nội dung** từng Recipe | Recipe nào được discovery | **4.2b** (mục này) |
 
-Hướng triển khai (revision + approve đã có trên API; merge Food khi approve và UI moderator chưa làm):
+Hướng triển khai (revision, approve kèm Food PRIVATE, và màn moderator web đã có):
 
 1. Thêm field tách biệt `visibility` (`PUBLIC | PRIVATE | UNLISTED` — đã có) và `moderationStatus` (`PENDING | APPROVED | REJECTED`).
 2. CREATOR tạo recipe mới (hoặc sửa bản đã public theo policy): mặc định `moderationStatus = PENDING` khi muốn xuất hiện discovery; bản nháp có thể `PRIVATE` + chưa submit duyệt.
@@ -238,11 +238,11 @@ Hướng triển khai (revision + approve đã có trên API; merge Food khi app
 6. Author sửa catalog → revision mới `PENDING`. Discover vẫn phục vụ `Recipe.publishedVersion` (bản đã duyệt trước). Approve/reject phải gửi đúng `version` moderator vừa đọc; lệch version → **409** (tác giả đã lưu bản mới).
 7. Reject không gỡ bản public đang phát. Approve thì copy snapshot đó lên `Recipe` và gắn `publishedVersion`.
 8. **Food mới kèm Recipe** (xem thêm **7b.1**, **7b.7**): Food tạo trong flow recipe (search catalog không đủ) lưu `visibility = PRIVATE`, `createdByUserId = author`. Chỉ **author** và **moderator/admin** thấy trên search/catalog. Food vốn đã `PUBLIC` giữ nguyên. Reject recipe: **không** auto-public Food.
-9. **Khi APPROVE recipe — check trùng rồi merge/promote (đã chốt, chưa làm trong API version):**
-   - Với mỗi Food `PRIVATE` mới gắn recipe (do author tạo kèm): hệ thống/UI moderation **kiểm tra trùng** với Food `PUBLIC` (và gợi ý PRIVATE khác nếu có) theo tên/slug gần giống.
-   - **Có trùng với Food chuẩn (`toFoodId`)** → **Moderator merge** `fromFoodId` (bản PRIVATE của recipe) → `toFoodId`: remap `RecipeIngredient` (và FK khác) sang Food chuẩn; **không** promote bản trùng thành PUBLIC thứ hai.
-   - **Không trùng** → **promote** Food đó `PRIVATE` → `PUBLIC`.
-   - Không approve “câm” promote hàng loạt nếu chưa xử lý cảnh báo trùng (tránh 10 foodId PUBLIC cho “thịt cừu”).
+9. **Khi APPROVE recipe — check trùng rồi merge/promote:**
+   - `GET /moderation/recipes/:id` kèm `privateFoods[]` và gợi ý food gần tên/slug.
+   - Nếu có gợi ý, approve bắt buộc `foods[]`: `merge` + `toFoodId`, hoặc `promote` khi moderator chủ động giữ bản riêng.
+   - Không gợi ý → approve tự `promote` PRIVATE → PUBLIC. Reject không đụng visibility của Food.
+   - Merge remap ingredient, tủ, shopping list và snapshot revision; xóa food nguồn; food đích PRIVATE thì thành PUBLIC.
 10. Orphan Food PRIVATE sau reject / sau merge: **Moderator** list + dọn tay; hệ thống chỉ gợi ý, không tự xóa thầm (**7b.7**).
 11. Save của người khác không ghim version (bookmark theo `recipeId`, mở ra bản đang public).
 

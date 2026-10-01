@@ -1,0 +1,134 @@
+<a routerLink="/moderation" class="back">← Hàng đợi</a>
+
+@if (recipe(); as r) {
+  <article>
+    <h1>{{ r.title }}</h1>
+    <p class="meta">
+      version {{ r.contentVersion }} · {{ r.moderationStatus }}
+      @if (r.publishedVersion) {
+        · Discover đang ở v{{ r.publishedVersion }}
+      } @else {
+        · chưa từng public
+      }
+      · {{ r.visibility }}
+    </p>
+    @if (r.description) {
+      <p class="lead">{{ r.description }}</p>
+    }
+
+    <h2>Nguyên liệu</h2>
+    <ul class="ingredients">
+      @for (ing of r.ingredients; track ing.foodId + ing.sortOrder) {
+        <li>
+          <strong>{{ ing.foodName }}</strong>
+          — {{ ing.quantity }} {{ ing.unit }}
+          @if (ing.optional) {
+            <span class="muted">(optional)</span>
+          }
+        </li>
+      }
+    </ul>
+
+    <h2>Các bước</h2>
+    @if (r.steps?.length) {
+      <ol class="steps">
+        @for (step of r.steps; track step.id) {
+          <li>
+            <p>{{ step.body }}</p>
+            @if (step.imageUrl) {
+              <img [src]="step.imageUrl" alt="" />
+            }
+          </li>
+        }
+      </ol>
+    } @else {
+      <pre class="instructions">{{ r.instructions }}</pre>
+    }
+
+    <h2>Food PRIVATE</h2>
+    @if (r.privateFoods.length === 0) {
+      <p class="muted">Bản này không có food riêng. Approve không đổi catalog food.</p>
+    } @else {
+      <p class="lede">
+        Food gần giống phải được gộp hoặc chọn public riêng. Food không có gợi ý sẽ thành PUBLIC khi approve. Reject không public food.
+      </p>
+      @for (food of r.privateFoods; track food.foodId) {
+        <fieldset>
+          <legend>{{ food.name }}</legend>
+          @if (food.suggestions.length) {
+            @for (hit of food.suggestions; track hit.id) {
+              <label>
+                <input
+                  type="radio"
+                  [name]="food.foodId"
+                  [checked]="choice(food.foodId) === 'merge:' + hit.id"
+                  (change)="choose(food.foodId, 'merge:' + hit.id)"
+                />
+                Gộp vào {{ hit.name }}
+                <span class="muted">({{ hit.visibility }})</span>
+              </label>
+            }
+            <label>
+              <input
+                type="radio"
+                [name]="food.foodId"
+                [checked]="choice(food.foodId) === 'promote'"
+                (change)="choose(food.foodId, 'promote')"
+              />
+              Giữ thành food PUBLIC riêng
+            </label>
+          } @else {
+            <p class="muted">Không thấy food gần giống. Approve sẽ chuyển food này thành PUBLIC.</p>
+          }
+
+          <div class="search">
+            <input
+              type="search"
+              placeholder="Tìm food khác để gộp"
+              [value]="queryOf(food.foodId)"
+              (input)="setQuery(food.foodId, $any($event.target).value)"
+            />
+            <button type="button" (click)="search(food.foodId)">Tìm</button>
+          </div>
+          @for (hit of hitsOf(food.foodId); track hit.id) {
+            <label>
+              <input
+                type="radio"
+                [name]="food.foodId"
+                [checked]="choice(food.foodId) === 'merge:' + hit.id"
+                (change)="choose(food.foodId, 'merge:' + hit.id)"
+              />
+              Gộp vào {{ hit.name }}
+            </label>
+          }
+        </fieldset>
+      }
+    }
+
+    <label class="reason">
+      Lý do từ chối (khi reject)
+      <textarea
+        rows="3"
+        [value]="reason()"
+        (input)="reason.set($any($event.target).value)"
+      ></textarea>
+    </label>
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    <div class="actions">
+      <button type="button" [disabled]="saving() || unresolved()" (click)="approve()">
+        Approve v{{ r.contentVersion }}
+      </button>
+      <button type="button" class="danger" [disabled]="saving()" (click)="reject()">
+        Reject
+      </button>
+    </div>
+  </article>
+} @else if (loading()) {
+  <p class="muted">Đang tải bản cần duyệt…</p>
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+}

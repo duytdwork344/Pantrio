@@ -409,6 +409,58 @@ export class ShareRecipeResultDto {
   rateLimited?: boolean;
 }
 
+export class ReviewFoodDecisionDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  foodId!: string;
+
+  @ApiProperty({ enum: ['promote', 'merge'] })
+  @IsIn(['promote', 'merge'])
+  action!: 'promote' | 'merge';
+
+  @ApiPropertyOptional({
+    description: 'Required when action is merge',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  toFoodId?: string;
+}
+
+export class FoodCandidateDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  visibility!: string;
+}
+
+export class PrivateFoodReviewDto {
+  @ApiProperty()
+  foodId!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty({ type: [FoodCandidateDto] })
+  suggestions!: FoodCandidateDto[];
+}
+
+export class ModerationRecipeDetailDto extends RecipeDetailDto {
+  @ApiProperty({ type: [PrivateFoodReviewDto] })
+  privateFoods!: PrivateFoodReviewDto[];
+}
+
 export class ReviewRecipeDto {
   @ApiProperty({ description: 'Revision the moderator reviewed' })
   @IsInt()
@@ -420,4 +472,15 @@ export class ReviewRecipeDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @ApiPropertyOptional({
+    type: [ReviewFoodDecisionDto],
+    description:
+      'Required for each PRIVATE food that has a similar catalog food. Others are promoted on approve.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReviewFoodDecisionDto)
+  foods?: ReviewFoodDecisionDto[];
 }

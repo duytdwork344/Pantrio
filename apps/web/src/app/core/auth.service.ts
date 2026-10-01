@@ -25,6 +25,9 @@ export class AuthService {
   readonly canCreateRecipe = computed(() =>
     (this.userSignal()?.permissions ?? []).includes('recipe:create'),
   );
+  readonly canModerate = computed(() =>
+    (this.userSignal()?.permissions ?? []).includes('moderation:manage'),
+  );
 
   login(email: string, password: string) {
     return this.http
