@@ -20,6 +20,7 @@ import { pickTranslation } from '../common/i18n/locale';
 import { GroupsService } from '../groups/groups.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchService } from '../search/search.service';
 import {
   CreateGroupRecipeDto,
   CreateRecipeDto,
@@ -85,6 +86,7 @@ export class RecipesService {
     private readonly prisma: PrismaService,
     private readonly groups: GroupsService,
     private readonly catalog: CatalogService,
+    private readonly search: SearchService,
   ) {}
 
   async list(): Promise<RecipeSummaryDto[]> {
@@ -869,7 +871,9 @@ export class RecipesService {
   }
 
   async approveRevision(recipeId: string, actor: AuthUser, dto: ReviewRecipeDto) {
-    return this.reviewRevision(recipeId, actor, dto, 'approve');
+    const detail = await this.reviewRevision(recipeId, actor, dto, 'approve');
+    await this.search.upsertPublicRecipe(recipeId);
+    return detail;
   }
 
   async rejectRevision(recipeId: string, actor: AuthUser, dto: ReviewRecipeDto) {

@@ -60,9 +60,44 @@
   </section>
 
   <section class="discover">
-    <h2>Tất cả recipes</h2>
+    <div class="discover__head">
+      <h2>Tất cả recipes</h2>
+    </div>
+
+    <form class="search" (submit)="$event.preventDefault(); search()">
+      <input
+        type="search"
+        name="q"
+        placeholder="Tìm theo tên, mô tả, nguyên liệu…"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+      <select
+        name="difficulty"
+        [ngModel]="difficulty()"
+        (ngModelChange)="difficulty.set($event)"
+      >
+        <option value="">Độ khó</option>
+        <option value="EASY">EASY</option>
+        <option value="MEDIUM">MEDIUM</option>
+        <option value="HARD">HARD</option>
+      </select>
+      <input
+        type="number"
+        name="maxCookTimeMin"
+        min="0"
+        placeholder="Cook ≤ phút"
+        [ngModel]="maxCookTimeMin()"
+        (ngModelChange)="maxCookTimeMin.set($event)"
+      />
+      <button type="submit" [disabled]="searching()">Tìm</button>
+      @if (query() || difficulty() || maxCookTimeMin()) {
+        <button type="button" class="ghost" (click)="clearSearch()">Xóa</button>
+      }
+    </form>
+
     @if (recipes().length === 0) {
-      <p class="muted">Chưa có recipe công khai.</p>
+      <p class="muted">Không có recipe khớp.</p>
     } @else {
       <ul class="card-list">
         @for (recipe of recipes(); track recipe.id) {

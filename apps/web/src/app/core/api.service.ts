@@ -51,6 +51,23 @@ export class ApiService {
     return this.http.get<RecipeSummary[]>(`${this.base}/recipes`);
   }
 
+  searchRecipes(params: {
+    q?: string;
+    difficulty?: string;
+    maxCookTimeMin?: number;
+    limit?: number;
+  } = {}) {
+    const query = new URLSearchParams();
+    if (params.q?.trim()) query.set('q', params.q.trim());
+    if (params.difficulty) query.set('difficulty', params.difficulty);
+    if (params.maxCookTimeMin != null) {
+      query.set('maxCookTimeMin', String(params.maxCookTimeMin));
+    }
+    if (params.limit != null) query.set('limit', String(params.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return this.http.get<RecipeSummary[]>(`${this.base}/search/recipes${suffix}`);
+  }
+
   getRecipeBySlug(slug: string) {
     return this.http.get<RecipeDetail>(
       `${this.base}/recipes/${encodeURIComponent(slug)}`,

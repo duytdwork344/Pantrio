@@ -17,7 +17,7 @@ Pantrio/
 │   ├── api-client/  # OpenAPI → TypeScript client
 │   └── config/
 ├── infra/
-│   └── compose.yml  # Postgres, Redis, MinIO
+│   └── compose.yml  # Postgres, Redis, MinIO, OpenSearch
 └── docs/
     └── requirements.md
 ```
@@ -29,7 +29,7 @@ Pantrio/
 | Backend | NestJS, Prisma, Swagger/OpenAPI |
 | Web | Angular 19 (standalone, SCSS) |
 | Mobile | Flutter |
-| Database | PostgreSQL (+ Redis, MinIO) |
+| Database | PostgreSQL (+ Redis, MinIO, OpenSearch) |
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ Pantrio/
 # 1) Install JS workspace deps
 pnpm install
 
-# 2) Start Postgres / Redis / MinIO
+# 2) Start Postgres / Redis / MinIO / OpenSearch
 pnpm docker:up
 
 # 3) Generate Prisma client + run migrations

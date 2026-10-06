@@ -12,6 +12,7 @@ import { PlanningModule } from './planning/planning.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RecipesModule } from './recipes/recipes.module';
+import { SearchModule } from './search/search.module';
 import { ShoppingModule } from './shopping/shopping.module';
 import { UsersModule } from './users/users.module';
 
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
     CatalogModule,
     HealthModule,
     RecipesModule,
+    SearchModule,
     ArticlesModule,
     PlanningModule,
     GroupsModule,

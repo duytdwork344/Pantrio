@@ -154,6 +154,48 @@
   }
 }
 
+.search {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+
+  @media (min-width: 720px) {
+    grid-template-columns: minmax(0, 1fr) 8rem 7.5rem auto auto;
+    align-items: center;
+  }
+
+  input,
+  select,
+  button {
+    font: inherit;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.45rem;
+    border: 1px solid color-mix(in srgb, var(--color-brand) 28%, transparent);
+    background: color-mix(in srgb, white 80%, var(--color-bg-1));
+    color: var(--color-ink);
+  }
+
+  button {
+    background: var(--color-brand);
+    color: #fff;
+    border-color: var(--color-brand);
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+  }
+
+  .ghost {
+    background: transparent;
+    color: var(--color-muted);
+    border-color: transparent;
+  }
+}
+
 .muted {
   color: var(--color-muted);
 }

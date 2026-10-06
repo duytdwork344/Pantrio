@@ -141,8 +141,6 @@ class _RecipesPageState extends State<RecipesPage>
             controller: _tabs,
             children: [
               _DiscoverTab(
-                future: _discover,
-                onRefresh: _refresh,
                 onOpen: (r) => _openRecipe(r),
               ),
               const CookRecommendTab(),
@@ -171,69 +169,129 @@ class _RecipesPageState extends State<RecipesPage>
   }
 }
 
-class _DiscoverTab extends StatelessWidget {
+class _DiscoverTab extends StatefulWidget {
   const _DiscoverTab({
-    required this.future,
-    required this.onRefresh,
     required this.onOpen,
   });
 
-  final Future<List<RecipeSummary>> future;
-  final Future<void> Function() onRefresh;
   final Future<void> Function(RecipeSummary) onOpen;
 
   @override
+  State<_DiscoverTab> createState() => _DiscoverTabState();
+}
+
+class _DiscoverTabState extends State<_DiscoverTab> {
+  final _query = TextEditingController();
+  late Future<List<RecipeSummary>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<List<RecipeSummary>> _load() {
+    final api = context.read<AuthSession>().api;
+    final q = _query.text.trim();
+    if (q.isEmpty) return api.getRecipes();
+    return api.searchRecipes(q: q);
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = _load());
+    await _future;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<RecipeSummary>>(
-      future: future,
-      builder: (context, snapshot) {
-        // Initial load only — keep previous list visible while refreshing.
-        if (!snapshot.hasData && !snapshot.hasError) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError && !snapshot.hasData) {
-          return _ErrorBody(message: snapshot.error.toString(), onRetry: onRefresh);
-        }
-        final recipes = snapshot.data ?? const <RecipeSummary>[];
-        if (recipes.isEmpty) {
-          return RefreshIndicator(
-            onRefresh: onRefresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                SizedBox(height: 80),
-                Center(child: Text('No public recipes yet.')),
-              ],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: TextField(
+            controller: _query,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search recipes…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _query.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _query.clear();
+                        _refresh();
+                      },
+                    ),
+              border: const OutlineInputBorder(),
+              isDense: true,
             ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: onRefresh,
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: recipes.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final recipe = recipes[index];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: RemoteThumb(
-                  url: recipe.imageUrl,
-                  size: 52,
-                  icon: Icons.restaurant_menu_outlined,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _refresh(),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<RecipeSummary>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData && !snapshot.hasError) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError && !snapshot.hasData) {
+                return _ErrorBody(
+                  message: snapshot.error.toString(),
+                  onRetry: _refresh,
+                );
+              }
+              final recipes = snapshot.data ?? const <RecipeSummary>[];
+              if (recipes.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 80),
+                      Center(child: Text('No public recipes yet.')),
+                    ],
+                  ),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: recipes.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final recipe = recipes[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: RemoteThumb(
+                        url: recipe.imageUrl,
+                        size: 52,
+                        icon: Icons.restaurant_menu_outlined,
+                      ),
+                      title: Text(recipe.title),
+                      subtitle: Text(
+                        '${recipe.servings} servings · ${recipe.difficulty}'
+                        '${recipe.cookTimeMin != null ? ' · ${recipe.cookTimeMin} min cook' : ''}',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => widget.onOpen(recipe),
+                    );
+                  },
                 ),
-                title: Text(recipe.title),
-                subtitle: Text(
-                  '${recipe.servings} servings · ${recipe.difficulty}'
-                  '${recipe.cookTimeMin != null ? ' · ${recipe.cookTimeMin} min cook' : ''}',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => onOpen(recipe),
               );
             },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

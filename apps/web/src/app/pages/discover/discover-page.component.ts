@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
@@ -10,7 +11,7 @@ import type {
 
 @Component({
   selector: 'app-discover-page',
-  imports: [RouterLink],
+  imports: [RouterLink, FormsModule],
   templateUrl: './discover-page.component.html',
   styleUrl: './discover-page.component.scss',
 })
@@ -22,9 +23,13 @@ export class DiscoverPageComponent {
   readonly articles = signal<ArticleSummary[]>([]);
   readonly recommendations = signal<RecipeRecommendation[]>([]);
   readonly loading = signal(true);
+  readonly searching = signal(false);
   readonly recommendLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly recommendError = signal<string | null>(null);
+  readonly query = signal('');
+  readonly difficulty = signal('');
+  readonly maxCookTimeMin = signal('');
 
   /** Max cards in the pantry strip on Discover. */
   readonly recommendLimit = 6;
@@ -36,26 +41,31 @@ export class DiscoverPageComponent {
   reload(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.listRecipes().subscribe({
-      next: (recipes) => {
-        this.recipes.set(recipes);
-        this.api.listArticles().subscribe({
-          next: (articles) => {
-            this.articles.set(articles);
-            this.loading.set(false);
-          },
-          error: () => {
-            this.articles.set([]);
-            this.loading.set(false);
-          },
-        });
-        this.loadRecommendations();
-      },
-      error: (err: { message?: string }) => {
+    this.loadRecipes();
+    this.api.listArticles().subscribe({
+      next: (articles) => {
+        this.articles.set(articles);
         this.loading.set(false);
-        this.error.set(err.message ?? 'Không tải được recipes');
+      },
+      error: () => {
+        this.articles.set([]);
+        this.loading.set(false);
       },
     });
+    this.loadRecommendations();
+  }
+
+  search(): void {
+    this.searching.set(true);
+    this.error.set(null);
+    this.loadRecipes(() => this.searching.set(false));
+  }
+
+  clearSearch(): void {
+    this.query.set('');
+    this.difficulty.set('');
+    this.maxCookTimeMin.set('');
+    this.search();
   }
 
   matchLabel(row: RecipeRecommendation): string {
@@ -66,6 +76,35 @@ export class DiscoverPageComponent {
       return '';
     }
     return `${row.matchedCount}/${row.requiredCount} nguyên liệu`;
+  }
+
+  private loadRecipes(done?: () => void): void {
+    const q = this.query().trim();
+    const difficulty = this.difficulty();
+    const maxCookRaw = this.maxCookTimeMin().trim();
+    const maxCookTimeMin = maxCookRaw ? Number(maxCookRaw) : undefined;
+    const request =
+      q || difficulty || maxCookTimeMin != null
+        ? this.api.searchRecipes({
+            q: q || undefined,
+            difficulty: difficulty || undefined,
+            maxCookTimeMin:
+              maxCookTimeMin != null && Number.isFinite(maxCookTimeMin)
+                ? maxCookTimeMin
+                : undefined,
+          })
+        : this.api.listRecipes();
+
+    request.subscribe({
+      next: (recipes) => {
+        this.recipes.set(recipes);
+        done?.();
+      },
+      error: (err: { message?: string }) => {
+        this.error.set(err.message ?? 'Không tải được recipes');
+        done?.();
+      },
+    });
   }
 
   private loadRecommendations(): void {

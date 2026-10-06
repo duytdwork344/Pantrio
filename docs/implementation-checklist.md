@@ -268,6 +268,7 @@ Không gộp một list rank duy nhất. Thứ tự đề xuất trên màn Disc
 - [ ] Cụm **Hôm nay / Mới** (recent và/hoặc featured-of-day) — để feed “đổi theo ngày”
 - [x] Cụm **Articles** (strip trên Discover + link xem tất cả)
 - [x] Cụm **Tất cả recipes** (catalog; đứng sau pantry)
+- [x] Ô **Search recipes** trên Discover (Web + Mobile) → `GET /search/recipes` — checklist **8b**
 
 ### Pantry recommend — ranking (đã có nền + mở rộng)
 
@@ -325,6 +326,17 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 
 ---
 
+## 8b. Recipe search (OpenSearch) — requirements **22**
+
+- [x] Docker OpenSearch (`infra/compose.yml`, `:9200`, security disabled local)
+- [x] Index `pantrio-recipes` + analyzer asciifolding
+- [x] `GET /search/recipes` (q, difficulty, maxCookTimeMin); SQL fallback khi cluster down
+- [x] Sync: boot reindex nếu index trống; `POST /search/recipes/reindex`; index lại sau approve catalog
+- [x] Discover Web + Mobile gọi search khi có query
+- [ ] (Sau) FoodAlias + index Food; semantic / hybrid
+
+---
+
 ## 10. Docs & quality
 
 - [x] requirements: Food / Inventory / RecipeIngredient decisions (**7b**)
@@ -355,7 +367,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
-13. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+13. **Recipe search OpenSearch (checklist 8b / requirements 22)** — Docker → index → `GET /search/recipes` → Discover _(xong lát cắt recipe)_
+14. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 
@@ -368,3 +381,4 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 - Unit MVP chuẩn: `g` | `kg` | `ml` | `l` | `pcs` (`@pantrio/shared` `Unit`).
 - InventoryGroup (**7c** / checklist **6a**): Personal | Group tabs; share Inventory + Shopping; 1 group/user MVP; invite code; purchase cùng scope.
 - Media (**4.2d** / checklist **3c**): MinIO `pantrio-media` + `S3_*`; form-data MVP; tạo+sửa recipe (đặc biệt cookbook group / sau cook).
+- Recipe search (**8b**): OpenSearch `localhost:9200`; `GET /search/recipes`; Food typeahead vẫn SQL.

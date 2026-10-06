@@ -309,6 +309,23 @@ class PantrioApiClient {
     return list.map(RecipeSummary.fromJson).toList();
   }
 
+  Future<List<RecipeSummary>> searchRecipes({
+    String? q,
+    String? difficulty,
+    int? maxCookTimeMin,
+    int limit = 30,
+  }) async {
+    final params = <String, String>{'limit': '$limit'};
+    final query = q?.trim();
+    if (query != null && query.isNotEmpty) params['q'] = query;
+    if (difficulty != null && difficulty.isNotEmpty) {
+      params['difficulty'] = difficulty;
+    }
+    if (maxCookTimeMin != null) params['maxCookTimeMin'] = '$maxCookTimeMin';
+    final list = await _getList('search/recipes', query: params);
+    return list.map(RecipeSummary.fromJson).toList();
+  }
+
   Future<List<RecipeSummary>> getMyRecipes() async {
     final list = await _getList('me/recipes');
     return list.map(RecipeSummary.fromJson).toList();

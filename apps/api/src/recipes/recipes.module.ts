@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module';
 import { GroupsModule } from '../groups/groups.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SearchModule } from '../search/search.module';
 import { GroupRecipesController } from './group-recipes.controller';
 import { RecipeModerationController } from './recipe-moderation.controller';
 import { MeController, RecipesController } from './recipes.controller';
 import { RecipesService } from './recipes.service';
 
 @Module({
-  imports: [PrismaModule, GroupsModule, CatalogModule],
+  imports: [PrismaModule, GroupsModule, CatalogModule, SearchModule],
   controllers: [
     RecipesController,
     MeController,

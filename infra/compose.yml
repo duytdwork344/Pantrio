@@ -65,7 +65,28 @@ services:
       exit 0;
       "
 
+  # Recipe Discover search (requirements §22 Advanced Search). Food typeahead stays on Postgres.
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    container_name: pantrio-opensearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ports:
+      - "9200:9200"
+    volumes:
+      - pantrio_opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
 volumes:
   pantrio_postgres_data:
   pantrio_redis_data:
   pantrio_minio_data:
+  pantrio_opensearch_data:

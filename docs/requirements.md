@@ -1209,9 +1209,18 @@ Cook with what you have.
 
 22. Search
 
-MVP
+**Đã chốt (2026-10-05) — lát cắt recipe Discover:**
 
-SQL
+- OpenSearch local trong Docker (`infra/compose.yml`, `localhost:9200`, security tắt).
+- Index `pantrio-recipes`: title, description, ingredientNames, instructions, difficulty, cook/prep time, visibility, publishedVersion.
+- Sync: bootstrap khi index trống lúc API boot; `POST /search/recipes/reindex` (`moderation:manage`); sau **approve** catalog recipe.
+- API: `GET /search/recipes?q=&difficulty=&maxCookTimeMin=&limit=` — cluster down thì SQL fallback (`contains`).
+- Discover Web + Mobile: ô tìm recipe gọi endpoint trên.
+- Food typeahead vẫn Postgres (`GET /foods?q=`). FoodAlias / semantic vẫn phase sau.
+
+MVP (còn lại / mở rộng dần)
+
+SQL (Food + fallback recipe)
 
 Full-text search
 
@@ -1219,22 +1228,17 @@ Category
 
 Tag
 
-Ingredient
+Ingredient (đã có qua OpenSearch ingredientNames)
 
-Difficulty
+Difficulty (đã có query param)
 
-Cooking time
+Cooking time (đã có maxCookTimeMin)
 
 Future
 
-Elasticsearch / OpenSearch
+Elasticsearch / OpenSearch _(recipe Discover — đã nối OpenSearch)_
 
-Sau đó có thể mở rộng:
-
-Embedding
-Vector Search
-Hybrid Search
-Semantic Recommendation
+Embedding / vector / hybrid / semantic recommendation — Phase 3.
 
 Không cần triển khai vector search ngay từ MVP.
 
@@ -1340,7 +1344,7 @@ Phase 2
 InventoryGroup — tủ & shopping dùng chung (tab Personal | Group; xem **7c** / checklist **6a**)
 AI Food Scan
 Expiry Notification
-Advanced Search
+Advanced Search _(OpenSearch recipe Discover — checklist **8b**)_
 Creator (UX xin quyền CREATOR + duyệt — xem mục **3c**; assign tay vẫn dùng được từ MVP)
 Group Cookbook (**4.2c** — ưu tiên trước moderation)
 Media / upload ảnh MinIO→S3 (**4.2d** — form-data MVP; tạo + sửa recipe; sau cook)
