@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
@@ -183,6 +184,9 @@ class _DiscoverTab extends StatefulWidget {
 class _DiscoverTabState extends State<_DiscoverTab> {
   final _query = TextEditingController();
   late Future<List<RecipeSummary>> _future;
+  bool _isSearching = false;
+  Timer? _debounceTimer;
+  int _searchVersion = 0;
 
   @override
   void initState() {
@@ -192,6 +196,7 @@ class _DiscoverTabState extends State<_DiscoverTab> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _query.dispose();
     super.dispose();
   }
@@ -203,8 +208,35 @@ class _DiscoverTabState extends State<_DiscoverTab> {
     return api.searchRecipes(q: q);
   }
 
+  void _triggerSearch({bool unfocus = false}) {
+    _debounceTimer?.cancel();
+    if (unfocus) {
+      FocusScope.of(context).unfocus();
+    }
+    final currentVersion = ++_searchVersion;
+    final apiCall = _load();
+    setState(() {
+      _isSearching = true;
+      _future = apiCall;
+    });
+
+    apiCall.whenComplete(() {
+      if (mounted && currentVersion == _searchVersion) {
+        setState(() => _isSearching = false);
+      }
+    });
+  }
+
+  void _onQueryChanged(String _) {
+    setState(() {});
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _triggerSearch(unfocus: false);
+    });
+  }
+
   Future<void> _refresh() async {
-    setState(() => _future = _load());
+    _triggerSearch(unfocus: false);
     await _future;
   }
 
@@ -219,45 +251,62 @@ class _DiscoverTabState extends State<_DiscoverTab> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Search recipes…',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () => _triggerSearch(unfocus: true),
+              ),
               suffixIcon: _query.text.isEmpty
                   ? null
                   : IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         _query.clear();
-                        _refresh();
+                        _triggerSearch(unfocus: false);
                       },
                     ),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _refresh(),
+            onChanged: _onQueryChanged,
+            onSubmitted: (_) => _triggerSearch(unfocus: true),
           ),
         ),
+        const SizedBox(height: 8),
+        if (_isSearching)
+          const LinearProgressIndicator(minHeight: 2)
+        else
+          const SizedBox(height: 2),
         Expanded(
           child: FutureBuilder<List<RecipeSummary>>(
             future: _future,
             builder: (context, snapshot) {
-              if (!snapshot.hasData && !snapshot.hasError) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData &&
+                  !snapshot.hasError) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snapshot.hasError && !snapshot.hasData) {
+              if (snapshot.hasError && (!snapshot.hasData || (snapshot.data?.isEmpty ?? true))) {
                 return _ErrorBody(
                   message: snapshot.error.toString(),
                   onRetry: _refresh,
                 );
               }
               final recipes = snapshot.data ?? const <RecipeSummary>[];
-              if (recipes.isEmpty) {
+              if (recipes.isEmpty && !_isSearching) {
+                final q = _query.text.trim();
                 return RefreshIndicator(
                   onRefresh: _refresh,
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 80),
-                      Center(child: Text('No public recipes yet.')),
+                    children: [
+                      const SizedBox(height: 80),
+                      Center(
+                        child: Text(
+                          q.isEmpty
+                              ? 'No public recipes yet.'
+                              : 'No recipes found for "$q".',
+                        ),
+                      ),
                     ],
                   ),
                 );
