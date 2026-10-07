@@ -70,12 +70,12 @@
         name="q"
         placeholder="Tìm theo tên, mô tả, nguyên liệu…"
         [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        (ngModelChange)="query.set($event); onFilterChange()"
       />
       <select
         name="difficulty"
         [ngModel]="difficulty()"
-        (ngModelChange)="difficulty.set($event)"
+        (ngModelChange)="difficulty.set($event); onFilterChange()"
       >
         <option value="">Độ khó</option>
         <option value="EASY">EASY</option>
@@ -86,9 +86,9 @@
         type="number"
         name="maxCookTimeMin"
         min="0"
-        placeholder="Cook ≤ phút"
+        placeholder="Nấu ≤ phút"
         [ngModel]="maxCookTimeMin()"
-        (ngModelChange)="maxCookTimeMin.set($event)"
+        (ngModelChange)="maxCookTimeMin.set($event); onFilterChange()"
       />
       <button type="submit" [disabled]="searching()">Tìm</button>
       @if (query() || difficulty() || maxCookTimeMin()) {
@@ -96,7 +96,11 @@
       }
     </form>
 
-    @if (recipes().length === 0) {
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    } @else if (searching()) {
+      <p class="muted">Đang tìm kiếm…</p>
+    } @else if (recipes().length === 0) {
       <p class="muted">Không có recipe khớp.</p>
     } @else {
       <ul class="card-list">

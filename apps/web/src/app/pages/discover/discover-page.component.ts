@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -15,7 +15,7 @@ import type {
   templateUrl: './discover-page.component.html',
   styleUrl: './discover-page.component.scss',
 })
-export class DiscoverPageComponent {
+export class DiscoverPageComponent implements OnDestroy {
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
 
@@ -34,8 +34,17 @@ export class DiscoverPageComponent {
   /** Max cards in the pantry strip on Discover. */
   readonly recommendLimit = 6;
 
+  private searchTimeout: any;
+  private currentSearchVersion = 0;
+
   constructor() {
     this.reload();
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
   }
 
   reload(): void {
@@ -56,12 +65,27 @@ export class DiscoverPageComponent {
   }
 
   search(): void {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
     this.searching.set(true);
     this.error.set(null);
     this.loadRecipes(() => this.searching.set(false));
   }
 
+  onFilterChange(delay = 400): void {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.search();
+    }, delay);
+  }
+
   clearSearch(): void {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
     this.query.set('');
     this.difficulty.set('');
     this.maxCookTimeMin.set('');
@@ -83,6 +107,8 @@ export class DiscoverPageComponent {
     const difficulty = this.difficulty();
     const maxCookRaw = this.maxCookTimeMin().trim();
     const maxCookTimeMin = maxCookRaw ? Number(maxCookRaw) : undefined;
+    const version = ++this.currentSearchVersion;
+
     const request =
       q || difficulty || maxCookTimeMin != null
         ? this.api.searchRecipes({
@@ -97,10 +123,12 @@ export class DiscoverPageComponent {
 
     request.subscribe({
       next: (recipes) => {
+        if (version !== this.currentSearchVersion) return;
         this.recipes.set(recipes);
         done?.();
       },
       error: (err: { message?: string }) => {
+        if (version !== this.currentSearchVersion) return;
         this.error.set(err.message ?? 'Không tải được recipes');
         done?.();
       },
