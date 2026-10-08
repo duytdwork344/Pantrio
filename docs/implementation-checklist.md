@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7c**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7b.9**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -58,7 +58,7 @@ Tham chiếu: requirements **3**, **3b**, **3c**.
 
 ## 2. Catalog — Food (API)
 
-Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
+Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**, **7b.9**.
 
 - [x] Model `Food` (slug, measurementType, baseUnit) — không name trên Food
 - [x] Model `FoodTranslation` (locale, name, category)
@@ -74,8 +74,27 @@ Tham chiếu: requirements **7**, **7b**, **7b.7**, **7b.8**.
 - [x] Moderator: promote PRIVATE → PUBLIC — `POST /foods/:id/promote`
 - [x] Moderator: list + dọn orphan Food PRIVATE — `GET /foods/moderation/orphans`, `DELETE /foods/:id`
 - [x] Inventory / Shopping / Recipe: reject `foodId` PRIVATE không thuộc user
-- [ ] Approve recipe: **check trùng** Food PRIVATE mới → merge/promote (gắn khi làm **4.2b**)
+- [x] Approve recipe: **check trùng** Food PRIVATE mới → merge/promote (gắn **4.2b**)
 - [ ] **FoodAlias** (bảng riêng, search) — **7b.8** (phase sau, không làm MVP)
+
+---
+
+## 2b. Nutrition — Nutrient + FoodNutrient (API + UI)
+
+Tham chiếu: requirements **7b.9**.
+
+- [x] Schema: `Nutrient` (code, unit, group, sortOrder) + `FoodNutrient` (foodId, nutrientId, amount, basisQty, basisUnit)
+- [x] Migration; **không** thêm cột dinh dưỡng trên `Food`
+- [x] Seed danh mục Nutrient lõi: `energy_kcal`, `protein`, `carb`, `fat`, `fiber`, `sugar`, `sodium`, … (UI MVP chỉ hiện một profile)
+- [x] Seed `FoodNutrient` cho một phần Food PUBLIC lõi (per 100g / 100ml / 1 pcs)
+- [x] API: Food detail/list kèm `nutrients[]`; `GET /foods/nutrients`; `PUT /foods/:id/nutrients` (`catalog:manage`)
+- [x] Recipe detail: aggregate total + perServing từ ingredients; cờ incomplete khi thiếu data
+- [x] Recipe nutrition: breakdown đóng góp theo từng food (`contributions[]`)
+- [x] Web: hiện dinh dưỡng trên recipe detail (+ hover/tap breakdown)
+- [x] Mobile: hiện dinh dưỡng trên recipe detail (+ tap breakdown)
+- [x] Web moderator: form chỉnh FoodNutrient (`/moderation/nutrition`)
+- [ ] (Sau) Denormalize kcal/serving lên OpenSearch / filter Discover
+- [ ] (Sau) Auto-fill nguồn ngoài; diary / mục tiêu cá nhân
 
 ---
 
@@ -342,6 +361,7 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 - [x] requirements: Food / Inventory / RecipeIngredient decisions (**7b**)
 - [x] requirements: Moderator merge (**7b.7**)
 - [x] requirements: FoodAlias phase sau (**7b.8**)
+- [x] requirements: Nutrition Nutrient + FoodNutrient (**7b.9**)
 - [x] requirements: InventoryGroup dual scope (**7c**)
 - [x] requirements: Media / upload ảnh (**4.2d**)
 - [x] requirements: RecipeStep (**4.2e**)
@@ -368,7 +388,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
 13. **Recipe search OpenSearch (checklist 8b / requirements 22)** — Docker → index → `GET /search/recipes` → Discover _(xong lát cắt recipe)_
-14. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+14. **Nutrition (checklist 2b / requirements 7b.9)** — Nutrient seed → FoodNutrient → recipe aggregate → Web/Mobile _(xong lát cắt MVP)_
+15. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), Discover filter kcal, AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 
@@ -382,3 +403,4 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 - InventoryGroup (**7c** / checklist **6a**): Personal | Group tabs; share Inventory + Shopping; 1 group/user MVP; invite code; purchase cùng scope.
 - Media (**4.2d** / checklist **3c**): MinIO `pantrio-media` + `S3_*`; form-data MVP; tạo+sửa recipe (đặc biệt cookbook group / sau cook).
 - Recipe search (**8b**): OpenSearch `localhost:9200`; `GET /search/recipes`; Food typeahead vẫn SQL.
+- Nutrition (**7b.9** / checklist **2b**): `Nutrient` + `FoodNutrient`; recipe aggregate; không cột dinh dưỡng trên `Food`.

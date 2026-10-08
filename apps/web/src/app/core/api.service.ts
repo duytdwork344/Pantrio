@@ -4,7 +4,9 @@ import { environment } from '../../environments/environment';
 import type {
   ArticleDetail,
   ArticleSummary,
+  FoodDetail,
   FoodHit,
+  NutrientCatalogItem,
   RecipeDetail,
   ModerationRecipe,
   ModeratedFood,
@@ -126,6 +128,34 @@ export class ApiService {
   searchFoods(q: string, locale = 'vi') {
     const params = new URLSearchParams({ q, locale });
     return this.http.get<FoodHit[]>(`${this.base}/foods?${params.toString()}`);
+  }
+
+  getFoodBySlug(slug: string, locale = 'vi') {
+    const params = new URLSearchParams({ locale });
+    return this.http.get<FoodDetail>(
+      `${this.base}/foods/${encodeURIComponent(slug)}?${params.toString()}`,
+    );
+  }
+
+  listNutrients() {
+    return this.http.get<NutrientCatalogItem[]>(`${this.base}/foods/nutrients`);
+  }
+
+  replaceFoodNutrients(
+    foodId: string,
+    nutrients: Array<{
+      code: string;
+      amount: number;
+      basisQty?: number;
+      basisUnit?: string;
+    }>,
+    locale = 'vi',
+  ) {
+    const params = new URLSearchParams({ locale });
+    return this.http.put<FoodDetail>(
+      `${this.base}/foods/${encodeURIComponent(foodId)}/nutrients?${params.toString()}`,
+      { nutrients },
+    );
   }
 
   uploadImage(file: File, folder = 'recipes') {

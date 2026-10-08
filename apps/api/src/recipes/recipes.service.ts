@@ -18,6 +18,9 @@ import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { assertFoodsUsable as ensureFoodsUsable } from '../common/foods/assert-food-usable';
 import { pickTranslation } from '../common/i18n/locale';
 import { GroupsService } from '../groups/groups.service';
+import {
+  aggregateRecipeNutrition,
+} from '../common/nutrition/aggregate';
 import { CatalogService } from '../catalog/catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
@@ -72,7 +75,10 @@ type RecipeWithIngredients = Prisma.RecipeGetPayload<{
     ingredients: {
       include: {
         food: {
-          include: { translations: true };
+          include: {
+            translations: true;
+            nutrients: { include: { nutrient: true } };
+          };
         };
       };
     };
@@ -702,7 +708,13 @@ export class RecipesService {
       ingredients: {
         include: {
           food: {
-            include: { translations: true },
+            include: {
+              translations: true,
+              nutrients: {
+                include: { nutrient: true },
+                orderBy: { nutrient: { sortOrder: 'asc' as const } },
+              },
+            },
           },
         },
         orderBy: { sortOrder: 'asc' as const },
@@ -819,6 +831,20 @@ export class RecipesService {
             ? { inInventory: inventoryFoodIds.has(item.foodId) }
             : {}),
         };
+      }),
+      nutrition: aggregateRecipeNutrition({
+        servings: recipe.servings,
+        ingredients: recipe.ingredients.map((item) => {
+          const translation = pickTranslation(item.food.translations);
+          return {
+            foodId: item.foodId,
+            foodName: translation?.name ?? item.food.slug,
+            quantity: item.quantity,
+            unit: item.unit,
+            optional: item.optional,
+            nutrients: item.food.nutrients ?? [],
+          };
+        }),
       }),
     };
   }
@@ -1200,7 +1226,13 @@ export class RecipesService {
     const foods = foodIds.length
       ? await this.prisma.food.findMany({
           where: { id: { in: foodIds } },
-          include: { translations: true },
+          include: {
+            translations: true,
+            nutrients: {
+              include: { nutrient: true },
+              orderBy: { nutrient: { sortOrder: 'asc' } },
+            },
+          },
         })
       : [];
     const foodById = new Map(foods.map((food) => [food.id, food]));
@@ -1221,6 +1253,7 @@ export class RecipesService {
           slug: item.foodId,
           imageUrl: null,
           translations: [],
+          nutrients: [],
         };
         return {
           id: `draft-${index}`,

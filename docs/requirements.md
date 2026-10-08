@@ -505,13 +505,15 @@ Food
 - imageUrl?
 - createdByUserId?              # audit / food user tạo (hybrid)
 - visibility?                   # PUBLIC | PRIVATE (phase triển khai)
-- ...
+- ...                           # không gắn cột dinh dưỡng cố định — xem **7b.9**
 
 FoodTranslation (i18n)
 - foodId
 - locale                        # vi | en (default hiển thị: vi)
 - name
 - category?
+
+Nutrient / FoodNutrient — dinh dưỡng mở rộng (xem **7b.9**); không thêm proteinG/fiberG… trên Food.
 
 Ví dụ (cùng foodId, nhiều locale):
 
@@ -695,6 +697,53 @@ Thứ tự triển khai:
 3. Rồi: region, đề xuất alias, UX “ý bạn là …?”.
 
 Khi implement: migration + model FoodAlias tách file/module catalog; không nhét alias vào JSON trên Food.
+
+7b.9 Dinh dưỡng / năng lượng (Nutrient + FoodNutrient) — đã chốt hướng
+
+**Đã chốt (2026-10-07):** Catalog chất dinh dưỡng tách bảng; giá trị gắn Food qua bảng trung gian; Recipe **tổng hợp** từ ingredients (không nhập tay kcal trên recipe).
+
+Vấn đề: cần Calories và nhiều chất khác (Protein, Carb, Fat, Fiber, Sugar, Sodium, …) mà không khóa schema bằng hàng chục cột trên `Food`.
+
+Bảng:
+
+Nutrient (seed — danh mục “Chất”)
+- id
+- code                 # ổn định: energy_kcal | protein | carb | fat | fiber | sugar | sodium | …
+- nameEn / nameVi?     # hoặc translation table sau; MVP có thể name + locale đơn giản
+- unit                 # kcal | g | mg | …
+- group                # ENERGY | MACRO | CARB_DETAIL | MINERAL | VITAMIN | OTHER
+- sortOrder
+- @@unique([code])
+
+FoodNutrient
+- id
+- foodId
+- nutrientId
+- amount               # lượng chất
+- basisQty             # mặc định 100 (hoặc 1 với pcs)
+- basisUnit            # g | ml | pcs — cùng hệ Unit MVP; khớp measurementType của Food
+- @@unique([foodId, nutrientId])
+
+Nguyên tắc:
+
+1. **Không** thêm cột `proteinG` / `fiberG` / … trên `Food`.
+2. Thiếu chất = không có row `FoodNutrient` (không bịa 0).
+3. **Recipe nutrition** (total + per serving): với mỗi nutrient, cộng  
+   `Σ convert(ingredient.qty → basisUnit) × (amount / basisQty)`  
+   rồi chia `servings` cho per-serving. Chỉ ingredient không optional (hoặc policy: optional cũng cộng nếu có data — chốt khi implement: **MVP cộng mọi ingredient có qty**, optional vẫn cộng nếu có dinh dưỡng).
+4. Response API dạng list `{ code, unit, amount, complete? }` — `complete` = mọi ingredient bắt buộc đều có nutrient đó (hoặc không có dinh dưỡng nào → `nutrition: null` / empty).
+5. UI MVP profile hiển thị: energy_kcal + protein + carb + fat + fiber + sugar; catalog Nutrient seed rộng hơn để mở rộng UI sau không migration.
+6. Ai nuôi: seed Food lõi kèm FoodNutrient; Moderator/Admin CRUD `FoodNutrient`; CREATOR có thể gắn khi tạo Food PRIVATE (optional). USER tạo Food tủ: không bắt buộc dinh dưỡng.
+7. OpenSearch / filter “≤ 500 kcal/serving”: phase sau — denormalize lúc approve nếu cần.
+
+Không làm (MVP dinh dưỡng):
+
+- Mục tiêu calo cá nhân / diary.
+- Auto-fill USDA / barcode → nutrient.
+- Micronutrient UI đầy đủ.
+- Lưu bảng RecipeNutrition cứng (trừ khi tối ưu search sau này).
+
+Thứ tự triển khai gợi ý: schema + seed Nutrient → FoodNutrient seed vài Food lõi → API Food kèm nutrients → aggregate trên Recipe detail → Web/Mobile hiển thị → (sau) moderation form + Discover filter.
 
 7c. InventoryGroup — tủ & shopping list dùng chung (đã bàn)
 
@@ -1350,6 +1399,7 @@ Group Cookbook (**4.2c** — ưu tiên trước moderation)
 Media / upload ảnh MinIO→S3 (**4.2d** — form-data MVP; tạo + sửa recipe; sau cook)
 RecipeStep — bước + ảnh (**4.2e**)
 Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; sau cookbook nhóm)
+Nutrition: Nutrient + FoodNutrient + aggregate recipe (**7b.9**)
 Community
 OAuth 2.0 (Google / Apple, …) — xem mục **3b**
 
@@ -1361,6 +1411,7 @@ IoT
 Smart Recommendation
 Semantic Search
 Quét barcode → tủ; catalog Mart / giá / nhập lúc thanh toán (đã bàn, chưa làm — xem **27**)
+Nutrition diary / mục tiêu cá nhân; auto-fill nutrient từ nguồn ngoài
 
 26. Design Principles
 
@@ -1418,6 +1469,7 @@ Quan hệ cốt lõi đã định hướng; còn chi tiết API/UX:
 
 Recipe
 Food + FoodTranslation
+Nutrient + FoodNutrient (xem **7b.9**)
 RecipeIngredient
 SavedRecipe
 MealPlan / PlannedRecipe
@@ -1429,7 +1481,7 @@ InventoryTransaction
 CookingSession
 InventoryGroup + Membership + Invite (xem **7c** — hướng đã bàn; schema/API chi tiết khi implement)
 
-Đã chốt (xem mục 7b, 4.2b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; CREATOR tạo Food mới kèm recipe → PRIVATE; khi APPROVE recipe → check trùng rồi Moderator merge hoặc promote PUBLIC; orphan do Moderator dọn; kiểm duyệt recipe phase sau (MVP CRUD chưa bắt buộc).
+Đã chốt (xem mục 7b, 4.2b): Food master hệ thống + i18n; RecipeIngredient không ghi Inventory; thêm tủ từ recipe đã quan tâm bằng cùng foodId; USER gõ tên thì search catalog trước; hybrid Food PRIVATE khi thiếu; CREATOR tạo Food mới kèm recipe → PRIVATE; khi APPROVE recipe → check trùng rồi Moderator merge hoặc promote PUBLIC; orphan do Moderator dọn; kiểm duyệt recipe + revision (đã làm API/UI). Dinh dưỡng: **7b.9** (Nutrient catalog + FoodNutrient; recipe aggregate).
 
 Đã bàn / hướng (xem **7c**): dual tab Personal | Group; share Inventory + Shopping; purchase list group → tủ group; MVP 1 user ≤ 1 group; invite code (không raw groupId+password cố định); Planned/Saved personal; race = lock/atomic quantity; chưa OR-foodId.
 

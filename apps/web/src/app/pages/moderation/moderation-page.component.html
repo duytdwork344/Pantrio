@@ -1,9 +1,17 @@
 <section class="moderation">
+  <nav class="moderation__tabs" aria-label="Moderation">
+    <a routerLink="/moderation" routerLinkActive="is-current" [routerLinkActiveOptions]="{ exact: true }">
+      Recipes
+    </a>
+    <a routerLink="/moderation/nutrition" routerLinkActive="is-current">Dinh dưỡng Food</a>
+  </nav>
+
   <div class="moderation__head">
     <div>
       <h1>Moderation</h1>
       <p class="lede">Recipe catalog đang chờ duyệt. Discover giữ bản đã public cho đến khi bạn approve đúng version.</p>
     </div>
+    <a routerLink="/moderation/nutrition" class="btn">Dinh dưỡng Food</a>
   </div>
 
   @if (error()) {

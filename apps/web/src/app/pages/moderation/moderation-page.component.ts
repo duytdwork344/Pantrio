@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import type { ModeratedFood, PendingRecipe } from '../../core/models';
@@ -12,7 +12,7 @@ function apiMessage(err: { error?: { message?: string | string[] }; message?: st
 
 @Component({
   selector: 'app-moderation-page',
-  imports: [RouterLink],
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './moderation-page.component.html',
   styleUrl: './moderation-page.component.scss',
 })

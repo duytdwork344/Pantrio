@@ -26,6 +26,13 @@ export const routes: Routes = [
   { path: 'studio/recipes/:slug', component: StudioRecipeEditorPageComponent },
   { path: 'studio/recipes', component: StudioRecipesPageComponent },
   { path: 'moderation/recipes/:id', component: ModerationReviewPageComponent },
+  {
+    path: 'moderation/nutrition',
+    loadComponent: () =>
+      import('./pages/moderation/moderation-nutrition-page.component').then(
+        (m) => m.ModerationNutritionPageComponent,
+      ),
+  },
   { path: 'moderation', component: ModerationPageComponent },
   { path: '**', redirectTo: '' },
 ];

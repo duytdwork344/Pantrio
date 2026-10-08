@@ -1,0 +1,134 @@
+<section class="nutrition">
+  <nav class="nutrition__tabs" aria-label="Moderation">
+    <a routerLink="/moderation">Recipes</a>
+    <a routerLink="/moderation/nutrition" class="is-current">Dinh dưỡng Food</a>
+  </nav>
+
+  <div class="nutrition__head">
+    <h1>Dinh dưỡng Food</h1>
+    <p class="lede">
+      Tìm food, nhập lượng chất trên cùng một basis (thường 100g / 100ml / 1 pcs). Ô trống = không lưu chất đó.
+      Lưu sẽ thay toàn bộ FoodNutrient của food.
+    </p>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (saved()) {
+    <p class="ok">Đã lưu dinh dưỡng.</p>
+  }
+
+  @if (loadingCatalog()) {
+    <p class="muted">Đang tải danh mục nutrient…</p>
+  } @else {
+    <label class="search">
+      Tìm food
+      <input
+        type="search"
+        [value]="foodQuery()"
+        (input)="onFoodQuery($any($event.target).value)"
+        placeholder="VD: gà, gạo, nước mắm"
+        autocomplete="off"
+      />
+    </label>
+
+    @if (foodHits().length) {
+      <ul class="hits">
+        @for (hit of foodHits(); track hit.id) {
+          <li>
+            <button type="button" (click)="pickFood(hit)">
+              <strong>{{ hit.name }}</strong>
+              <span class="meta">{{ hit.slug }} · {{ hit.baseUnit }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (loadingFood()) {
+      <p class="muted">Đang tải food…</p>
+    }
+
+    @if (food(); as f) {
+      <header class="food">
+        <h2>{{ f.name }}</h2>
+        <p class="meta">
+          {{ f.slug }} · {{ f.visibility }} · {{ f.measurementType }} · base
+          {{ f.baseUnit }}
+        </p>
+      </header>
+
+      <form class="form" (ngSubmit)="save()">
+        <div class="basis">
+          <label>
+            Basis qty
+            <input
+              type="number"
+              min="0.0001"
+              step="any"
+              [ngModel]="basisQty()"
+              (ngModelChange)="setBasisQty($event)"
+              name="basisQty"
+              required
+            />
+          </label>
+          <label>
+            Basis unit
+            <select
+              [ngModel]="basisUnit()"
+              (ngModelChange)="setBasisUnit($event)"
+              name="basisUnit"
+            >
+              @for (unit of basisUnits; track unit) {
+                <option [value]="unit">{{ unit }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Chất</th>
+              <th>Nhóm</th>
+              <th>Lượng / basis</th>
+              <th>Đơn vị</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.code) {
+              <tr>
+                <td>
+                  <strong>{{ row.nameVi }}</strong>
+                  <span class="meta">{{ row.code }}</span>
+                </td>
+                <td class="meta">{{ row.group }}</td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    [value]="row.amount"
+                    (input)="setAmount(row.code, $any($event.target).value)"
+                    [attr.aria-label]="row.nameVi"
+                  />
+                </td>
+                <td class="meta">{{ row.unit }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <div class="actions">
+          <button type="button" class="text" (click)="clearAmounts()">
+            Xóa hết lượng
+          </button>
+          <button type="submit" [disabled]="saving()">
+            {{ saving() ? 'Đang lưu…' : 'Lưu FoodNutrient' }}
+          </button>
+        </div>
+      </form>
+    }
+  }
+</section>

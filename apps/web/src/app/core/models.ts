@@ -55,6 +55,32 @@ export type RecipeDetail = RecipeSummary & {
   moderationStatus?: string | null;
   publishedVersion?: number | null;
   saved?: boolean;
+  nutrition?: RecipeNutrition | null;
+};
+
+export type NutrientContribution = {
+  foodId: string;
+  foodName: string;
+  amount: number;
+};
+
+export type NutrientAmount = {
+  code: string;
+  nameEn: string;
+  nameVi: string;
+  unit: string;
+  group: string;
+  sortOrder: number;
+  amount: number;
+  complete: boolean;
+  contributions?: NutrientContribution[];
+};
+
+export type RecipeNutrition = {
+  perServing: NutrientAmount[];
+  total: NutrientAmount[];
+  servings: number;
+  complete: boolean;
 };
 
 export type FoodCandidate = {
@@ -99,6 +125,42 @@ export type FoodHit = {
   slug: string;
   name: string;
   baseUnit: string;
+  measurementType?: string;
+  visibility?: string;
+  nutrients?: FoodNutrientValue[];
+};
+
+export type NutrientCatalogItem = {
+  id: string;
+  code: string;
+  nameEn: string;
+  nameVi: string;
+  unit: string;
+  group: string;
+  sortOrder: number;
+};
+
+export type FoodNutrientValue = {
+  code: string;
+  nameEn: string;
+  nameVi: string;
+  unit: string;
+  group: string;
+  sortOrder: number;
+  amount: number;
+  basisQty: number;
+  basisUnit: string;
+};
+
+export type FoodDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  category?: string | null;
+  measurementType: string;
+  baseUnit: string;
+  visibility: string;
+  nutrients?: FoodNutrientValue[];
 };
 
 /** Pantry recommend row from GET /recommendations/recipes */

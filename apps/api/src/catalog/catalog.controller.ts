@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -27,6 +28,8 @@ import {
   MergeFoodDto,
   MergeFoodResultDto,
   ModeratedFoodDto,
+  NutrientDto,
+  ReplaceFoodNutrientsDto,
   UpdateFoodDto,
 } from './dto/food.dto';
 
@@ -123,6 +126,30 @@ export class CatalogController {
   })
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.catalogService.deleteOrphan(id, user);
+  }
+
+  @Get('nutrients')
+  @Public()
+  @ApiOperation({ summary: 'List nutrient catalog (code, unit, group)' })
+  @ApiOkResponse({ type: [NutrientDto] })
+  listNutrients(): Promise<NutrientDto[]> {
+    return this.catalogService.listNutrients();
+  }
+
+  @Put(':id/nutrients')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Replace FoodNutrient rows for a food (catalog/moderation manager)',
+  })
+  @ApiQuery({ name: 'locale', required: false })
+  @ApiOkResponse({ type: FoodDto })
+  replaceNutrients(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ReplaceFoodNutrientsDto,
+    @Query('locale') locale?: string,
+  ): Promise<FoodDto> {
+    return this.catalogService.replaceFoodNutrients(id, user, dto, locale);
   }
 
   @Public()

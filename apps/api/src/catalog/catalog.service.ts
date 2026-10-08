@@ -20,9 +20,13 @@ import {
   MergeFoodDto,
   MergeFoodResultDto,
   ModeratedFoodDto,
+  NutrientDto,
+  ReplaceFoodNutrientsDto,
   UpdateFoodDto,
   UpsertFoodTranslationDto,
 } from './dto/food.dto';
+import { mapFoodNutrients } from '../common/nutrition/aggregate';
+import { Unit } from '@pantrio/shared';
 
 function slugify(value: string): string {
   return value
@@ -82,7 +86,30 @@ function rewriteIngredientSnapshot(
 
 type FoodWithTranslations = Prisma.FoodGetPayload<{
   include: { translations: true };
-}>;
+}> & {
+  nutrients?: Array<{
+    amount: number;
+    basisQty: number;
+    basisUnit: string;
+    nutrient: {
+      id: string;
+      code: string;
+      nameEn: string;
+      nameVi: string;
+      unit: string;
+      group: import('@prisma/client').NutrientGroup;
+      sortOrder: number;
+    };
+  }>;
+};
+
+const foodDetailInclude = {
+  translations: true,
+  nutrients: {
+    include: { nutrient: true },
+    orderBy: { nutrient: { sortOrder: 'asc' as const } },
+  },
+} satisfies Prisma.FoodInclude;
 
 @Injectable()
 export class CatalogService {
@@ -137,13 +164,16 @@ export class CatalogService {
 
     const foods = await this.prisma.food.findMany({
       where,
-      include: { translations: true },
+      include: {
+        translations: true,
+        nutrients: { include: { nutrient: true } },
+      },
       orderBy: { slug: 'asc' },
       take: 100,
     });
 
     return foods
-      .map((food) => this.toDto(food, locale))
+      .map((food) => this.toDto(food, locale, true))
       .sort((a, b) => a.name.localeCompare(b.name, locale));
   }
 
@@ -154,13 +184,13 @@ export class CatalogService {
   ): Promise<FoodDto> {
     const food = await this.prisma.food.findUnique({
       where: { slug },
-      include: { translations: true },
+      include: foodDetailInclude,
     });
     if (!food) {
       throw new NotFoundException(`Food '${slug}' not found`);
     }
     this.assertCanView(food, viewer);
-    return this.toDto(food, normalizeLocale(locale));
+    return this.toDto(food, normalizeLocale(locale), true);
   }
 
   async create(
@@ -204,9 +234,9 @@ export class CatalogService {
             })),
           },
         },
-        include: { translations: true },
+        include: foodDetailInclude,
       });
-      return this.toDto(food, normalizeLocale(locale));
+      return this.toDto(food, normalizeLocale(locale), true);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -291,11 +321,11 @@ export class CatalogService {
             imageUrl:
               dto.imageUrl === undefined ? undefined : dto.imageUrl || null,
           },
-          include: { translations: true },
+          include: foodDetailInclude,
         });
       });
 
-      return this.toDto(food, normalizeLocale(locale));
+      return this.toDto(food, normalizeLocale(locale), true);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -338,21 +368,90 @@ export class CatalogService {
     this.assertManager(actor);
     const existing = await this.prisma.food.findUnique({
       where: { id },
-      include: { translations: true },
+      include: foodDetailInclude,
     });
     if (!existing) {
       throw new NotFoundException(`Food '${id}' not found`);
     }
     if (existing.visibility === FoodVisibility.PUBLIC) {
-      return this.toDto(existing, normalizeLocale(locale));
+      return this.toDto(existing, normalizeLocale(locale), true);
     }
 
     const food = await this.prisma.food.update({
       where: { id },
       data: { visibility: FoodVisibility.PUBLIC },
-      include: { translations: true },
+      include: foodDetailInclude,
     });
-    return this.toDto(food, normalizeLocale(locale));
+    return this.toDto(food, normalizeLocale(locale), true);
+  }
+
+  async listNutrients(): Promise<NutrientDto[]> {
+    const rows = await this.prisma.nutrient.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      nameEn: row.nameEn,
+      nameVi: row.nameVi,
+      unit: row.unit,
+      group: row.group,
+      sortOrder: row.sortOrder,
+    }));
+  }
+
+  async replaceFoodNutrients(
+    foodId: string,
+    actor: AuthUser,
+    dto: ReplaceFoodNutrientsDto,
+    locale?: string,
+  ): Promise<FoodDto> {
+    this.assertManager(actor);
+    const food = await this.prisma.food.findUnique({
+      where: { id: foodId },
+      include: foodDetailInclude,
+    });
+    if (!food) {
+      throw new NotFoundException(`Food '${foodId}' not found`);
+    }
+
+    const codes = [...new Set(dto.nutrients.map((item) => item.code))];
+    const nutrients = codes.length
+      ? await this.prisma.nutrient.findMany({ where: { code: { in: codes } } })
+      : [];
+    const byCode = new Map(nutrients.map((row) => [row.code, row]));
+    for (const code of codes) {
+      if (!byCode.has(code)) {
+        throw new BadRequestException(`Unknown nutrient code '${code}'`);
+      }
+    }
+
+    const defaultBasis =
+      food.measurementType === 'COUNT'
+        ? { qty: 1, unit: Unit.PCS }
+        : food.measurementType === 'VOLUME'
+          ? { qty: 100, unit: Unit.ML }
+          : { qty: 100, unit: Unit.G };
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.foodNutrient.deleteMany({ where: { foodId } });
+      if (!dto.nutrients.length) return;
+      await tx.foodNutrient.createMany({
+        data: dto.nutrients.map((item) => ({
+          foodId,
+          nutrientId: byCode.get(item.code)!.id,
+          amount: item.amount,
+          basisQty: item.basisQty ?? defaultBasis.qty,
+          basisUnit: item.basisUnit ?? defaultBasis.unit,
+        })),
+      });
+    });
+
+    const refreshed = await this.prisma.food.findUniqueOrThrow({
+      where: { id: foodId },
+      include: foodDetailInclude,
+    });
+    return this.toDto(refreshed, normalizeLocale(locale), true);
   }
 
   async merge(
@@ -431,6 +530,7 @@ export class CatalogService {
     }
 
     await this.rewriteRevisionFoodIds(tx, fromFoodId, toFoodId);
+    await this.mergeFoodNutrients(tx, fromFoodId, toFoodId);
 
     const inventory = await tx.inventoryItem.updateMany({
       where: { foodId: fromFoodId },
@@ -524,6 +624,34 @@ export class CatalogService {
 
     await this.prisma.food.delete({ where: { id } });
     return { deleted: true, id };
+  }
+
+  private async mergeFoodNutrients(
+    tx: Prisma.TransactionClient,
+    fromFoodId: string,
+    toFoodId: string,
+  ): Promise<void> {
+    const fromRows = await tx.foodNutrient.findMany({
+      where: { foodId: fromFoodId },
+    });
+    for (const row of fromRows) {
+      const existing = await tx.foodNutrient.findUnique({
+        where: {
+          foodId_nutrientId: {
+            foodId: toFoodId,
+            nutrientId: row.nutrientId,
+          },
+        },
+      });
+      if (existing) {
+        await tx.foodNutrient.delete({ where: { id: row.id } });
+      } else {
+        await tx.foodNutrient.update({
+          where: { id: row.id },
+          data: { foodId: toFoodId },
+        });
+      }
+    }
   }
 
   private async rewriteRevisionFoodIds(
@@ -727,7 +855,11 @@ export class CatalogService {
     return [...map.values()];
   }
 
-  private toDto(food: FoodWithTranslations, locale: string): FoodDto {
+  private toDto(
+    food: FoodWithTranslations,
+    locale: string,
+    withNutrients = false,
+  ): FoodDto {
     const translation = pickTranslation(food.translations, locale);
     if (!translation) {
       throw new NotFoundException(
@@ -751,6 +883,9 @@ export class CatalogService {
         name: item.name,
         category: item.category,
       })),
+      ...(withNutrients
+        ? { nutrients: mapFoodNutrients(food.nutrients ?? []) }
+        : {}),
       createdAt: food.createdAt,
       updatedAt: food.updatedAt,
     };

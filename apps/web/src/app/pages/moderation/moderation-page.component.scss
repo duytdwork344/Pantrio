@@ -1,3 +1,21 @@
+.moderation__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.moderation__tabs a {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.moderation__tabs a.is-current,
+.moderation__tabs a:hover {
+  color: var(--color-brand);
+}
+
 .moderation h1,
 .moderation h2 {
   font-family: var(--font-display);
@@ -17,7 +35,28 @@
 }
 
 .moderation__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-brand);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  filter: brightness(1.05);
 }
 
 .error {

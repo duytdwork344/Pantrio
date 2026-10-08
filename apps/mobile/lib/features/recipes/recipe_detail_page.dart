@@ -30,11 +30,32 @@ class RecipeDetailPage extends StatefulWidget {
 }
 
 class _RecipeDetailPageState extends State<RecipeDetailPage> {
+  static const _profileCodes = {
+    'energy_kcal',
+    'protein',
+    'carb',
+    'fat',
+    'fiber',
+    'sugar',
+  };
+
   late Future<RecipeDetail> _future;
   RecipeDetail? _recipe;
   int _viewServings = 1;
   String? _pantryGroupId;
   bool _cooking = false;
+  String? _openNutrientCode;
+
+  List<NutrientAmount> _profileNutrients(List<NutrientAmount> rows) {
+    return rows.where((row) => _profileCodes.contains(row.code)).toList();
+  }
+
+  String _formatNutrient(num amount) {
+    final value = amount.toDouble();
+    if (value >= 100) return value.round().toString();
+    if (value >= 10) return value.toStringAsFixed(1);
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 
   @override
   void initState() {
@@ -537,6 +558,106 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                 ],
               ),
               const SizedBox(height: 24),
+              if (recipe.nutrition != null) ...[
+                Text(
+                  'Nutrition (per serving)',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (!recipe.nutrition!.complete)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Estimated — some ingredients lack nutrient data',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                ..._profileNutrients(recipe.nutrition!.perServing).map((item) {
+                  final open = _openNutrientCode == item.code;
+                  final hasBreakdown = item.contributions.isNotEmpty;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item.nameVi),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${_formatNutrient(item.amount)} ${item.unit}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (hasBreakdown)
+                              Icon(
+                                open
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                        onTap: hasBreakdown
+                            ? () => setState(() {
+                                  _openNutrientCode =
+                                      open ? null : item.code;
+                                })
+                            : null,
+                      ),
+                      if (open && hasBreakdown)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 8,
+                            bottom: 8,
+                          ),
+                          child: Column(
+                            children: item.contributions
+                                .map(
+                                  (c) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 2,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            c.foodName,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_formatNutrient(c.amount)} ${item.unit}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Tap a nutrient to see each ingredient contribution per serving.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text(
                 'Ingredients ($_viewServings servings)',
                 style: Theme.of(context).textTheme.titleMedium,

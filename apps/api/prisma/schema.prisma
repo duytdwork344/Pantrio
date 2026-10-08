@@ -54,6 +54,15 @@ enum RecipeModerationStatus {
   REJECTED
 }
 
+enum NutrientGroup {
+  ENERGY
+  MACRO
+  CARB_DETAIL
+  MINERAL
+  VITAMIN
+  OTHER
+}
+
 enum FoodVisibility {
   PUBLIC
   PRIVATE
@@ -153,6 +162,7 @@ model Food {
   recipeIngredients RecipeIngredient[]
   inventoryItems    InventoryItem[]
   shoppingListItems ShoppingListItem[]
+  nutrients         FoodNutrient[]
 
   @@index([visibility])
   @@index([createdByUserId])
@@ -170,6 +180,34 @@ model FoodTranslation {
   @@unique([foodId, locale])
   @@index([locale, name])
   @@index([locale, category])
+}
+
+/// Catalog of nutrients (seed). Values live on FoodNutrient — requirements 7b.9.
+model Nutrient {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  nameEn    String
+  nameVi    String
+  unit      String
+  group     NutrientGroup
+  sortOrder Int           @default(0)
+
+  foodNutrients FoodNutrient[]
+}
+
+model FoodNutrient {
+  id         String @id @default(cuid())
+  foodId     String
+  nutrientId String
+  amount     Float
+  basisQty   Float  @default(100)
+  basisUnit  String
+
+  food     Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  nutrient Nutrient @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId, nutrientId])
+  @@index([nutrientId])
 }
 
 model Recipe {

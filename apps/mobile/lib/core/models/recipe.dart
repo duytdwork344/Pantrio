@@ -119,6 +119,7 @@ class RecipeDetail extends RecipeSummary {
     super.shareCount,
     this.saved,
     this.groupId,
+    this.nutrition,
   });
 
   final String authorId;
@@ -128,6 +129,7 @@ class RecipeDetail extends RecipeSummary {
   final List<RecipeStep> steps;
   final List<RecipeIngredient> ingredients;
   final bool? saved;
+  final RecipeNutrition? nutrition;
 
   RecipeDetail copyWith({int? shareCount, bool? saved}) {
     return RecipeDetail(
@@ -148,6 +150,7 @@ class RecipeDetail extends RecipeSummary {
       imageUrl: imageUrl,
       shareCount: shareCount ?? this.shareCount,
       saved: saved ?? this.saved,
+      nutrition: nutrition,
     );
   }
 
@@ -174,6 +177,96 @@ class RecipeDetail extends RecipeSummary {
       ingredients: (json['ingredients'] as List<dynamic>? ?? const [])
           .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
           .toList(),
+      nutrition: json['nutrition'] is Map
+          ? RecipeNutrition.fromJson(
+              Map<String, dynamic>.from(json['nutrition'] as Map),
+            )
+          : null,
+    );
+  }
+}
+
+class NutrientContribution {
+  NutrientContribution({
+    required this.foodId,
+    required this.foodName,
+    required this.amount,
+  });
+
+  final String foodId;
+  final String foodName;
+  final num amount;
+
+  factory NutrientContribution.fromJson(Map<String, dynamic> json) {
+    return NutrientContribution(
+      foodId: json['foodId'] as String? ?? '',
+      foodName: json['foodName'] as String? ?? '',
+      amount: json['amount'] as num? ?? 0,
+    );
+  }
+}
+
+class NutrientAmount {
+  NutrientAmount({
+    required this.code,
+    required this.nameEn,
+    required this.nameVi,
+    required this.unit,
+    required this.amount,
+    required this.complete,
+    this.contributions = const [],
+  });
+
+  final String code;
+  final String nameEn;
+  final String nameVi;
+  final String unit;
+  final num amount;
+  final bool complete;
+  final List<NutrientContribution> contributions;
+
+  factory NutrientAmount.fromJson(Map<String, dynamic> json) {
+    return NutrientAmount(
+      code: json['code'] as String,
+      nameEn: json['nameEn'] as String? ?? json['code'] as String,
+      nameVi: json['nameVi'] as String? ?? json['code'] as String,
+      unit: json['unit'] as String? ?? '',
+      amount: json['amount'] as num? ?? 0,
+      complete: json['complete'] as bool? ?? false,
+      contributions: (json['contributions'] as List<dynamic>? ?? const [])
+          .map(
+            (e) => NutrientContribution.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class RecipeNutrition {
+  RecipeNutrition({
+    required this.perServing,
+    required this.total,
+    required this.servings,
+    required this.complete,
+  });
+
+  final List<NutrientAmount> perServing;
+  final List<NutrientAmount> total;
+  final int servings;
+  final bool complete;
+
+  factory RecipeNutrition.fromJson(Map<String, dynamic> json) {
+    return RecipeNutrition(
+      perServing: (json['perServing'] as List<dynamic>? ?? const [])
+          .map((e) => NutrientAmount.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      total: (json['total'] as List<dynamic>? ?? const [])
+          .map((e) => NutrientAmount.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      servings: json['servings'] as int? ?? 1,
+      complete: json['complete'] as bool? ?? false,
     );
   }
 }

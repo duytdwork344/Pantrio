@@ -5,13 +5,16 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { NormalizeUnit } from '../../common/transformers/normalize-unit';
+import { NutrientGroup } from '@prisma/client';
 
 export class FoodTranslationDto {
   @ApiProperty({ example: 'vi' })
@@ -22,6 +25,35 @@ export class FoodTranslationDto {
 
   @ApiPropertyOptional({ nullable: true, example: 'protein' })
   category?: string | null;
+}
+
+export class FoodNutrientDto {
+  @ApiProperty({ example: 'energy_kcal' })
+  code!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty({ example: 'kcal' })
+  unit!: string;
+
+  @ApiProperty({ enum: NutrientGroup })
+  group!: NutrientGroup;
+
+  @ApiProperty()
+  sortOrder!: number;
+
+  @ApiProperty({ description: 'Amount per basisQty basisUnit' })
+  amount!: number;
+
+  @ApiProperty({ example: 100 })
+  basisQty!: number;
+
+  @ApiProperty({ enum: Unit, example: Unit.G })
+  basisUnit!: string;
 }
 
 export class FoodDto {
@@ -57,6 +89,12 @@ export class FoodDto {
 
   @ApiProperty({ type: [FoodTranslationDto] })
   translations!: FoodTranslationDto[];
+
+  @ApiPropertyOptional({
+    type: [FoodNutrientDto],
+    description: 'Present on detail; omitted on light list responses',
+  })
+  nutrients?: FoodNutrientDto[];
 
   @ApiProperty()
   createdAt!: Date;
@@ -215,4 +253,61 @@ export class MergeFoodResultDto {
     description: 'True when toFood was PRIVATE and was promoted to PUBLIC',
   })
   promotedToPublic!: boolean;
+}
+
+export class UpsertFoodNutrientDto {
+  @ApiProperty({ example: 'energy_kcal' })
+  @IsString()
+  @MinLength(1)
+  code!: string;
+
+  @ApiProperty({ example: 165 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  amount!: number;
+
+  @ApiPropertyOptional({ example: 100, default: 100 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.0001)
+  @Type(() => Number)
+  basisQty?: number;
+
+  @ApiPropertyOptional({ enum: Unit, example: Unit.G })
+  @IsOptional()
+  @NormalizeUnit()
+  @IsEnum(Unit)
+  basisUnit?: Unit;
+}
+
+export class ReplaceFoodNutrientsDto {
+  @ApiProperty({ type: [UpsertFoodNutrientDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpsertFoodNutrientDto)
+  nutrients!: UpsertFoodNutrientDto[];
+}
+
+export class NutrientDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  code!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty()
+  unit!: string;
+
+  @ApiProperty({ enum: NutrientGroup })
+  group!: NutrientGroup;
+
+  @ApiProperty()
+  sortOrder!: number;
 }

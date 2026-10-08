@@ -42,6 +42,61 @@
         }
       </div>
 
+      @if (r.nutrition; as n) {
+        <section class="nutrition">
+          <h2>Dinh dưỡng</h2>
+          <p class="nutrition-meta">
+            Mỗi khẩu phần ({{ n.servings }} servings)
+            @if (!n.complete) {
+              <span class="incomplete">· ước tính / thiếu data một số nguyên liệu</span>
+            }
+          </p>
+          <ul class="nutrition-list">
+            @for (item of profileNutrients(n.perServing); track item.code) {
+              <li
+                class="nutrition-row"
+                [class.is-open]="isNutrientOpen(item.code)"
+                [class.has-breakdown]="!!item.contributions?.length"
+              >
+                <div
+                  class="nutrition-item"
+                  (mouseenter)="item.contributions?.length ? showNutrient(item.code) : null"
+                  (mouseleave)="hideNutrient()"
+                >
+                  <button
+                    type="button"
+                    class="nutrition-toggle"
+                    [attr.aria-expanded]="isNutrientOpen(item.code)"
+                    [disabled]="!item.contributions?.length"
+                    (click)="toggleNutrient(item.code)"
+                  >
+                    <span>{{ item.nameVi }}</span>
+                    <strong>
+                      {{ formatNutrient(item.amount) }}
+                      {{ item.unit }}
+                    </strong>
+                  </button>
+                  @if (isNutrientOpen(item.code) && item.contributions?.length) {
+                    <ul class="nutrition-breakdown">
+                      @for (c of item.contributions; track c.foodId) {
+                        <li>
+                          <span>{{ c.foodName }}</span>
+                          <span>
+                            {{ formatNutrient(c.amount) }}
+                            {{ item.unit }}
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+          <p class="nutrition-hint">Trỏ hoặc bấm vào một chất để xem đóng góp từng nguyên liệu (mỗi khẩu phần).</p>
+        </section>
+      }
+
       <h2>Ingredients</h2>
       <ul class="ingredients">
         @for (ing of r.ingredients; track ing.foodId + ing.sortOrder) {

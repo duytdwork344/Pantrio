@@ -1,6 +1,7 @@
 import { Permission, ROLE_PERMISSIONS, type RoleName } from '@pantrio/shared';
 import {
   MeasurementType,
+  NutrientGroup,
   PrismaClient,
   RecipeDifficulty,
   RecipeVisibility,
@@ -440,6 +441,293 @@ async function seedFoods() {
   }
 
   console.log(`Seeded ${SAMPLE_FOODS.length} foods with EN+VI translations`);
+}
+
+const NUTRIENTS: Array<{
+  code: string;
+  nameEn: string;
+  nameVi: string;
+  unit: string;
+  group: NutrientGroup;
+  sortOrder: number;
+}> = [
+  {
+    code: 'energy_kcal',
+    nameEn: 'Energy',
+    nameVi: 'Năng lượng',
+    unit: 'kcal',
+    group: NutrientGroup.ENERGY,
+    sortOrder: 10,
+  },
+  {
+    code: 'protein',
+    nameEn: 'Protein',
+    nameVi: 'Protein',
+    unit: 'g',
+    group: NutrientGroup.MACRO,
+    sortOrder: 20,
+  },
+  {
+    code: 'carb',
+    nameEn: 'Carbohydrate',
+    nameVi: 'Carbohydrate',
+    unit: 'g',
+    group: NutrientGroup.MACRO,
+    sortOrder: 30,
+  },
+  {
+    code: 'fat',
+    nameEn: 'Fat',
+    nameVi: 'Chất béo',
+    unit: 'g',
+    group: NutrientGroup.MACRO,
+    sortOrder: 40,
+  },
+  {
+    code: 'fiber',
+    nameEn: 'Fiber',
+    nameVi: 'Chất xơ',
+    unit: 'g',
+    group: NutrientGroup.CARB_DETAIL,
+    sortOrder: 50,
+  },
+  {
+    code: 'sugar',
+    nameEn: 'Sugars',
+    nameVi: 'Đường',
+    unit: 'g',
+    group: NutrientGroup.CARB_DETAIL,
+    sortOrder: 60,
+  },
+  {
+    code: 'sodium',
+    nameEn: 'Sodium',
+    nameVi: 'Natri',
+    unit: 'mg',
+    group: NutrientGroup.MINERAL,
+    sortOrder: 70,
+  },
+];
+
+/** Approximate per-basis values for seed foods (USDA-ish; not medical-grade). */
+const FOOD_NUTRIENTS: Record<
+  string,
+  {
+    basisQty: number;
+    basisUnit: string;
+    values: Partial<
+      Record<
+        'energy_kcal' | 'protein' | 'carb' | 'fat' | 'fiber' | 'sugar' | 'sodium',
+        number
+      >
+    >;
+  }
+> = {
+  chicken: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 165, protein: 31, carb: 0, fat: 3.6, fiber: 0, sugar: 0, sodium: 74 },
+  },
+  egg: {
+    basisQty: 1,
+    basisUnit: 'pcs',
+    values: { energy_kcal: 72, protein: 6.3, carb: 0.4, fat: 4.8, fiber: 0, sugar: 0.2, sodium: 71 },
+  },
+  milk: {
+    basisQty: 100,
+    basisUnit: 'ml',
+    values: { energy_kcal: 42, protein: 3.4, carb: 5, fat: 1, fiber: 0, sugar: 5, sodium: 44 },
+  },
+  tomato: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 18, protein: 0.9, carb: 3.9, fat: 0.2, fiber: 1.2, sugar: 2.6, sodium: 5 },
+  },
+  onion: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 40, protein: 1.1, carb: 9.3, fat: 0.1, fiber: 1.7, sugar: 4.2, sodium: 4 },
+  },
+  pasta: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 371, protein: 13, carb: 75, fat: 1.5, fiber: 3.2, sugar: 2.7, sodium: 6 },
+  },
+  bacon: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 541, protein: 37, carb: 1.4, fat: 42, fiber: 0, sugar: 0, sodium: 1717 },
+  },
+  cheese: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 402, protein: 25, carb: 1.3, fat: 33, fiber: 0, sugar: 0.5, sodium: 621 },
+  },
+  rice: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 365, protein: 7.1, carb: 80, fat: 0.7, fiber: 1.3, sugar: 0.1, sodium: 5 },
+  },
+  garlic: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 149, protein: 6.4, carb: 33, fat: 0.5, fiber: 2.1, sugar: 1, sodium: 17 },
+  },
+  oil: {
+    basisQty: 100,
+    basisUnit: 'ml',
+    values: { energy_kcal: 884, protein: 0, carb: 0, fat: 100, fiber: 0, sugar: 0, sodium: 0 },
+  },
+  butter: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 717, protein: 0.9, carb: 0.1, fat: 81, fiber: 0, sugar: 0.1, sodium: 11 },
+  },
+  flour: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 364, protein: 10, carb: 76, fat: 1, fiber: 2.7, sugar: 0.3, sodium: 2 },
+  },
+  sugar: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 387, protein: 0, carb: 100, fat: 0, fiber: 0, sugar: 100, sodium: 1 },
+  },
+  'white-sugar': {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 387, protein: 0, carb: 100, fat: 0, fiber: 0, sugar: 100, sodium: 1 },
+  },
+  pork: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 242, protein: 27, carb: 0, fat: 14, fiber: 0, sugar: 0, sodium: 62 },
+  },
+  beef: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 250, protein: 26, carb: 0, fat: 15, fiber: 0, sugar: 0, sodium: 72 },
+  },
+  tofu: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 76, protein: 8, carb: 1.9, fat: 4.8, fiber: 0.3, sugar: 0.6, sodium: 7 },
+  },
+  shrimp: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 99, protein: 24, carb: 0.2, fat: 0.3, fiber: 0, sugar: 0, sodium: 111 },
+  },
+  carrot: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 41, protein: 0.9, carb: 10, fat: 0.2, fiber: 2.8, sugar: 4.7, sodium: 69 },
+  },
+  potato: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 77, protein: 2, carb: 17, fat: 0.1, fiber: 2.2, sugar: 0.8, sodium: 6 },
+  },
+  ginger: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 80, protein: 1.8, carb: 18, fat: 0.8, fiber: 2, sugar: 1.7, sodium: 13 },
+  },
+  mushroom: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 22, protein: 3.1, carb: 3.3, fat: 0.3, fiber: 1, sugar: 2, sodium: 5 },
+  },
+  cucumber: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 15, protein: 0.7, carb: 3.6, fat: 0.1, fiber: 0.5, sugar: 1.7, sodium: 2 },
+  },
+  'green-onion': {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 32, protein: 1.8, carb: 7.3, fat: 0.2, fiber: 2.6, sugar: 2.3, sodium: 16 },
+  },
+  lettuce: {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 15, protein: 1.4, carb: 2.9, fat: 0.2, fiber: 1.3, sugar: 0.8, sodium: 28 },
+  },
+  'soy-sauce': {
+    basisQty: 100,
+    basisUnit: 'ml',
+    values: { energy_kcal: 53, protein: 8.1, carb: 4.9, fat: 0.1, fiber: 0.8, sugar: 0.4, sodium: 5493 },
+  },
+  'fish-sauce': {
+    basisQty: 100,
+    basisUnit: 'ml',
+    values: { energy_kcal: 35, protein: 5.1, carb: 3.6, fat: 0, fiber: 0, sugar: 3.6, sodium: 7880 },
+  },
+  'rice-noodles': {
+    basisQty: 100,
+    basisUnit: 'g',
+    values: { energy_kcal: 364, protein: 3.4, carb: 83, fat: 0.6, fiber: 1.6, sugar: 0.1, sodium: 182 },
+  },
+};
+
+async function seedNutrition() {
+  for (const nutrient of NUTRIENTS) {
+    await prisma.nutrient.upsert({
+      where: { code: nutrient.code },
+      update: {
+        nameEn: nutrient.nameEn,
+        nameVi: nutrient.nameVi,
+        unit: nutrient.unit,
+        group: nutrient.group,
+        sortOrder: nutrient.sortOrder,
+      },
+      create: nutrient,
+    });
+  }
+
+  const nutrients = await prisma.nutrient.findMany();
+  const nutrientByCode = Object.fromEntries(
+    nutrients.map((row) => [row.code, row]),
+  );
+  const foods = await prisma.food.findMany({
+    where: { slug: { in: Object.keys(FOOD_NUTRIENTS) } },
+  });
+
+  let rows = 0;
+  for (const food of foods) {
+    const spec = FOOD_NUTRIENTS[food.slug];
+    if (!spec) continue;
+    for (const [code, amount] of Object.entries(spec.values)) {
+      if (amount == null) continue;
+      const nutrient = nutrientByCode[code];
+      if (!nutrient) continue;
+      await prisma.foodNutrient.upsert({
+        where: {
+          foodId_nutrientId: {
+            foodId: food.id,
+            nutrientId: nutrient.id,
+          },
+        },
+        update: {
+          amount,
+          basisQty: spec.basisQty,
+          basisUnit: spec.basisUnit,
+        },
+        create: {
+          foodId: food.id,
+          nutrientId: nutrient.id,
+          amount,
+          basisQty: spec.basisQty,
+          basisUnit: spec.basisUnit,
+        },
+      });
+      rows += 1;
+    }
+  }
+
+  console.log(
+    `Seeded ${NUTRIENTS.length} nutrients and ${rows} FoodNutrient rows`,
+  );
 }
 
 async function seedBootstrapUsers() {
@@ -1185,6 +1473,7 @@ async function seed() {
   await seedRoles();
   await seedBootstrapUsers();
   await seedFoods();
+  await seedNutrition();
   await seedRecipes();
   await seedArticles();
 }

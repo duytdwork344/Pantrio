@@ -3,7 +3,16 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import type { RecipeDetail } from '../../core/models';
+import type { NutrientAmount, RecipeDetail } from '../../core/models';
+
+const PROFILE_CODES = new Set([
+  'energy_kcal',
+  'protein',
+  'carb',
+  'fat',
+  'fiber',
+  'sugar',
+]);
 
 @Component({
   selector: 'app-recipe-detail-page',
@@ -21,6 +30,33 @@ export class RecipeDetailPageComponent {
   readonly recipe = signal<RecipeDetail | null>(null);
   readonly sharing = signal(false);
   readonly shareHint = signal<string | null>(null);
+  readonly openNutrient = signal<string | null>(null);
+
+  profileNutrients(rows: NutrientAmount[]): NutrientAmount[] {
+    return rows.filter((row) => PROFILE_CODES.has(row.code));
+  }
+
+  formatNutrient(amount: number): string {
+    if (amount >= 100) return String(Math.round(amount));
+    if (amount >= 10) return amount.toFixed(1);
+    return amount.toFixed(2).replace(/\.?0+$/, '');
+  }
+
+  toggleNutrient(code: string): void {
+    this.openNutrient.update((cur) => (cur === code ? null : code));
+  }
+
+  showNutrient(code: string): void {
+    this.openNutrient.set(code);
+  }
+
+  hideNutrient(): void {
+    this.openNutrient.set(null);
+  }
+
+  isNutrientOpen(code: string): boolean {
+    return this.openNutrient() === code;
+  }
 
   constructor() {
     this.route.paramMap
@@ -30,6 +66,7 @@ export class RecipeDetailPageComponent {
           this.loading.set(true);
           this.error.set(null);
           this.shareHint.set(null);
+          this.openNutrient.set(null);
           return this.api.getRecipeBySlug(slug);
         }),
       )

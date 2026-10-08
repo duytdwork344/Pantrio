@@ -155,6 +155,45 @@ export class RecipeDetailDto extends RecipeSummaryDto {
     description: 'True when the authenticated user has saved this recipe',
   })
   saved?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Aggregated nutrition from ingredients (null when no FoodNutrient data)',
+  })
+  nutrition?: {
+    perServing: Array<{
+      code: string;
+      nameEn: string;
+      nameVi: string;
+      unit: string;
+      group: string;
+      sortOrder: number;
+      amount: number;
+      complete: boolean;
+      contributions: Array<{
+        foodId: string;
+        foodName: string;
+        amount: number;
+      }>;
+    }>;
+    total: Array<{
+      code: string;
+      nameEn: string;
+      nameVi: string;
+      unit: string;
+      group: string;
+      sortOrder: number;
+      amount: number;
+      complete: boolean;
+      contributions: Array<{
+        foodId: string;
+        foodName: string;
+        amount: number;
+      }>;
+    }>;
+    servings: number;
+    complete: boolean;
+  } | null;
 }
 
 export class SavedRecipeDto {

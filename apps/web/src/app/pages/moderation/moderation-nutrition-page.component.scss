@@ -1,0 +1,165 @@
+.nutrition__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.nutrition__tabs a {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nutrition__tabs a.is-current,
+.nutrition__tabs a:hover {
+  color: var(--color-brand);
+}
+
+.nutrition h1,
+.nutrition h2 {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  margin: 0 0 0.35rem;
+}
+
+.nutrition__head {
+  margin-bottom: 1.25rem;
+  max-width: 40rem;
+}
+
+.lede,
+.muted,
+.meta {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.meta {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #9b2c2c;
+}
+
+.ok {
+  color: var(--color-brand);
+}
+
+.search {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 28rem;
+  color: var(--color-ink);
+}
+
+.search input,
+.basis input,
+.basis select,
+table input {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c5d2cb;
+  border-radius: 0.5rem;
+  font: inherit;
+  background: #fff;
+  width: 100%;
+}
+
+.hits {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-width: 28rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.hits button {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  background: color-mix(in srgb, var(--color-bg-1) 70%, #fff);
+  border: 1px solid #c5d2cb;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  color: var(--color-ink);
+}
+
+.hits button:hover {
+  border-color: var(--color-brand);
+}
+
+.food {
+  margin: 1.5rem 0 1rem;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  max-width: 44rem;
+}
+
+.basis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+}
+
+.basis label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-ink);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-brand) 16%, transparent);
+  vertical-align: middle;
+}
+
+th {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.actions button[type='submit'] {
+  font: inherit;
+  background: var(--color-brand);
+  color: #fff;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+}
+
+.actions button[type='submit']:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.text {
+  font: inherit;
+  background: transparent;
+  border: 0;
+  color: var(--color-brand);
+  cursor: pointer;
+  padding: 0;
+}

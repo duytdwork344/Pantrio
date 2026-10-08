@@ -41,6 +41,19 @@ export function fromBaseQuantity(
   }
 }
 
+export function convertQuantity(
+  quantity: number,
+  fromUnit: string,
+  toUnit: string,
+): number | null {
+  const from = toBaseQuantity(quantity, fromUnit);
+  const oneTarget = toBaseQuantity(1, toUnit);
+  if (!from || !oneTarget || from.family !== oneTarget.family) {
+    return null;
+  }
+  return from.base / oneTarget.base;
+}
+
 export function sameFamily(a: string, b: string): boolean {
   const left = toBaseQuantity(1, a);
   const right = toBaseQuantity(1, b);
