@@ -6,6 +6,7 @@ import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
+import 'package:pantrio_mobile/features/recipes/recipe_video_overlay.dart';
 import 'package:provider/provider.dart';
 
 class RecipeDetailPage extends StatefulWidget {
@@ -407,30 +408,45 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
           final recipe = _recipe ?? snapshot.data!;
           final saved = recipe.saved == true;
           final scaled = _viewServings != recipe.servings;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: [
-              if (recipe.imageUrl != null && recipe.imageUrl!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 10,
-                    child: Image.network(
-                      recipe.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => ColoredBox(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceVariant,
-                        child: const Center(
-                          child: Icon(Icons.restaurant_menu_outlined, size: 40),
+          final videoUrl = recipe.videoUrl?.trim();
+          final hasVideo = videoUrl != null && videoUrl.isNotEmpty;
+
+          Widget buildBody(
+            ScrollController? scrollController,
+            Widget? heroVideo,
+          ) {
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              children: [
+                if (heroVideo != null) ...[
+                  heroVideo,
+                  const SizedBox(height: 12),
+                ] else if (recipe.imageUrl != null &&
+                    recipe.imageUrl!.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: Image.network(
+                        recipe.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => ColoredBox(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceVariant,
+                          child: const Center(
+                            child: Icon(
+                              Icons.restaurant_menu_outlined,
+                              size: 40,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 12),
+                ],
               if (widget.useGroupCookbook) ...[
                 Wrap(
                   spacing: 8,
@@ -751,8 +767,18 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                       ? 'No steps yet.'
                       : recipe.instructions,
                 ),
-            ],
-          );
+              ],
+            );
+          }
+
+          if (hasVideo) {
+            return RecipeVideoShell(
+              videoUrl: videoUrl,
+              builder: (context, scrollController, heroVideo) =>
+                  buildBody(scrollController, heroVideo),
+            );
+          }
+          return buildBody(null, null);
         },
       ),
     );

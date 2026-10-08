@@ -12,6 +12,11 @@
       }
       · {{ r.visibility }}
     </p>
+    @if (r.videoUrl) {
+      <video class="review-video" [src]="r.videoUrl" controls playsinline loop></video>
+    } @else if (r.imageUrl) {
+      <img class="review-cover" [src]="r.imageUrl" [alt]="r.title" />
+    }
     @if (r.description) {
       <p class="lead">{{ r.description }}</p>
     }

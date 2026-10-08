@@ -68,6 +68,25 @@
         </label>
       </div>
 
+      <div class="cover video">
+        @if (videoPreview()) {
+          <video [src]="videoPreview()" controls muted playsinline loop></video>
+        }
+        <label>
+          Video ngắn (mp4/webm, ≤30MB)
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            (change)="onVideo($any($event.target).files?.[0] ?? null)"
+          />
+        </label>
+        @if (videoPreview() || videoUrl()) {
+          <button type="button" class="text" (click)="clearVideo()">
+            Xóa video
+          </button>
+        }
+      </div>
+
       <fieldset>
         <legend>Bước nấu</legend>
         @for (step of steps(); track step.key; let i = $index) {

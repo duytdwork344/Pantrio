@@ -135,17 +135,20 @@ Tham chiếu: requirements **4.2c**. Cookbook nội bộ theo InventoryGroup; US
 
 ---
 
-## 3c. Media — upload ảnh (phase sau; requirements **4.2d**)
+## 3c. Media — upload ảnh (+ video ngắn) (requirements **4.2d**)
 
-Object storage MinIO (local) → S3-compatible (prod). Không file server tự viết trên VPS. `imageUrl` string đủ MVP.
+Object storage MinIO (local) → S3-compatible (prod). Không file server tự viết trên VPS. `imageUrl` / `videoUrl` string đủ MVP.
 
 - [x] Docs đã ghi hướng (**4.2d**) — MinIO/`S3_*`, form-data MVP, presign sau, tạo+sửa+sau cook
 - [x] Media module API: client S3 (MinIO) từ env `S3_*`; bucket `pantrio-media`
 - [x] `POST /media` multipart form-data (JWT) → validate mime/size → put object → `{ url }`
-- [ ] (Sau) `POST /media/presign` + client PUT thẳng storage
+- [x] `POST /media/video` — mp4/webm/mov ≤30MB → `Recipe.videoUrl`
+- [x] Schema `Recipe.videoUrl` + `RecipeRevision.videoUrl`; Studio upload; Web sticky mini-player
+- [ ] (Sau) `POST /media/presign` + client PUT thẳng storage; HLS / compress
 - [x] Policy: user-generated URL thuộc bucket hệ thống (MVP: trả URL từ `S3_PUBLIC_BASE_URL`); xóa object cũ — sau
 - [x] Wire **Group cookbook**: optional ảnh lúc tạo; **Add/Change photo** trên detail (PATCH imageUrl)
 - [x] Mobile: image picker + upload + PATCH `/groups/me/recipes/:id`
+- [x] Mobile: recipe video autoplay/loop + sticky PiP kéo thả (`video_player`)
 - [ ] (Cùng pipeline) Catalog CREATOR / Food / Article cover khi sẵn sàng
 - [ ] Deploy note: VPS chạy API; đổi `S3_*` sang MinIO/S3 prod — không đổi schema Recipe (khi lên prod)
 
@@ -385,7 +388,7 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 8. **Web/Mobile hydrate** còn lại (Creator recipe trên Web; Mobile Cook UI nếu chưa gộp vào 6a)  
 9. **Discover cụm + intent share + pantry multi-signal** (checklist **8a**) — trước OG/deep-link attribution  
 10. **Group Cookbook (4.2c / checklist 3b)** — schema → group recipe API → recommend group → Mobile tab _(xong API + tab)_
-11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` → wire tạo/sửa cookbook + sau cook → catalog/food sau
+11. **Media upload (4.2d / checklist 3c)** — MinIO `POST /media` (+ `POST /media/video` / `Recipe.videoUrl` sticky Web) → cookbook + catalog Studio
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
 13. **Recipe search OpenSearch (checklist 8b / requirements 22)** — Docker → index → `GET /search/recipes` → Discover _(xong lát cắt recipe)_
 14. **Nutrition (checklist 2b / requirements 7b.9)** — Nutrient seed → FoodNutrient → recipe aggregate → Web/Mobile _(xong lát cắt MVP)_

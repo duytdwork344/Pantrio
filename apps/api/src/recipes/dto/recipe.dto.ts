@@ -48,6 +48,12 @@ export class RecipeSummaryDto {
   imageUrl?: string | null;
 
   @ApiPropertyOptional({
+    nullable: true,
+    description: 'Short recipe video URL (MinIO mp4/webm)',
+  })
+  videoUrl?: string | null;
+
+  @ApiPropertyOptional({
     description: 'Intent-share count (denormalized)',
   })
   shareCount?: number;
@@ -117,7 +123,7 @@ export class RecipeStepInputDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   imageUrl?: string;
 
   @ApiPropertyOptional({ default: 0 })
@@ -311,8 +317,15 @@ export class CreateRecipeDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Short recipe video from POST /media/video',
+  })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  videoUrl?: string;
 
   @ApiPropertyOptional({
     enum: RecipeVisibility,
@@ -396,8 +409,15 @@ export class CreateGroupRecipeDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Short recipe video from POST /media/video',
+  })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  videoUrl?: string;
 
   @ApiProperty({ type: [RecipeIngredientInputDto] })
   @IsArray()

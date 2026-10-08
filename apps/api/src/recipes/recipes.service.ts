@@ -134,6 +134,7 @@ export class RecipesService {
               cookTimeMin: latest.cookTimeMin,
               difficulty: latest.difficulty,
               imageUrl: latest.imageUrl,
+              videoUrl: latest.videoUrl,
             }
           : {}),
         contentVersion: latest?.version ?? recipe.publishedVersion ?? null,
@@ -352,6 +353,7 @@ export class RecipesService {
         difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
         instructions: this.deriveInstructions(resolvedSteps),
         imageUrl: dto.imageUrl ?? null,
+        videoUrl: dto.videoUrl ?? null,
         visibility,
         ingredients: {
           create: this.mapIngredientCreates(dto.ingredients),
@@ -398,6 +400,7 @@ export class RecipesService {
         difficulty: dto.difficulty ?? RecipeDifficulty.EASY,
         instructions: this.deriveInstructions(resolvedSteps),
         imageUrl: dto.imageUrl ?? null,
+        videoUrl: dto.videoUrl ?? null,
         visibility: RecipeVisibility.GROUP,
         ingredients: {
           create: this.mapIngredientCreates(dto.ingredients),
@@ -549,6 +552,7 @@ export class RecipesService {
               ? { instructions: dto.instructions.trim() }
               : {}),
           ...(dto.imageUrl !== undefined ? { imageUrl: dto.imageUrl } : {}),
+          ...(dto.videoUrl !== undefined ? { videoUrl: dto.videoUrl } : {}),
           ...(dto.visibility !== undefined
             ? { visibility: dto.visibility }
             : {}),
@@ -735,6 +739,7 @@ export class RecipesService {
     cookTimeMin: number | null;
     difficulty: RecipeDifficulty;
     imageUrl: string | null;
+    videoUrl?: string | null;
     shareCount: number;
   }): RecipeSummaryDto {
     return {
@@ -747,6 +752,7 @@ export class RecipesService {
       cookTimeMin: recipe.cookTimeMin,
       difficulty: recipe.difficulty,
       imageUrl: recipe.imageUrl,
+      videoUrl: recipe.videoUrl ?? null,
       shareCount: recipe.shareCount,
     };
   }
@@ -961,6 +967,7 @@ export class RecipesService {
           difficulty: latest.difficulty,
           instructions: latest.instructions,
           imageUrl: latest.imageUrl,
+          videoUrl: latest.videoUrl,
           visibility: latest.visibility,
           publishedVersion: latest.version,
           ingredients: { create: this.mapIngredientCreates(ingredients) },
@@ -1142,6 +1149,10 @@ export class RecipesService {
             dto.imageUrl !== undefined
               ? dto.imageUrl
               : (latest?.imageUrl ?? recipe.imageUrl),
+          videoUrl:
+            dto.videoUrl !== undefined
+              ? dto.videoUrl
+              : (latest?.videoUrl ?? recipe.videoUrl),
           visibility: dto.visibility ?? latest?.visibility ?? recipe.visibility,
           ingredientsJson: ingredients as unknown as Prisma.InputJsonValue,
           stepsJson: steps as unknown as Prisma.InputJsonValue,
@@ -1168,6 +1179,7 @@ export class RecipesService {
       difficulty: recipe.difficulty,
       instructions: recipe.instructions,
       imageUrl: recipe.imageUrl,
+      videoUrl: recipe.videoUrl,
       visibility: recipe.visibility,
       ingredientsJson: recipe.ingredients.map((item) => ({
         foodId: item.foodId,
@@ -1213,6 +1225,7 @@ export class RecipesService {
       difficulty: RecipeDifficulty;
       instructions: string;
       imageUrl: string | null;
+      videoUrl: string | null;
       visibility: RecipeVisibility;
       ingredientsJson: Prisma.JsonValue;
       stepsJson: Prisma.JsonValue;
@@ -1246,6 +1259,7 @@ export class RecipesService {
       difficulty: revision.difficulty,
       instructions: revision.instructions,
       imageUrl: revision.imageUrl,
+      videoUrl: revision.videoUrl,
       visibility: revision.visibility,
       ingredients: ingredients.map((item, index) => {
         const food = foodById.get(item.foodId) ?? {

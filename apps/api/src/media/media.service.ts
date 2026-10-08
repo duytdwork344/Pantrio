@@ -9,14 +9,18 @@ import { randomBytes } from 'crypto';
 import { extname } from 'path';
 import type { MediaUploadResultDto } from './dto/media.dto';
 
-const ALLOWED_MIME = new Set([
+const IMAGE_MIME = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
 ]);
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const VIDEO_MIME = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Short demo clips — raise later with presign / HLS. */
+const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
 
 @Injectable()
 export class MediaService {
@@ -33,7 +37,6 @@ export class MediaService {
       this.config.get<string>('S3_SECRET_KEY') ?? 'pantriodev';
 
     this.bucket = this.config.get<string>('S3_BUCKET') ?? 'pantrio-media';
-    // URL returned to clients (phone/LAN). Falls back to S3_ENDPOINT for desktop-only.
     this.publicBase = (
       this.config.get<string>('S3_PUBLIC_BASE_URL') ?? endpoint
     ).replace(/\/$/, '');
@@ -50,23 +53,43 @@ export class MediaService {
     file: Express.Multer.File,
     folder = 'recipes',
   ): Promise<MediaUploadResultDto> {
+    return this.upload(file, folder, 'image');
+  }
+
+  async uploadVideo(
+    file: Express.Multer.File,
+    folder = 'recipes',
+  ): Promise<MediaUploadResultDto> {
+    return this.upload(file, folder, 'video');
+  }
+
+  private async upload(
+    file: Express.Multer.File,
+    folder: string,
+    kind: 'image' | 'video',
+  ): Promise<MediaUploadResultDto> {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Empty file');
     }
-    if (file.size > MAX_BYTES) {
+
+    const maxBytes = kind === 'video' ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    if (file.size > maxBytes) {
       throw new BadRequestException(
-        `File too large (max ${MAX_BYTES / (1024 * 1024)}MB)`,
+        `File too large (max ${maxBytes / (1024 * 1024)}MB)`,
       );
     }
 
     const contentType = (file.mimetype || '').toLowerCase();
-    if (!ALLOWED_MIME.has(contentType)) {
+    const allowed = kind === 'video' ? VIDEO_MIME : IMAGE_MIME;
+    if (!allowed.has(contentType)) {
       throw new BadRequestException(
-        'Only jpeg, png, or webp images are allowed',
+        kind === 'video'
+          ? 'Only mp4, webm, or mov videos are allowed'
+          : 'Only jpeg, png, or webp images are allowed',
       );
     }
 
-    const ext = this.extensionFor(contentType, file.originalname);
+    const ext = this.extensionFor(contentType, file.originalname, kind);
     const key = `${folder.replace(/\/$/, '')}/${Date.now()}-${randomBytes(6).toString('hex')}${ext}`;
 
     try {
@@ -76,13 +99,12 @@ export class MediaService {
           Key: key,
           Body: file.buffer,
           ContentType: contentType,
-          // Public-read via MinIO anonymous download policy on the bucket.
         }),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
       throw new ServiceUnavailableException(
-        `Could not store image in object storage: ${message}`,
+        `Could not store ${kind} in object storage: ${message}`,
       );
     }
 
@@ -94,13 +116,25 @@ export class MediaService {
     };
   }
 
-  private extensionFor(contentType: string, originalName?: string): string {
+  private extensionFor(
+    contentType: string,
+    originalName: string | undefined,
+    kind: 'image' | 'video',
+  ): string {
     if (contentType === 'image/png') return '.png';
     if (contentType === 'image/webp') return '.webp';
     if (contentType === 'image/jpeg' || contentType === 'image/jpg') {
       return '.jpg';
     }
+    if (contentType === 'video/mp4') return '.mp4';
+    if (contentType === 'video/webm') return '.webm';
+    if (contentType === 'video/quicktime') return '.mov';
+
     const fromName = extname(originalName ?? '').toLowerCase();
+    if (kind === 'video') {
+      if (['.mp4', '.webm', '.mov'].includes(fromName)) return fromName;
+      return '.mp4';
+    }
     if (['.jpg', '.jpeg', '.png', '.webp'].includes(fromName)) {
       return fromName === '.jpeg' ? '.jpg' : fromName;
     }

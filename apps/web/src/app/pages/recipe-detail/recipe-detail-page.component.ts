@@ -1,6 +1,14 @@
-import { Component, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  DestroyRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { switchMap, tap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import type { NutrientAmount, RecipeDetail } from '../../core/models';
@@ -24,6 +32,7 @@ export class RecipeDetailPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -31,6 +40,24 @@ export class RecipeDetailPageComponent {
   readonly sharing = signal(false);
   readonly shareHint = signal<string | null>(null);
   readonly openNutrient = signal<string | null>(null);
+  readonly pipActive = signal(false);
+  readonly pipDismissed = signal(false);
+  readonly pipDragging = signal(false);
+  readonly pipLeft = signal(0);
+  readonly pipTop = signal(0);
+
+  private readonly heroSlot = viewChild<ElementRef<HTMLElement>>('heroSlot');
+  private readonly heroVideo =
+    viewChild<ElementRef<HTMLVideoElement>>('heroVideo');
+  private readonly pipVideo =
+    viewChild<ElementRef<HTMLVideoElement>>('pipVideo');
+  private observer: IntersectionObserver | null = null;
+  private pipDragOffsetX = 0;
+  private pipDragOffsetY = 0;
+  private pipHasCustomPosition = false;
+  private readonly onPipPointerMove = (event: PointerEvent) =>
+    this.movePip(event);
+  private readonly onPipPointerUp = () => this.endPipDrag();
 
   profileNutrients(rows: NutrientAmount[]): NutrientAmount[] {
     return rows.filter((row) => PROFILE_CODES.has(row.code));
@@ -58,9 +85,42 @@ export class RecipeDetailPageComponent {
     return this.openNutrient() === code;
   }
 
+  dismissPip(): void {
+    this.endPipDrag();
+    this.pipDismissed.set(true);
+    this.pipActive.set(false);
+    const hero = this.heroVideo()?.nativeElement;
+    if (hero && hero.paused) {
+      void hero.play().catch(() => undefined);
+    }
+  }
+
+  onPipPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    this.pipDragging.set(true);
+    this.pipDragOffsetX = event.clientX - this.pipLeft();
+    this.pipDragOffsetY = event.clientY - this.pipTop();
+    window.addEventListener('pointermove', this.onPipPointerMove);
+    window.addEventListener('pointerup', this.onPipPointerUp);
+    window.addEventListener('pointercancel', this.onPipPointerUp);
+  }
+
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.teardownObserver();
+      this.endPipDrag();
+    });
+
     this.route.paramMap
       .pipe(
+        tap(() => {
+          this.teardownObserver();
+          this.endPipDrag();
+          this.pipActive.set(false);
+          this.pipDismissed.set(false);
+          this.pipHasCustomPosition = false;
+        }),
         switchMap((params) => {
           const slug = params.get('slug') ?? '';
           this.loading.set(true);
@@ -69,11 +129,16 @@ export class RecipeDetailPageComponent {
           this.openNutrient.set(null);
           return this.api.getRecipeBySlug(slug);
         }),
+        takeUntilDestroyed(),
       )
       .subscribe({
         next: (recipe) => {
           this.recipe.set(recipe);
           this.loading.set(false);
+          requestAnimationFrame(() => {
+            this.setupPipObserver();
+            this.tryAutoplayHero();
+          });
         },
         error: (err: { error?: { message?: string }; message?: string }) => {
           this.recipe.set(null);
@@ -83,6 +148,95 @@ export class RecipeDetailPageComponent {
           );
         },
       });
+  }
+
+  private tryAutoplayHero(): void {
+    const video = this.heroVideo()?.nativeElement;
+    if (!video) return;
+    video.muted = true;
+    void video.play().catch(() => undefined);
+  }
+
+  private setupPipObserver(): void {
+    this.teardownObserver();
+    const slot = this.heroSlot()?.nativeElement;
+    if (!slot || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry || this.pipDismissed()) return;
+        const shouldPip = !entry.isIntersecting;
+        if (shouldPip === this.pipActive()) return;
+        this.pipActive.set(shouldPip);
+        if (shouldPip) {
+          if (!this.pipHasCustomPosition) this.placePipDefault();
+          requestAnimationFrame(() => this.syncPipFromHero());
+        }
+      },
+      { threshold: 0.15 },
+    );
+    this.observer.observe(slot);
+  }
+
+  private placePipDefault(): void {
+    if (typeof window === 'undefined') return;
+    const width = Math.min(window.innerWidth * 0.42, 256);
+    const height = width * (9 / 16) + 36;
+    const margin = 16;
+    this.pipLeft.set(Math.max(margin, window.innerWidth - width - margin));
+    this.pipTop.set(Math.max(margin, window.innerHeight - height - margin));
+  }
+
+  private movePip(event: PointerEvent): void {
+    if (!this.pipDragging()) return;
+    const width = Math.min(window.innerWidth * 0.42, 256);
+    const height = width * (9 / 16) + 36;
+    const margin = 8;
+    const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - height - margin);
+    this.pipLeft.set(
+      Math.min(maxLeft, Math.max(margin, event.clientX - this.pipDragOffsetX)),
+    );
+    this.pipTop.set(
+      Math.min(maxTop, Math.max(margin, event.clientY - this.pipDragOffsetY)),
+    );
+    this.pipHasCustomPosition = true;
+  }
+
+  private endPipDrag(): void {
+    if (!this.pipDragging()) {
+      window.removeEventListener('pointermove', this.onPipPointerMove);
+      window.removeEventListener('pointerup', this.onPipPointerUp);
+      window.removeEventListener('pointercancel', this.onPipPointerUp);
+      return;
+    }
+    this.pipDragging.set(false);
+    window.removeEventListener('pointermove', this.onPipPointerMove);
+    window.removeEventListener('pointerup', this.onPipPointerUp);
+    window.removeEventListener('pointercancel', this.onPipPointerUp);
+  }
+
+  private syncPipFromHero(): void {
+    const hero = this.heroVideo()?.nativeElement;
+    const pip = this.pipVideo()?.nativeElement;
+    if (!hero || !pip) return;
+    const wasPlaying = !hero.paused;
+    try {
+      pip.currentTime = hero.currentTime;
+    } catch {
+      // ignore seek before metadata
+    }
+    if (wasPlaying) {
+      void pip.play().catch(() => undefined);
+    }
+  }
+
+  private teardownObserver(): void {
+    this.observer?.disconnect();
+    this.observer = null;
   }
 
   async share(): Promise<void> {

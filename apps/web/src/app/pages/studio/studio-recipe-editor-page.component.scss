@@ -68,11 +68,25 @@ legend {
 }
 
 .cover img,
+.cover video,
 .step-photo img {
   width: 6rem;
   height: 6rem;
   object-fit: cover;
   border-radius: 0.5rem;
+}
+
+.cover.video {
+  display: grid;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.cover.video video {
+  width: min(100%, 18rem);
+  height: auto;
+  max-height: 12rem;
+  background: #111;
 }
 
 .row {

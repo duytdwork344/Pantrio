@@ -342,11 +342,12 @@ Model dữ liệu (MVP):
 
 Ràng buộc:
 
-- Mime: jpeg / webp / png; size ~2–5MB; ưu tiên compress/resize phía client (hoặc worker nhẹ).
+- Mime ảnh: jpeg / webp / png; size ~2–5MB; ưu tiên compress/resize phía client (hoặc worker nhẹ).
+- Mime video ngắn (demo / MVP): `video/mp4` (ưu tiên), `video/webm`, `video/quicktime`; size ≤ ~30MB qua `POST /media/video` → gắn `Recipe.videoUrl` (và snapshot trên `RecipeRevision`). Web recipe detail: hero video + sticky mini-player góc khi scroll. Phase sau: compress / HLS / presign.
 - User-generated: URL phải thuộc bucket hệ thống (không chấp nhận dán URL ngoài tùy ý khi policy siết).
 - Seed/catalog tạm vẫn có thể dùng URL ngoài cho đến khi migrate.
 - Thay ảnh: upload mới + (optional) xóa object cũ.
-- **Quyền:** group cookbook — member (author/OWNER theo **4.2c**); catalog CREATOR — ảnh public vẫn thuộc kiểm soát **4.2b** khi mở cộng đồng.
+- **Quyền:** group cookbook — member (author/OWNER theo **4.2c**); catalog CREATOR — ảnh/video public vẫn thuộc kiểm soát **4.2b** khi mở cộng đồng.
 
 UX ưu tiên:
 

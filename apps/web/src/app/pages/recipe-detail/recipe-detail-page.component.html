@@ -7,7 +7,21 @@
 } @else {
   @if (recipe(); as r) {
     <article>
-      @if (r.imageUrl) {
+      @if (r.videoUrl) {
+        <div class="hero-video" #heroSlot>
+          <video
+            #heroVideo
+            class="hero-video__el"
+            [src]="r.videoUrl"
+            controls
+            playsinline
+            loop
+            muted
+            autoplay
+            preload="auto"
+          ></video>
+        </div>
+      } @else if (r.imageUrl) {
         <img class="hero" [src]="r.imageUrl" [alt]="r.title" />
       }
       <h1>{{ r.title }}</h1>
@@ -34,13 +48,49 @@
         >
           {{ sharing() ? 'Sharing…' : 'Share' }}
         </button>
-        @if (auth.user()?.id === r.authorId) {
+        @if (auth.user()?.id === r.authorId || auth.canModerate()) {
           <a class="edit" [routerLink]="['/studio/recipes', r.slug]">Sửa</a>
         }
         @if (shareHint()) {
           <span class="share-hint">{{ shareHint() }}</span>
         }
       </div>
+
+      @if (r.videoUrl && pipActive() && !pipDismissed()) {
+        <div
+          class="pip is-visible"
+          role="dialog"
+          aria-label="Video công thức"
+          [class.is-dragging]="pipDragging()"
+          [style.left.px]="pipLeft()"
+          [style.top.px]="pipTop()"
+        >
+          <div
+            class="pip__chrome"
+            (pointerdown)="onPipPointerDown($event)"
+          >
+            <span class="pip__drag-hint">Kéo để di chuyển</span>
+            <button
+              type="button"
+              class="pip__close"
+              aria-label="Đóng video góc"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="dismissPip()"
+            >
+              ×
+            </button>
+          </div>
+          <video
+            #pipVideo
+            class="pip__video"
+            [src]="r.videoUrl"
+            controls
+            playsinline
+            loop
+            muted
+          ></video>
+        </div>
+      }
 
       @if (r.nutrition; as n) {
         <section class="nutrition">

@@ -61,10 +61,49 @@ export class MediaController {
     if (!file) {
       throw new BadRequestException('file field is required');
     }
-    const safeFolder = (folder?.trim() || 'recipes').replace(
-      /[^a-zA-Z0-9_-]/g,
-      '',
-    );
-    return this.mediaService.uploadImage(file, safeFolder || 'recipes');
+    return this.mediaService.uploadImage(file, this.safeFolder(folder));
+  }
+
+  @Post('video')
+  @ApiOperation({
+    summary:
+      'Upload a short recipe video (mp4/webm/mov, max 30MB). Returns URL for Recipe.videoUrl.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiQuery({
+    name: 'folder',
+    required: false,
+    description: 'Object key prefix (default: recipes)',
+    example: 'recipes',
+  })
+  @ApiOkResponse({ type: MediaUploadResultDto })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 30 * 1024 * 1024 },
+    }),
+  )
+  uploadVideo(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('folder') folder?: string,
+  ): Promise<MediaUploadResultDto> {
+    if (!file) {
+      throw new BadRequestException('file field is required');
+    }
+    return this.mediaService.uploadVideo(file, this.safeFolder(folder));
+  }
+
+  private safeFolder(folder?: string): string {
+    const safe = (folder?.trim() || 'recipes').replace(/[^a-zA-Z0-9_-]/g, '');
+    return safe || 'recipes';
   }
 }

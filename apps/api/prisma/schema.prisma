@@ -224,6 +224,8 @@ model Recipe {
   difficulty   RecipeDifficulty @default(EASY)
   instructions String
   imageUrl     String?
+  /// Short recipe video (MP4/WebM via MinIO). Optional sticky player on Web.
+  videoUrl     String?
   visibility   RecipeVisibility @default(PUBLIC)
   /// Denormalized intent-share count (see ContentEvent SHARE).
   shareCount   Int              @default(0)
@@ -279,6 +281,7 @@ model RecipeRevision {
   difficulty         RecipeDifficulty
   instructions       String
   imageUrl           String?
+  videoUrl           String?
   visibility         RecipeVisibility
   ingredientsJson    Json
   stepsJson          Json

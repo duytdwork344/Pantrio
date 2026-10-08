@@ -9,6 +9,7 @@ class RecipeSummary {
     this.prepTimeMin,
     this.cookTimeMin,
     this.imageUrl,
+    this.videoUrl,
     this.shareCount = 0,
   });
 
@@ -21,6 +22,7 @@ class RecipeSummary {
   final int? prepTimeMin;
   final int? cookTimeMin;
   final String? imageUrl;
+  final String? videoUrl;
   final int shareCount;
 
   factory RecipeSummary.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class RecipeSummary {
       prepTimeMin: json['prepTimeMin'] as int?,
       cookTimeMin: json['cookTimeMin'] as int?,
       imageUrl: json['imageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
       shareCount: json['shareCount'] as int? ?? 0,
     );
   }
@@ -116,6 +119,7 @@ class RecipeDetail extends RecipeSummary {
     super.prepTimeMin,
     super.cookTimeMin,
     super.imageUrl,
+    super.videoUrl,
     super.shareCount,
     this.saved,
     this.groupId,
@@ -148,6 +152,7 @@ class RecipeDetail extends RecipeSummary {
       prepTimeMin: prepTimeMin,
       cookTimeMin: cookTimeMin,
       imageUrl: imageUrl,
+      videoUrl: videoUrl,
       shareCount: shareCount ?? this.shareCount,
       saved: saved ?? this.saved,
       nutrition: nutrition,
@@ -165,6 +170,7 @@ class RecipeDetail extends RecipeSummary {
       prepTimeMin: json['prepTimeMin'] as int?,
       cookTimeMin: json['cookTimeMin'] as int?,
       imageUrl: json['imageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
       shareCount: json['shareCount'] as int? ?? 0,
       authorId: json['authorId'] as String,
       groupId: json['groupId'] as String?,

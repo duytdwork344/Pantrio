@@ -52,6 +52,10 @@ export class StudioRecipeEditorPageComponent {
   readonly coverUrl = signal<string | null>(null);
   readonly coverPreview = signal<string | null>(null);
   private coverFile: File | null = null;
+  readonly videoUrl = signal<string | null>(null);
+  readonly videoPreview = signal<string | null>(null);
+  private videoFile: File | null = null;
+  readonly videoCleared = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(2)]],
@@ -85,8 +89,11 @@ export class StudioRecipeEditorPageComponent {
 
     this.api.getRecipeBySlug(slug).subscribe({
       next: (recipe) => {
-        if (recipe.authorId !== this.auth.user()?.id) {
-          this.error.set('Chỉ tác giả mới sửa được recipe này.');
+        if (
+          recipe.authorId !== this.auth.user()?.id &&
+          !this.auth.canModerate()
+        ) {
+          this.error.set('Chỉ tác giả hoặc moderator mới sửa được recipe này.');
           this.loading.set(false);
           return;
         }
@@ -102,6 +109,9 @@ export class StudioRecipeEditorPageComponent {
         });
         this.coverUrl.set(recipe.imageUrl ?? null);
         this.coverPreview.set(recipe.imageUrl ?? null);
+        this.videoUrl.set(recipe.videoUrl ?? null);
+        this.videoPreview.set(recipe.videoUrl ?? null);
+        this.videoCleared.set(false);
         this.ingredients.set(
           recipe.ingredients.length
             ? recipe.ingredients.map((ing) => ({
@@ -256,6 +266,27 @@ export class StudioRecipeEditorPageComponent {
     this.coverPreview.set(file ? URL.createObjectURL(file) : this.coverUrl());
   }
 
+  onVideo(file: File | null): void {
+    if (this.videoPreview()?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.videoPreview()!);
+    }
+    this.videoFile = file;
+    this.videoCleared.set(false);
+    this.videoPreview.set(
+      file ? URL.createObjectURL(file) : this.videoUrl(),
+    );
+  }
+
+  clearVideo(): void {
+    if (this.videoPreview()?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.videoPreview()!);
+    }
+    this.videoFile = null;
+    this.videoUrl.set(null);
+    this.videoPreview.set(null);
+    this.videoCleared.set(true);
+  }
+
   async save(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -287,6 +318,19 @@ export class StudioRecipeEditorPageComponent {
         this.coverFile = null;
       }
 
+      let videoUrl: string | null | undefined = this.videoUrl() ?? undefined;
+      if (this.videoFile) {
+        const uploaded = await firstValueFrom(
+          this.api.uploadVideo(this.videoFile, 'recipes'),
+        );
+        videoUrl = uploaded.url;
+        this.videoUrl.set(uploaded.url);
+        this.videoFile = null;
+        this.videoCleared.set(false);
+      } else if (this.videoCleared()) {
+        videoUrl = null;
+      }
+
       const stepPayload = [];
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -316,6 +360,7 @@ export class StudioRecipeEditorPageComponent {
         ...(prep !== '' ? { prepTimeMin: Number(prep) } : {}),
         ...(cook !== '' ? { cookTimeMin: Number(cook) } : {}),
         ...(imageUrl ? { imageUrl } : {}),
+        ...(videoUrl !== undefined ? { videoUrl } : {}),
         steps: stepPayload,
         ingredients: ingredients.map((row, index) => ({
           foodId: row.foodId,

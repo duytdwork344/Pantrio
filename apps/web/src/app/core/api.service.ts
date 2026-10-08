@@ -33,6 +33,7 @@ export type RecipeWriteBody = {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   visibility: 'PUBLIC' | 'PRIVATE' | 'UNLISTED';
   imageUrl?: string;
+  videoUrl?: string | null;
   steps: Array<{ body: string; imageUrl?: string; sortOrder: number }>;
   ingredients: Array<{
     foodId: string;
@@ -163,6 +164,15 @@ export class ApiService {
     body.append('file', file);
     return this.http.post<{ url: string }>(
       `${this.base}/media?folder=${encodeURIComponent(folder)}`,
+      body,
+    );
+  }
+
+  uploadVideo(file: File, folder = 'recipes') {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<{ url: string }>(
+      `${this.base}/media/video?folder=${encodeURIComponent(folder)}`,
       body,
     );
   }

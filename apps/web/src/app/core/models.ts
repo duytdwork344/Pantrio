@@ -23,6 +23,7 @@ export type RecipeSummary = {
   cookTimeMin?: number | null;
   difficulty: string;
   imageUrl?: string | null;
+  videoUrl?: string | null;
   shareCount?: number;
 };
 

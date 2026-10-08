@@ -19,6 +19,17 @@ legend {
   color: var(--color-muted);
 }
 
+.review-video,
+.review-cover {
+  display: block;
+  width: min(100%, 28rem);
+  max-height: 16rem;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  margin: 0.75rem 0 1rem;
+  background: #111;
+}
+
 .ingredients,
 .steps {
   padding-left: 1.1rem;
