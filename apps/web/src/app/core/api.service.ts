@@ -7,6 +7,8 @@ import type {
   FoodDetail,
   FoodHit,
   NutrientCatalogItem,
+  NutritionPreset,
+  NutritionTarget,
   RecipeDetail,
   ModerationRecipe,
   ModeratedFood,
@@ -228,6 +230,50 @@ export class ApiService {
   deleteOrphanFood(id: string) {
     return this.http.delete<{ deleted: boolean; id: string }>(
       `${this.base}/foods/${encodeURIComponent(id)}`,
+    );
+  }
+
+  getNutritionTarget() {
+    return this.http.get<NutritionTarget | null>(
+      `${this.base}/me/nutrition-target`,
+    );
+  }
+
+  listNutritionPresets() {
+    return this.http.get<NutritionPreset[]>(
+      `${this.base}/me/nutrition-target/presets`,
+    );
+  }
+
+  computeNutritionTarget(body: {
+    sex: 'MALE' | 'FEMALE';
+    ageYears: number;
+    weightKg: number;
+    heightCm: number;
+    activity?: string;
+  }) {
+    return this.http.put<NutritionTarget>(
+      `${this.base}/me/nutrition-target/compute`,
+      body,
+    );
+  }
+
+  applyNutritionPreset(presetCode: string) {
+    return this.http.put<NutritionTarget>(
+      `${this.base}/me/nutrition-target/preset`,
+      { presetCode },
+    );
+  }
+
+  saveManualNutritionTarget(body: {
+    energyKcal: number;
+    proteinG: number;
+    fatG: number;
+    carbG: number;
+  }) {
+    return this.http.put<NutritionTarget>(
+      `${this.base}/me/nutrition-target`,
+      body,
     );
   }
 }

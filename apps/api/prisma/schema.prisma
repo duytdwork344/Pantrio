@@ -84,6 +84,34 @@ enum ContentEventType {
   VIEW
 }
 
+/// Biometric sex for Mifflin–St Jeor (requirements 7b.10).
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum NutritionTargetSource {
+  COMPUTED
+  MANUAL
+  PRESET
+}
+
+enum NutritionPresetCode {
+  CHILD_4_8
+  CHILD_9_13
+  TEEN_14_17
+  ADULT_DEFAULT
+  OLDER_65
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -106,6 +134,7 @@ model User {
   groupMemberships    GroupMembership[]
   ownedGroups         InventoryGroup[]     @relation("GroupCreator")
   contentEvents       ContentEvent[]
+  nutritionTarget     UserNutritionTarget?
 }
 
 model Role {
@@ -142,6 +171,27 @@ model RolePermission {
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
+}
+
+/// Personal daily nutrition target (requirements 7b.10).
+model UserNutritionTarget {
+  userId     String                 @id
+  sex        Sex?
+  ageYears   Int?
+  weightKg   Float?
+  heightCm   Float?
+  activity   ActivityLevel          @default(MODERATE)
+  source     NutritionTargetSource  @default(COMPUTED)
+  presetCode NutritionPresetCode?
+  energyKcal Int
+  proteinG   Int
+  fatG       Int
+  carbG      Int
+  bmrKcal    Int?
+  updatedAt  DateTime               @updatedAt
+  createdAt  DateTime               @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Food/ingredient master (PUBLIC catalog + PRIVATE user/creator drafts).

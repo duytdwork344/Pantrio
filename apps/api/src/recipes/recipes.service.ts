@@ -22,6 +22,7 @@ import {
   aggregateRecipeNutrition,
 } from '../common/nutrition/aggregate';
 import { CatalogService } from '../catalog/catalog.service';
+import { NutritionService } from '../nutrition/nutrition.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchService } from '../search/search.service';
 import {
@@ -93,6 +94,7 @@ export class RecipesService {
     private readonly groups: GroupsService,
     private readonly catalog: CatalogService,
     private readonly search: SearchService,
+    private readonly nutrition: NutritionService,
   ) {}
 
   async list(): Promise<RecipeSummaryDto[]> {
@@ -838,21 +840,36 @@ export class RecipesService {
             : {}),
         };
       }),
-      nutrition: aggregateRecipeNutrition({
-        servings: recipe.servings,
-        ingredients: recipe.ingredients.map((item) => {
-          const translation = pickTranslation(item.food.translations);
-          return {
-            foodId: item.foodId,
-            foodName: translation?.name ?? item.food.slug,
-            quantity: item.quantity,
-            unit: item.unit,
-            optional: item.optional,
-            nutrients: item.food.nutrients ?? [],
-          };
+      nutrition: await this.withTargetComparison(
+        viewerUserId,
+        aggregateRecipeNutrition({
+          servings: recipe.servings,
+          ingredients: recipe.ingredients.map((item) => {
+            const translation = pickTranslation(item.food.translations);
+            return {
+              foodId: item.foodId,
+              foodName: translation?.name ?? item.food.slug,
+              quantity: item.quantity,
+              unit: item.unit,
+              optional: item.optional,
+              nutrients: item.food.nutrients ?? [],
+            };
+          }),
         }),
-      }),
+      ),
     };
+  }
+
+  private async withTargetComparison(
+    viewerUserId: string | undefined,
+    nutrition: ReturnType<typeof aggregateRecipeNutrition>,
+  ) {
+    if (!nutrition || !viewerUserId) return nutrition;
+    const targetComparison = await this.nutrition.comparisonForUser(
+      viewerUserId,
+      nutrition.perServing,
+    );
+    return targetComparison ? { ...nutrition, targetComparison } : nutrition;
   }
 
   async listPendingRevisions() {

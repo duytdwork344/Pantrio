@@ -250,18 +250,56 @@ class NutrientAmount {
   }
 }
 
+class NutritionTargetComparison {
+  NutritionTargetComparison({
+    required this.source,
+    required this.energyKcal,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbG,
+    required this.perServingPercent,
+  });
+
+  final String source;
+  final int energyKcal;
+  final int proteinG;
+  final int fatG;
+  final int carbG;
+  final Map<String, num?> perServingPercent;
+
+  factory NutritionTargetComparison.fromJson(Map<String, dynamic> json) {
+    final raw = json['perServingPercent'];
+    final map = <String, num?>{};
+    if (raw is Map) {
+      raw.forEach((key, value) {
+        map[key.toString()] = value as num?;
+      });
+    }
+    return NutritionTargetComparison(
+      source: json['source'] as String? ?? '',
+      energyKcal: json['energyKcal'] as int? ?? 0,
+      proteinG: json['proteinG'] as int? ?? 0,
+      fatG: json['fatG'] as int? ?? 0,
+      carbG: json['carbG'] as int? ?? 0,
+      perServingPercent: map,
+    );
+  }
+}
+
 class RecipeNutrition {
   RecipeNutrition({
     required this.perServing,
     required this.total,
     required this.servings,
     required this.complete,
+    this.targetComparison,
   });
 
   final List<NutrientAmount> perServing;
   final List<NutrientAmount> total;
   final int servings;
   final bool complete;
+  final NutritionTargetComparison? targetComparison;
 
   factory RecipeNutrition.fromJson(Map<String, dynamic> json) {
     return RecipeNutrition(
@@ -273,6 +311,90 @@ class RecipeNutrition {
           .toList(),
       servings: json['servings'] as int? ?? 1,
       complete: json['complete'] as bool? ?? false,
+      targetComparison: json['targetComparison'] is Map
+          ? NutritionTargetComparison.fromJson(
+              Map<String, dynamic>.from(json['targetComparison'] as Map),
+            )
+          : null,
+    );
+  }
+}
+
+class NutritionTarget {
+  NutritionTarget({
+    required this.userId,
+    required this.activity,
+    required this.source,
+    required this.energyKcal,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbG,
+    required this.disclaimer,
+    this.sex,
+    this.ageYears,
+    this.weightKg,
+    this.heightCm,
+    this.presetCode,
+    this.bmrKcal,
+  });
+
+  final String userId;
+  final String? sex;
+  final int? ageYears;
+  final num? weightKg;
+  final num? heightCm;
+  final String activity;
+  final String source;
+  final String? presetCode;
+  final int energyKcal;
+  final int proteinG;
+  final int fatG;
+  final int carbG;
+  final int? bmrKcal;
+  final String disclaimer;
+
+  factory NutritionTarget.fromJson(Map<String, dynamic> json) {
+    return NutritionTarget(
+      userId: json['userId'] as String,
+      sex: json['sex'] as String?,
+      ageYears: json['ageYears'] as int?,
+      weightKg: json['weightKg'] as num?,
+      heightCm: json['heightCm'] as num?,
+      activity: json['activity'] as String? ?? 'MODERATE',
+      source: json['source'] as String? ?? '',
+      presetCode: json['presetCode'] as String?,
+      energyKcal: json['energyKcal'] as int? ?? 0,
+      proteinG: json['proteinG'] as int? ?? 0,
+      fatG: json['fatG'] as int? ?? 0,
+      carbG: json['carbG'] as int? ?? 0,
+      bmrKcal: json['bmrKcal'] as int?,
+      disclaimer: json['disclaimer'] as String? ?? '',
+    );
+  }
+}
+
+class NutritionPreset {
+  NutritionPreset({
+    required this.code,
+    required this.energyKcal,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbG,
+  });
+
+  final String code;
+  final int energyKcal;
+  final int proteinG;
+  final int fatG;
+  final int carbG;
+
+  factory NutritionPreset.fromJson(Map<String, dynamic> json) {
+    return NutritionPreset(
+      code: json['code'] as String,
+      energyKcal: json['energyKcal'] as int? ?? 0,
+      proteinG: json['proteinG'] as int? ?? 0,
+      fatG: json['fatG'] as int? ?? 0,
+      carbG: json['carbG'] as int? ?? 0,
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/recipe.dart';
 import 'package:pantrio_mobile/core/widgets/remote_thumb.dart';
+import 'package:pantrio_mobile/features/nutrition/nutrition_target_page.dart';
 import 'package:pantrio_mobile/features/recipes/recipe_video_overlay.dart';
 import 'package:provider/provider.dart';
 
@@ -587,10 +588,34 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
+                if (recipe.nutrition!.targetComparison == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NutritionTargetPage(),
+                          ),
+                        );
+                      },
+                      child: const Text('Set nutrition target to see % of day'),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '% of your daily target (${recipe.nutrition!.targetComparison!.energyKcal} kcal)',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 ..._profileNutrients(recipe.nutrition!.perServing).map((item) {
                   final open = _openNutrientCode == item.code;
                   final hasBreakdown = item.contributions.isNotEmpty;
+                  final pct = recipe
+                      .nutrition!.targetComparison?.perServingPercent[item.code];
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -602,7 +627,8 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '${_formatNutrient(item.amount)} ${item.unit}',
+                              '${_formatNutrient(item.amount)} ${item.unit}'
+                              '${pct != null ? ' · $pct%' : ''}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),

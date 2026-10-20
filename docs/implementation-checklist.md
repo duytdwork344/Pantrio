@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7b.9**, **7c**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7b.9**, **7b.10**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -94,7 +94,18 @@ Tham chiếu: requirements **7b.9**.
 - [x] Mobile: hiện dinh dưỡng trên recipe detail (+ tap breakdown)
 - [x] Web moderator: form chỉnh FoodNutrient (`/moderation/nutrition`)
 - [ ] (Sau) Denormalize kcal/serving lên OpenSearch / filter Discover
-- [ ] (Sau) Auto-fill nguồn ngoài; diary / mục tiêu cá nhân
+- [ ] (Sau) Auto-fill nutrient từ nguồn ngoài
+
+### 2b.1 Nutrition targets (requirements **7b.10**)
+
+Tham chiếu: bảng số Mifflin–St Jeor + activity + macro 20/30/50 đã chốt trong requirements.
+
+- [x] Personal: `UserNutritionTarget` + `PUT /me/nutrition-target/compute|preset` + manual; engine Mifflin/TDEE/macro
+- [x] Disclaimer trên API DTO + UI Web/Mobile
+- [x] Recipe detail: `nutrition.targetComparison.perServingPercent` (auth); Web `/me/nutrition` + Mobile icon
+- [ ] GroupNutritionProfile (không bắt buộc account); adult compute / child+preset; tổng hộ
+- [ ] Link profile ↔ `userId` sau khi member join (không auto tạo profile khi join)
+- [ ] (Sau) Group meal log + ước lượng serving/% + optional mirror personal diary — **không** gắn cook/inventory trong lát cắt đầu
 
 ---
 
@@ -364,7 +375,7 @@ API hiện tại đã sort: `canCook` trước → match ratio (`matchedCount/re
 - [x] requirements: Food / Inventory / RecipeIngredient decisions (**7b**)
 - [x] requirements: Moderator merge (**7b.7**)
 - [x] requirements: FoodAlias phase sau (**7b.8**)
-- [x] requirements: Nutrition Nutrient + FoodNutrient (**7b.9**)
+- [x] requirements: Nutrition Nutrient + FoodNutrient (**7b.9**); Nutrition targets bảng số (**7b.10**)
 - [x] requirements: InventoryGroup dual scope (**7c**)
 - [x] requirements: Media / upload ảnh (**4.2d**)
 - [x] requirements: RecipeStep (**4.2e**)
@@ -392,7 +403,8 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 12. **RecipeStep (4.2e / checklist 3d)** — schema → API steps → Mobile cookbook editor/viewer _(xong; Web creator sau)_
 13. **Recipe search OpenSearch (checklist 8b / requirements 22)** — Docker → index → `GET /search/recipes` → Discover _(xong lát cắt recipe)_
 14. **Nutrition (checklist 2b / requirements 7b.9)** — Nutrient seed → FoodNutrient → recipe aggregate → Web/Mobile _(xong lát cắt MVP)_
-15. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), Discover filter kcal, AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+15. **Nutrition targets (checklist 2b.1 / requirements 7b.10)** — personal Mifflin/macro + recipe % _(xong lát cắt personal; group profile sau)_
+16. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), Discover filter kcal, diary/meal log, AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 
@@ -407,3 +419,4 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 - Media (**4.2d** / checklist **3c**): MinIO `pantrio-media` + `S3_*`; form-data MVP; tạo+sửa recipe (đặc biệt cookbook group / sau cook).
 - Recipe search (**8b**): OpenSearch `localhost:9200`; `GET /search/recipes`; Food typeahead vẫn SQL.
 - Nutrition (**7b.9** / checklist **2b**): `Nutrient` + `FoodNutrient`; recipe aggregate; không cột dinh dưỡng trên `Food`.
+- Nutrition targets (**7b.10** / checklist **2b.1**): Mifflin–St Jeor + activity × TDEE + macro 20/30/50; personal + group profile; diary mức C sau.

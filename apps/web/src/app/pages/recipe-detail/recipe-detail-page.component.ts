@@ -11,7 +11,11 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { switchMap, tap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import type { NutrientAmount, RecipeDetail } from '../../core/models';
+import type {
+  NutrientAmount,
+  RecipeDetail,
+  RecipeNutrition,
+} from '../../core/models';
 
 const PROFILE_CODES = new Set([
   'energy_kcal',
@@ -67,6 +71,11 @@ export class RecipeDetailPageComponent {
     if (amount >= 100) return String(Math.round(amount));
     if (amount >= 10) return amount.toFixed(1);
     return amount.toFixed(2).replace(/\.?0+$/, '');
+  }
+
+  targetPercent(n: RecipeNutrition, code: string): number | null {
+    const pct = n.targetComparison?.perServingPercent?.[code];
+    return pct == null ? null : pct;
   }
 
   toggleNutrient(code: string): void {

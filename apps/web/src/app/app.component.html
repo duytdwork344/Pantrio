@@ -21,6 +21,7 @@
         <a routerLink="/moderation" routerLinkActive="is-active">Moderation</a>
       }
       @if (auth.isAuthenticated()) {
+        <a routerLink="/me/nutrition" routerLinkActive="is-active">Dinh dưỡng</a>
         <span class="shell__user">{{ auth.user()?.displayName }}</span>
         <button type="button" class="shell__linkbtn" (click)="auth.logout()">
           Đăng xuất

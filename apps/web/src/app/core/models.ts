@@ -77,11 +77,47 @@ export type NutrientAmount = {
   contributions?: NutrientContribution[];
 };
 
+export type NutritionTargetComparison = {
+  source: string;
+  energyKcal: number;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
+  perServingPercent: Record<string, number | null>;
+};
+
 export type RecipeNutrition = {
   perServing: NutrientAmount[];
   total: NutrientAmount[];
   servings: number;
   complete: boolean;
+  targetComparison?: NutritionTargetComparison;
+};
+
+export type NutritionTarget = {
+  userId: string;
+  sex: 'MALE' | 'FEMALE' | null;
+  ageYears: number | null;
+  weightKg: number | null;
+  heightCm: number | null;
+  activity: string;
+  source: string;
+  presetCode: string | null;
+  energyKcal: number;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
+  bmrKcal: number | null;
+  updatedAt: string;
+  disclaimer: string;
+};
+
+export type NutritionPreset = {
+  code: string;
+  energyKcal: number;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
 };
 
 export type FoodCandidate = {

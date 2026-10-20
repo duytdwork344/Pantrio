@@ -224,6 +224,17 @@ article h1 {
   font-size: 0.95rem;
 }
 
+.nutrition-meta a {
+  color: var(--color-brand);
+  text-decoration: none;
+}
+
+.target-pct {
+  font-weight: 500;
+  color: var(--color-brand);
+  font-size: 0.9em;
+}
+
 .nutrition-hint {
   margin: 0.65rem 0 0;
   max-width: 26rem;

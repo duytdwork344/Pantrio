@@ -100,6 +100,15 @@
             @if (!n.complete) {
               <span class="incomplete">· ước tính / thiếu data một số nguyên liệu</span>
             }
+            @if (n.targetComparison) {
+              <span>· % so với target ngày của bạn</span>
+            } @else if (auth.isAuthenticated()) {
+              <span>
+                ·
+                <a routerLink="/me/nutrition">Đặt mục tiêu dinh dưỡng</a>
+                để xem %
+              </span>
+            }
           </p>
           <ul class="nutrition-list">
             @for (item of profileNutrients(n.perServing); track item.code) {
@@ -124,6 +133,11 @@
                     <strong>
                       {{ formatNutrient(item.amount) }}
                       {{ item.unit }}
+                      @if (targetPercent(n, item.code) !== null) {
+                        <span class="target-pct"
+                          >· {{ targetPercent(n, item.code) }}% ngày</span
+                        >
+                      }
                     </strong>
                   </button>
                   @if (isNutrientOpen(item.code) && item.contributions?.length) {

@@ -1,0 +1,104 @@
+<a routerLink="/" class="back">← Discover</a>
+
+<section class="nutrition-target">
+  <h1>Mục tiêu dinh dưỡng</h1>
+  <p class="lede">
+    Tính nhu cầu ngày từ chỉ số cơ thể (Mifflin–St Jeor) để so % trên recipe. Tuổi dưới 18 dùng preset.
+  </p>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (ok()) {
+    <p class="ok">{{ ok() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Đang tải…</p>
+  } @else {
+    @if (target(); as t) {
+      <aside class="current">
+        <h2>Target hiện tại</h2>
+        <p class="meta">{{ t.source }} · {{ t.energyKcal }} kcal · P {{ t.proteinG }}g · F {{ t.fatG }}g · C {{ t.carbG }}g</p>
+        <p class="disclaimer">{{ t.disclaimer }}</p>
+      </aside>
+    } @else {
+      <p class="muted">Chưa có target — tính từ chỉ số hoặc chọn preset.</p>
+      <p class="disclaimer">
+        Ước lượng dinh dưỡng mang tính tham khảo, không thay thế tư vấn y tế hay chuyên gia dinh dưỡng.
+      </p>
+    }
+
+    <form class="form" (ngSubmit)="compute()">
+      <h2>Tính từ chỉ số (18+)</h2>
+      <div class="grid">
+        <label>
+          Giới
+          <select [(ngModel)]="sex" name="sex">
+            <option value="FEMALE">Nữ</option>
+            <option value="MALE">Nam</option>
+          </select>
+        </label>
+        <label>
+          Tuổi
+          <input type="number" min="1" max="120" [(ngModel)]="ageYears" name="age" />
+        </label>
+        <label>
+          Cân nặng (kg)
+          <input type="number" min="20" step="0.1" [(ngModel)]="weightKg" name="weight" />
+        </label>
+        <label>
+          Chiều cao (cm)
+          <input type="number" min="80" step="0.1" [(ngModel)]="heightCm" name="height" />
+        </label>
+        <label>
+          Vận động
+          <select [(ngModel)]="activity" name="activity">
+            @for (a of activities; track a.value) {
+              <option [value]="a.value">{{ a.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <button type="submit" [disabled]="saving()">Tính &amp; lưu</button>
+    </form>
+
+    <form class="form" (ngSubmit)="applyPreset()">
+      <h2>Preset</h2>
+      <label>
+        Mẫu
+        <select [(ngModel)]="presetCode" name="preset">
+          @for (p of presets(); track p.code) {
+            <option [value]="p.code">
+              {{ p.code }} — {{ p.energyKcal }} kcal
+            </option>
+          }
+        </select>
+      </label>
+      <button type="submit" [disabled]="saving()">Áp dụng preset</button>
+    </form>
+
+    <form class="form" (ngSubmit)="saveManual()">
+      <h2>Chỉnh tay</h2>
+      <div class="grid">
+        <label>
+          kcal
+          <input type="number" min="500" [(ngModel)]="energyKcal" name="kcal" />
+        </label>
+        <label>
+          Protein (g)
+          <input type="number" min="0" [(ngModel)]="proteinG" name="protein" />
+        </label>
+        <label>
+          Fat (g)
+          <input type="number" min="0" [(ngModel)]="fatG" name="fat" />
+        </label>
+        <label>
+          Carb (g)
+          <input type="number" min="0" [(ngModel)]="carbG" name="carb" />
+        </label>
+      </div>
+      <button type="submit" [disabled]="saving()">Lưu chỉnh tay</button>
+    </form>
+  }
+</section>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:pantrio_mobile/features/auth/login_page.dart';
 import 'package:pantrio_mobile/features/inventory/inventory_page.dart';
+import 'package:pantrio_mobile/features/nutrition/nutrition_target_page.dart';
 import 'package:pantrio_mobile/features/recipes/recipes_page.dart';
 import 'package:pantrio_mobile/features/shopping/shopping_page.dart';
 import 'package:provider/provider.dart';
@@ -66,6 +67,17 @@ ClipRRect(
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Nutrition target',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const NutritionTargetPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.monitor_heart_outlined),
+          ),
           if (session.user != null)
             Padding(
               padding: const EdgeInsets.only(right: 4),

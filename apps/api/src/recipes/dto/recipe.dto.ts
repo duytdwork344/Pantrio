@@ -199,6 +199,15 @@ export class RecipeDetailDto extends RecipeSummaryDto {
     }>;
     servings: number;
     complete: boolean;
+    /** Present when viewer has a personal daily nutrition target (7b.10). */
+    targetComparison?: {
+      source: string;
+      energyKcal: number;
+      proteinG: number;
+      fatG: number;
+      carbG: number;
+      perServingPercent: Record<string, number | null>;
+    };
   } | null;
 }
 

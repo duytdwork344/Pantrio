@@ -737,14 +737,115 @@ Nguyên tắc:
 6. Ai nuôi: seed Food lõi kèm FoodNutrient; Moderator/Admin CRUD `FoodNutrient`; CREATOR có thể gắn khi tạo Food PRIVATE (optional). USER tạo Food tủ: không bắt buộc dinh dưỡng.
 7. OpenSearch / filter “≤ 500 kcal/serving”: phase sau — denormalize lúc approve nếu cần.
 
-Không làm (MVP dinh dưỡng):
+Không làm (MVP lát cắt FoodNutrient / recipe aggregate — đã xong phần lớn):
 
-- Mục tiêu calo cá nhân / diary.
 - Auto-fill USDA / barcode → nutrient.
 - Micronutrient UI đầy đủ.
 - Lưu bảng RecipeNutrition cứng (trừ khi tối ưu search sau này).
+- Diary / cook ghi nhận nutrient (xem **7b.10** mức C — phase sau).
 
-Thứ tự triển khai gợi ý: schema + seed Nutrient → FoodNutrient seed vài Food lõi → API Food kèm nutrients → aggregate trên Recipe detail → Web/Mobile hiển thị → (sau) moderation form + Discover filter.
+Thứ tự triển khai gợi ý: schema + seed Nutrient → FoodNutrient seed vài Food lõi → API Food kèm nutrients → aggregate trên Recipe detail → Web/Mobile hiển thị → moderation form → (sau) Discover filter kcal → **7b.10** Nutrition targets.
+
+7b.10 Nutrition targets — nhu cầu ngày từ chỉ số cơ thể (đã chốt bảng số)
+
+**Đã chốt (2026-10-14):** Target dinh dưỡng ngày được **tính từ hồ sơ sinh trắc** (không chỉ nhập tay kcal). Dùng để hiển thị % so với recipe / (sau) diary. Ước lượng lifestyle — **không** phải tư vấn y tế; UI phải có disclaimer ngắn.
+
+### Phạm vi
+
+| Đối tượng | Cách có target |
+|-----------|----------------|
+| **Personal** | User nhập chỉ số → compute → lưu target ngày; cho phép chỉnh tay sau (`source = COMPUTED \| MANUAL`) |
+| **Group household profile** | Profile trong group **không bắt buộc** account (ông/bà/con…). Adult: cùng engine. Trẻ / nhóm ngoài công thức adult: **preset hoặc MANUAL** (không ép Mifflin) |
+| **Group aggregate** | Tổng (hoặc subset) target các profile active — dùng so sánh “món này ≈ x% nhu cầu hộ” |
+
+Tách khỏi `GroupMember`: profile dinh dưỡng ≠ quyền member. Join group vẫn bằng mã; **link** `profile.linkedUserId` sau khi đã là member (không auto-merge theo tên; join **không** tự tạo profile).
+
+### Input bắt buộc (compute adult)
+
+- `sex`: `MALE` | `FEMALE` (binary MVP; mở rộng sau nếu cần)
+- `ageYears`: số nguyên ≥ 18 cho nhánh Mifflin (dưới 18 → không compute Mifflin; dùng preset/MANUAL)
+- `weightKg`: > 0
+- `heightCm`: > 0
+- `activity`: enum bên dưới
+
+Optional sau (chưa bắt buộc MVP): mục tiêu duy trì / giảm / tăng cân (điều chỉnh TDEE).
+
+### BMR — Mifflin–St Jeor
+
+Đơn vị: `weightKg`, `heightCm`, `ageYears`.
+
+- **Nam:** `BMR = 10 × weightKg + 6.25 × heightCm − 5 × ageYears + 5`
+- **Nữ:** `BMR = 10 × weightKg + 6.25 × heightCm − 5 × ageYears − 161`
+
+Làm tròn BMR → số nguyên kcal.
+
+### Activity → TDEE
+
+`TDEE = round(BMR × multiplier)` (kcal/ngày).
+
+| `activity` | Hệ số | Mô tả UX (vi) |
+|------------|------:|---------------|
+| `SEDENTARY` | 1.2 | Ít vận động (văn phòng, ít đi lại) |
+| `LIGHT` | 1.375 | Nhẹ (đi bộ / tập nhẹ 1–3 ngày/tuần) |
+| `MODERATE` | 1.55 | Vừa (tập 3–5 ngày/tuần) |
+| `ACTIVE` | 1.725 | Nhiều (tập nặng 6–7 ngày/tuần) |
+| `VERY_ACTIVE` | 1.9 | Rất nhiều (lao động nặng / vận động viên) |
+
+MVP mặc định UI: `MODERATE` nếu user chưa chọn.  
+Chưa áp dụng cắt giảm/tăng cân trên TDEE (phase sau: ±10–20% có confirm).
+
+### Macro ngày (từ TDEE)
+
+Chốt **% năng lượng** (AMDR-ish, cố định MVP):
+
+| Nutrient code | % TDEE | Quy đổi gram |
+|---------------|-------:|--------------|
+| `protein` | **20%** | `g = round(TDEE × 0.20 / 4)` |
+| `fat` | **30%** | `g = round(TDEE × 0.30 / 9)` |
+| `carb` | **50%** | `g = round(TDEE × 0.50 / 4)` |
+
+- `energy_kcal` target ngày = `TDEE`.  
+- Fiber / sugar / sodium: **không** auto từ Mifflin trong MVP (có thể preset cố định sau hoặc bỏ trống).  
+- Sau khi compute, user/owner **được sửa tay** từng số; lúc đó `source = MANUAL` (giữ snapshot input nếu muốn hiển thị “tính từ …”).
+
+Kiểm tra nhất quán (dev assert, không block user):  
+`protein×4 + carb×4 + fat×9` ≈ `TDEE` (± nhỏ do làm tròn).
+
+### Preset khi không dùng Mifflin
+
+Dùng cho tuổi &lt; 18, hoặc profile thiếu chỉ số, hoặc user chọn “nhập tay”:
+
+| Preset code | kcal/ngày | Protein g | Fat g | Carb g | Ghi chú |
+|-------------|----------:|----------:|------:|-------:|---------|
+| `CHILD_4_8` | 1400 | 70 | 47 | 175 | ~20/30/50 |
+| `CHILD_9_13` | 1800 | 90 | 60 | 225 | |
+| `TEEN_14_17` | 2200 | 110 | 73 | 275 | |
+| `ADULT_DEFAULT` | 2000 | 100 | 67 | 250 | fallback |
+| `OLDER_65` | 1800 | 90 | 60 | 225 | |
+
+(Các preset cũng theo tỷ lệ 20/30/50; cho phép chỉnh tay ngay.)
+
+### % so với target (hiển thị)
+
+Với một lượng nutrient `amount` (vd. recipe `perServing` hoặc phần ăn ước lượng):
+
+`percentOfTarget = amount / targetDayAmount × 100` (làm tròn 1 chữ số thập phân; target = 0 → không hiện %).
+
+Group: `targetDay` có thể là **một profile** hoặc **tổng profiles được chọn**.
+
+### Không làm trong lát cắt target đầu
+
+- Diary / GroupMealLog / mirror personal từ cook (**mức C** — bàn riêng, implement sau).  
+- Gắn cook/inventory/servings tự động theo số profile.  
+- Micro targets; công thức trẻ em lâm sàng; pregnancy/lactation.  
+- Đồng bộ bắt buộc personal ↔ group profile (link optional; mirror diary sau).
+
+### Thứ tự implement gợi ý (7b.10)
+
+1. Personal: hồ sơ chỉ số + compute API + lưu target ngày + disclaimer UI.  
+2. So sánh % trên recipe detail (personal context).  
+3. GroupNutritionProfile (không account) + compute/preset + tổng hộ.  
+4. Link profile ↔ member; (sau) meal log + ước lượng serving/% + optional sync personal diary.
 
 7c. InventoryGroup — tủ & shopping list dùng chung (đã bàn)
 
@@ -1400,7 +1501,7 @@ Group Cookbook (**4.2c** — ưu tiên trước moderation)
 Media / upload ảnh MinIO→S3 (**4.2d** — form-data MVP; tạo + sửa recipe; sau cook)
 RecipeStep — bước + ảnh (**4.2e**)
 Recipe content moderation (PENDING/APPROVED — xem mục **4.2b**; sau cookbook nhóm)
-Nutrition: Nutrient + FoodNutrient + aggregate recipe (**7b.9**)
+Nutrition: Nutrient + FoodNutrient + aggregate recipe (**7b.9**); targets Mifflin/macro (**7b.10** — đã chốt số, chưa code)
 Community
 OAuth 2.0 (Google / Apple, …) — xem mục **3b**
 
@@ -1412,7 +1513,7 @@ IoT
 Smart Recommendation
 Semantic Search
 Quét barcode → tủ; catalog Mart / giá / nhập lúc thanh toán (đã bàn, chưa làm — xem **27**)
-Nutrition diary / mục tiêu cá nhân; auto-fill nutrient từ nguồn ngoài
+Nutrition targets từ chỉ số cơ thể (**7b.10** — Mifflin + activity + macro); diary / meal log (mức C) sau; auto-fill nutrient từ nguồn ngoài
 
 26. Design Principles
 

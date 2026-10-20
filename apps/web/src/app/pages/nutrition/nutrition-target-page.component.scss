@@ -1,0 +1,96 @@
+.back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--color-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-brand);
+  }
+}
+
+.nutrition-target h1,
+.nutrition-target h2 {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  margin: 0 0 0.35rem;
+}
+
+.nutrition-target h2 {
+  margin-top: 0.25rem;
+  font-size: 1.15rem;
+}
+
+.lede,
+.muted,
+.meta {
+  color: var(--color-muted);
+  margin: 0 0 0.75rem;
+}
+
+.disclaimer {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  max-width: 36rem;
+}
+
+.error {
+  color: #9b2c2c;
+}
+
+.ok {
+  color: var(--color-brand);
+}
+
+.current {
+  margin: 1rem 0 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-brand) 16%, transparent);
+  max-width: 36rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  max-width: 36rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--color-ink);
+}
+
+.form input,
+.form select {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c5d2cb;
+  border-radius: 0.5rem;
+  font: inherit;
+  background: #fff;
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+}
+
+.form button {
+  justify-self: start;
+  font: inherit;
+  background: var(--color-brand);
+  color: #fff;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+}
+
+.form button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}

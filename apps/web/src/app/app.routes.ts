@@ -34,5 +34,12 @@ export const routes: Routes = [
       ),
   },
   { path: 'moderation', component: ModerationPageComponent },
+  {
+    path: 'me/nutrition',
+    loadComponent: () =>
+      import('./pages/nutrition/nutrition-target-page.component').then(
+        (m) => m.NutritionTargetPageComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];

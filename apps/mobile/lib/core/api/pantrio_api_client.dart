@@ -586,6 +586,60 @@ class PantrioApiClient {
     await _delete('me/planned-recipes/$id');
   }
 
+  Future<NutritionTarget?> getNutritionTarget() async {
+    try {
+      final response = await _dio.get<dynamic>('me/nutrition-target');
+      if (response.data == null) return null;
+      return NutritionTarget.fromJson(_asMap(response.data));
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
+  Future<List<NutritionPreset>> listNutritionPresets() async {
+    final list = await _getList('me/nutrition-target/presets');
+    return list.map(NutritionPreset.fromJson).toList();
+  }
+
+  Future<NutritionTarget> computeNutritionTarget({
+    required String sex,
+    required int ageYears,
+    required num weightKg,
+    required num heightCm,
+    String activity = 'MODERATE',
+  }) async {
+    final data = await _put('me/nutrition-target/compute', {
+      'sex': sex,
+      'ageYears': ageYears,
+      'weightKg': weightKg,
+      'heightCm': heightCm,
+      'activity': activity,
+    });
+    return NutritionTarget.fromJson(data);
+  }
+
+  Future<NutritionTarget> applyNutritionPreset(String presetCode) async {
+    final data = await _put('me/nutrition-target/preset', {
+      'presetCode': presetCode,
+    });
+    return NutritionTarget.fromJson(data);
+  }
+
+  Future<NutritionTarget> saveManualNutritionTarget({
+    required int energyKcal,
+    required int proteinG,
+    required int fatG,
+    required int carbG,
+  }) async {
+    final data = await _put('me/nutrition-target', {
+      'energyKcal': energyKcal,
+      'proteinG': proteinG,
+      'fatG': fatG,
+      'carbG': carbG,
+    });
+    return NutritionTarget.fromJson(data);
+  }
+
   Future<Map<String, dynamic>> _get(
     String path, {
     Map<String, dynamic>? query,
@@ -643,6 +697,18 @@ class PantrioApiClient {
   ) async {
     try {
       final response = await _dio.patch<dynamic>(path, data: body);
+      return _asMap(response.data);
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _put(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await _dio.put<dynamic>(path, data: body);
       return _asMap(response.data);
     } on DioException catch (e) {
       throw _toApiException(e);
