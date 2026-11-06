@@ -59,6 +59,13 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:3001/api
 | Android Emulator | `http://10.0.2.2:3001/api` | `http://10.0.2.2:9000` |
 | Physical phone | `http://192.168.x.x:3001/api` | `http://192.168.x.x:9000` |
 
+If the phone reports **No route to host** (office Wi-Fi often blocks phone-to-Mac traffic), use USB instead of the LAN IP. `adb reverse` is dropped on every unplug, so leave this running in another terminal:
+
+```bash
+sh tool/usb_api_reverse.sh
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:3001/api
+```
+
 MinIO console (optional): http://localhost:9001 (`pantrio` / `pantriodev`).
 
 ## Media upload
