@@ -11,6 +11,9 @@ class RecipeSummary {
     this.imageUrl,
     this.videoUrl,
     this.shareCount = 0,
+    this.sourceLocale,
+    this.displayLocale,
+    this.availableLocales = const [],
   });
 
   final String id;
@@ -25,6 +28,15 @@ class RecipeSummary {
   final String? videoUrl;
   final int shareCount;
 
+  /// Language the author wrote first (requirements 2b.2).
+  final String? sourceLocale;
+
+  /// Language of title / steps in this response (app locale or a fallback).
+  final String? displayLocale;
+
+  /// Languages with a complete translation, source first.
+  final List<String> availableLocales;
+
   factory RecipeSummary.fromJson(Map<String, dynamic> json) {
     return RecipeSummary(
       id: json['id'] as String,
@@ -38,6 +50,11 @@ class RecipeSummary {
       imageUrl: json['imageUrl'] as String?,
       videoUrl: json['videoUrl'] as String?,
       shareCount: json['shareCount'] as int? ?? 0,
+      sourceLocale: json['sourceLocale'] as String?,
+      displayLocale: json['displayLocale'] as String?,
+      availableLocales: (json['availableLocales'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toList(),
     );
   }
 }
@@ -121,6 +138,9 @@ class RecipeDetail extends RecipeSummary {
     super.imageUrl,
     super.videoUrl,
     super.shareCount,
+    super.sourceLocale,
+    super.displayLocale,
+    super.availableLocales,
     this.saved,
     this.groupId,
     this.nutrition,
@@ -154,6 +174,9 @@ class RecipeDetail extends RecipeSummary {
       imageUrl: imageUrl,
       videoUrl: videoUrl,
       shareCount: shareCount ?? this.shareCount,
+      sourceLocale: sourceLocale,
+      displayLocale: displayLocale,
+      availableLocales: availableLocales,
       saved: saved ?? this.saved,
       nutrition: nutrition,
     );
@@ -172,6 +195,11 @@ class RecipeDetail extends RecipeSummary {
       imageUrl: json['imageUrl'] as String?,
       videoUrl: json['videoUrl'] as String?,
       shareCount: json['shareCount'] as int? ?? 0,
+      sourceLocale: json['sourceLocale'] as String?,
+      displayLocale: json['displayLocale'] as String?,
+      availableLocales: (json['availableLocales'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toList(),
       authorId: json['authorId'] as String,
       groupId: json['groupId'] as String?,
       visibility: json['visibility'] as String,

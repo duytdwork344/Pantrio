@@ -42,10 +42,18 @@ export class RecipesController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'List public recipes for discovery' })
+  @ApiOperation({
+    summary:
+      'List public recipes for discovery. Recipes available in the request locale come first.',
+  })
+  @ApiQuery({
+    name: 'onlyMyLocale',
+    required: false,
+    description: 'true = only recipes with a complete translation in the request locale',
+  })
   @ApiOkResponse({ type: [RecipeSummaryDto] })
-  list(): Promise<RecipeSummaryDto[]> {
-    return this.recipesService.list();
+  list(@Query('onlyMyLocale') onlyMyLocale?: string): Promise<RecipeSummaryDto[]> {
+    return this.recipesService.list({ onlyMyLocale: onlyMyLocale === 'true' });
   }
 
   @Post()

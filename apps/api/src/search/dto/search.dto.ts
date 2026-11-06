@@ -1,11 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RecipeDifficulty } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { RecipeLocaleInfoDto } from '../../recipes/dto/recipe.dto';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class SearchRecipesQueryDto {
   @ApiPropertyOptional({
-    description: 'Full-text query over title, description, ingredients, instructions',
+    description:
+      'Full-text query over title, description, ingredients, instructions',
   })
   @IsOptional()
   @IsString()
@@ -32,7 +41,7 @@ export class SearchRecipesQueryDto {
   limit?: number;
 }
 
-export class RecipeSearchHitDto {
+export class RecipeSearchHitDto extends RecipeLocaleInfoDto {
   @ApiProperty()
   id!: string;
 

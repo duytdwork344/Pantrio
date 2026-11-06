@@ -1,3 +1,4 @@
+import { FallbackNoticeComponent } from '../../core/i18n/fallback-notice.component';
 import { TranslocoPipe } from '@jsverse/transloco';
 import {
   Component,
@@ -29,7 +30,7 @@ const PROFILE_CODES = new Set([
 
 @Component({
   selector: 'app-recipe-detail-page',
-  imports: [RouterLink, TranslocoPipe],
+  imports: [RouterLink, TranslocoPipe, FallbackNoticeComponent],
   templateUrl: './recipe-detail-page.component.html',
   styleUrl: './recipe-detail-page.component.scss',
 })

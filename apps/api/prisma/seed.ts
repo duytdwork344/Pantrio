@@ -1477,6 +1477,77 @@ async function seedArticles() {
   console.log(`Seeded ${articles.length} articles (seed-*)`);
 }
 
+/** Seed recipes written in English (the rest are Vietnamese). */
+const ENGLISH_SEED_RECIPES = ['classic-carbonara', 'chicken-tomato-pasta'];
+
+/**
+ * Seeds write the legacy text columns, which mirror the source locale.
+ * Copy them into the source-locale translation rows (requirements 2b.4) so
+ * re-seeding never leaves the translations stale. Other locales are untouched.
+ */
+async function syncSourceTranslations() {
+  await prisma.recipe.updateMany({
+    where: { slug: { in: ENGLISH_SEED_RECIPES } },
+    data: { sourceLocale: 'en' },
+  });
+  const recipes = await prisma.recipe.findMany({
+    include: { steps: true, ingredients: true },
+  });
+  for (const recipe of recipes) {
+    const locale = recipe.sourceLocale;
+    await prisma.recipeTranslation.upsert({
+      where: { recipeId_locale: { recipeId: recipe.id, locale } },
+      update: { title: recipe.title, description: recipe.description },
+      create: {
+        recipeId: recipe.id,
+        locale,
+        title: recipe.title,
+        description: recipe.description,
+        translatedById: recipe.authorId,
+      },
+    });
+    for (const step of recipe.steps) {
+      await prisma.recipeStepTranslation.upsert({
+        where: { stepId_locale: { stepId: step.id, locale } },
+        update: { body: step.body },
+        create: { stepId: step.id, locale, body: step.body },
+      });
+    }
+    for (const item of recipe.ingredients) {
+      if (!item.note?.trim()) continue;
+      await prisma.recipeIngredientTranslation.upsert({
+        where: { ingredientId_locale: { ingredientId: item.id, locale } },
+        update: { note: item.note },
+        create: { ingredientId: item.id, locale, note: item.note },
+      });
+    }
+  }
+
+  const articles = await prisma.article.findMany();
+  for (const article of articles) {
+    const locale = article.sourceLocale;
+    await prisma.articleTranslation.upsert({
+      where: { articleId_locale: { articleId: article.id, locale } },
+      update: {
+        title: article.title,
+        summary: article.summary,
+        body: article.body,
+      },
+      create: {
+        articleId: article.id,
+        locale,
+        title: article.title,
+        summary: article.summary,
+        body: article.body,
+        translatedById: article.authorId,
+      },
+    });
+  }
+  console.log(
+    `Synced source translations for ${recipes.length} recipes, ${articles.length} articles`,
+  );
+}
+
 async function seed() {
   await seedRoles();
   await seedBootstrapUsers();
@@ -1484,6 +1555,7 @@ async function seed() {
   await seedNutrition();
   await seedRecipes();
   await seedArticles();
+  await syncSourceTranslations();
 }
 
 seed()

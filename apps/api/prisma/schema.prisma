@@ -54,6 +54,13 @@ enum RecipeModerationStatus {
   REJECTED
 }
 
+/// Who wrote a translation (requirements 2b.2). MACHINE reserved for later.
+enum TranslationOrigin {
+  AUTHOR
+  MODERATOR
+  MACHINE
+}
+
 enum NutrientGroup {
   ENERGY
   MACRO
@@ -124,19 +131,21 @@ model User {
   updatedAt    DateTime @updatedAt
 
   roles               UserRole[]
-  recipes             Recipe[]             @relation("RecipeAuthor")
-  articles            Article[]            @relation("ArticleAuthor")
+  recipes             Recipe[]               @relation("RecipeAuthor")
+  articles            Article[]              @relation("ArticleAuthor")
   savedRecipes        SavedRecipe[]
   plannedRecipes      PlannedRecipe[]
   shoppingLists       ShoppingList[]
   inventoryItems      InventoryItem[]
   inventoryTxns       InventoryTransaction[]
   cookingSessions     CookingSession[]
-  createdFoods        Food[]               @relation("FoodCreator")
+  createdFoods        Food[]                 @relation("FoodCreator")
   groupMemberships    GroupMembership[]
-  ownedGroups         InventoryGroup[]     @relation("GroupCreator")
+  ownedGroups         InventoryGroup[]       @relation("GroupCreator")
   contentEvents       ContentEvent[]
   nutritionTarget     UserNutritionTarget?
+  recipeTranslations  RecipeTranslation[]    @relation("RecipeTranslator")
+  articleTranslations ArticleTranslation[]   @relation("ArticleTranslator")
 }
 
 model Role {
@@ -177,21 +186,21 @@ model RolePermission {
 
 /// Personal daily nutrition target (requirements 7b.10).
 model UserNutritionTarget {
-  userId     String                 @id
+  userId     String                @id
   sex        Sex?
   ageYears   Int?
   weightKg   Float?
   heightCm   Float?
-  activity   ActivityLevel          @default(MODERATE)
-  source     NutritionTargetSource  @default(COMPUTED)
+  activity   ActivityLevel         @default(MODERATE)
+  source     NutritionTargetSource @default(COMPUTED)
   presetCode NutritionPresetCode?
   energyKcal Int
   proteinG   Int
   fatG       Int
   carbG      Int
   bmrKcal    Int?
-  updatedAt  DateTime               @updatedAt
-  createdAt  DateTime               @default(now())
+  updatedAt  DateTime              @updatedAt
+  createdAt  DateTime              @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -199,15 +208,15 @@ model UserNutritionTarget {
 /// Food/ingredient master (PUBLIC catalog + PRIVATE user/creator drafts).
 /// Display strings live in FoodTranslation (i18n).
 model Food {
-  id              String            @id @default(cuid())
-  slug            String            @unique
+  id              String          @id @default(cuid())
+  slug            String          @unique
   measurementType MeasurementType
   baseUnit        String
   imageUrl        String?
-  visibility      FoodVisibility    @default(PUBLIC)
+  visibility      FoodVisibility  @default(PUBLIC)
   createdByUserId String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   createdBy         User?              @relation("FoodCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   translations      FoodTranslation[]
@@ -275,31 +284,34 @@ model FoodNutrient {
 }
 
 model Recipe {
-  id           String           @id @default(cuid())
-  authorId     String
+  id               String           @id @default(cuid())
+  authorId         String
   /// When set, recipe is group cookbook (visibility must be GROUP).
-  groupId      String?
-  title        String
-  slug         String           @unique
-  description  String?
-  servings     Int              @default(2)
-  prepTimeMin  Int?
-  cookTimeMin  Int?
-  difficulty   RecipeDifficulty @default(EASY)
-  instructions String
-  imageUrl     String?
+  groupId          String?
+  title            String
+  slug             String           @unique
+  description      String?
+  servings         Int              @default(2)
+  prepTimeMin      Int?
+  cookTimeMin      Int?
+  difficulty       RecipeDifficulty @default(EASY)
+  instructions     String
+  imageUrl         String?
   /// Short recipe video (MP4/WebM via MinIO). Optional sticky player on Web.
-  videoUrl     String?
-  visibility   RecipeVisibility @default(PUBLIC)
+  videoUrl         String?
+  visibility       RecipeVisibility @default(PUBLIC)
   /// Denormalized intent-share count (see ContentEvent SHARE).
-  shareCount   Int              @default(0)
+  shareCount       Int              @default(0)
   /// Catalog only. Discover / cook read this revision. Null until first approve.
   publishedVersion Int?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  /// Language the author wrote first; fallback + "original" label (requirements 2b.2).
+  /// title / description / instructions mirror this locale until the legacy columns are dropped.
+  sourceLocale     String           @default("vi")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  author            User               @relation("RecipeAuthor", fields: [authorId], references: [id])
-  group             InventoryGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author            User                   @relation("RecipeAuthor", fields: [authorId], references: [id])
+  group             InventoryGroup?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   ingredients       RecipeIngredient[]
   steps             RecipeStep[]
   revisions         RecipeRevision[]
@@ -311,10 +323,31 @@ model Recipe {
   inventoryTxns     InventoryTransaction[]
   articles          ArticleRecipe[]
   contentEvents     ContentEvent[]
+  translations      RecipeTranslation[]
 
   @@index([authorId])
   @@index([groupId])
   @@index([title])
+}
+
+/// Localized text of a recipe (requirements 2b.2). A recipe "has" a locale when
+/// this row exists and every step has a RecipeStepTranslation for it.
+model RecipeTranslation {
+  id             String            @id @default(cuid())
+  recipeId       String
+  locale         String
+  title          String
+  description    String?
+  origin         TranslationOrigin @default(AUTHOR)
+  translatedById String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  recipe       Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  translatedBy User?  @relation("RecipeTranslator", fields: [translatedById], references: [id], onDelete: SetNull)
+
+  @@unique([recipeId, locale])
+  @@index([locale])
 }
 
 /// Ordered instruction steps; optional per-step image (requirements 4.2e).
@@ -322,37 +355,55 @@ model RecipeStep {
   id        String  @id @default(cuid())
   recipeId  String
   sortOrder Int     @default(0)
+  /// Mirror of the sourceLocale text (legacy); read RecipeStepTranslation.
   body      String
   imageUrl  String?
 
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe       Recipe                  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  translations RecipeStepTranslation[]
 
   @@index([recipeId, sortOrder])
+}
+
+/// Step text per locale; order and image stay on RecipeStep (shared by all locales).
+model RecipeStepTranslation {
+  id     String @id @default(cuid())
+  stepId String
+  locale String
+  body   String
+
+  step RecipeStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, locale])
 }
 
 /// One submitted catalog snapshot. Discover serves Recipe.publishedVersion only.
 /// Group cookbook recipes do not use this table.
 model RecipeRevision {
-  id                 String                 @id @default(cuid())
-  recipeId           String
-  version            Int
-  moderationStatus   RecipeModerationStatus
-  title              String
-  description        String?
-  servings           Int
-  prepTimeMin        Int?
-  cookTimeMin        Int?
-  difficulty         RecipeDifficulty
-  instructions       String
-  imageUrl           String?
-  videoUrl           String?
-  visibility         RecipeVisibility
-  ingredientsJson    Json
-  stepsJson          Json
-  rejectReason       String?
-  createdAt          DateTime               @default(now())
-  reviewedAt         DateTime?
-  reviewedByUserId   String?
+  id               String                 @id @default(cuid())
+  recipeId         String
+  version          Int
+  moderationStatus RecipeModerationStatus
+  title            String
+  description      String?
+  servings         Int
+  prepTimeMin      Int?
+  cookTimeMin      Int?
+  difficulty       RecipeDifficulty
+  instructions     String
+  imageUrl         String?
+  videoUrl         String?
+  visibility       RecipeVisibility
+  ingredientsJson  Json
+  stepsJson        Json
+  rejectReason     String?
+  sourceLocale     String                 @default("vi")
+  /// Snapshot of every locale's text: [{ locale, title, description, steps[], notes{foodId}, origin, translatedById }].
+  /// Null on revisions saved before 2b — derive from title / description / stepsJson.
+  translationsJson Json?
+  createdAt        DateTime               @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
 
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
@@ -361,20 +412,33 @@ model RecipeRevision {
 }
 
 model RecipeIngredient {
-  id       String  @id @default(cuid())
-  recipeId String
-  foodId   String
-  quantity Float
-  unit     String
-  note     String?
-  optional Boolean @default(false)
-  sortOrder Int    @default(0)
+  id        String  @id @default(cuid())
+  recipeId  String
+  foodId    String
+  quantity  Float
+  unit      String
+  /// Mirror of the sourceLocale note (legacy); read RecipeIngredientTranslation.
+  note      String?
+  optional  Boolean @default(false)
+  sortOrder Int     @default(0)
 
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  food   Food   @relation(fields: [foodId], references: [id])
+  recipe       Recipe                        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  food         Food                          @relation(fields: [foodId], references: [id])
+  translations RecipeIngredientTranslation[]
 
   @@unique([recipeId, foodId])
   @@index([foodId])
+}
+
+model RecipeIngredientTranslation {
+  id           String @id @default(cuid())
+  ingredientId String
+  locale       String
+  note         String
+
+  ingredient RecipeIngredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([ingredientId, locale])
 }
 
 model Tag {
@@ -394,25 +458,48 @@ model RecipeTag {
 }
 
 model Article {
-  id          String   @id @default(cuid())
-  authorId    String
-  title       String
-  slug        String   @unique
-  summary     String?
-  body        String
-  coverUrl    String?
-  publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  authorId     String
+  title        String
+  slug         String    @unique
+  summary      String?
+  body         String
+  coverUrl     String?
+  publishedAt  DateTime?
+  /// Language the author wrote first. title / summary / body mirror it (legacy).
+  sourceLocale String    @default("vi")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  author  User            @relation("ArticleAuthor", fields: [authorId], references: [id])
-  recipes ArticleRecipe[]
+  author       User                 @relation("ArticleAuthor", fields: [authorId], references: [id])
+  recipes      ArticleRecipe[]
+  translations ArticleTranslation[]
 
   @@index([authorId])
   @@index([title])
 }
 
 /// Recipes tagged / embedded in an Article (order via sortOrder).
+/// Localized text of an article (requirements 2b.2).
+model ArticleTranslation {
+  id             String            @id @default(cuid())
+  articleId      String
+  locale         String
+  title          String
+  summary        String?
+  body           String
+  origin         TranslationOrigin @default(AUTHOR)
+  translatedById String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  article      Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  translatedBy User?   @relation("ArticleTranslator", fields: [translatedById], references: [id], onDelete: SetNull)
+
+  @@unique([articleId, locale])
+  @@index([locale])
+}
+
 model ArticleRecipe {
   articleId String
   recipeId  String
@@ -456,12 +543,12 @@ model SavedRecipe {
 }
 
 model PlannedRecipe {
-  id        String   @id @default(cuid())
-  userId    String
-  recipeId  String
-  servings  Int
+  id         String    @id @default(cuid())
+  userId     String
+  recipeId   String
+  servings   Int
   plannedFor DateTime?
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
@@ -471,31 +558,31 @@ model PlannedRecipe {
 
 /// Shared household pantry + shopping scope (MVP: one membership per user).
 model InventoryGroup {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   name            String
   createdByUserId String
-  inviteCode      String   @unique
+  inviteCode      String    @unique
   inviteExpiresAt DateTime?
   inviteMaxUses   Int?
-  inviteUseCount  Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  inviteUseCount  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  createdBy     User              @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  members       GroupMembership[]
+  createdBy      User              @relation("GroupCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  members        GroupMembership[]
   inventoryItems InventoryItem[]
-  shoppingLists ShoppingList[]
-  recipes       Recipe[]
+  shoppingLists  ShoppingList[]
+  recipes        Recipe[]
 
   @@index([inviteCode])
 }
 
 model GroupMembership {
-  id        String          @id @default(cuid())
-  groupId   String
-  userId    String
-  role      GroupMemberRole @default(MEMBER)
-  joinedAt  DateTime        @default(now())
+  id       String          @id @default(cuid())
+  groupId  String
+  userId   String
+  role     GroupMemberRole @default(MEMBER)
+  joinedAt DateTime        @default(now())
 
   group InventoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -515,8 +602,8 @@ model ShoppingList {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group InventoryGroup?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group InventoryGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   items ShoppingListItem[]
 
   @@index([userId])
@@ -546,21 +633,21 @@ model ShoppingListItem {
 /// One inventory batch/package (FEFO-friendly).
 /// Personal: groupId null + userId = owner. Group: groupId set; userId = actor who created the batch.
 model InventoryItem {
-  id             String             @id @default(cuid())
-  userId         String
-  groupId        String?
-  foodId         String
-  quantity       Float
-  unit           String
-  confidence     QuantityConfidence @default(APPROXIMATE)
-  expiryDate     DateTime?
-  purchaseDate   DateTime?
-  storageLocation StorageLocation   @default(PANTRY)
-  opened         Boolean            @default(false)
-  notes          String?
+  id              String             @id @default(cuid())
+  userId          String
+  groupId         String?
+  foodId          String
+  quantity        Float
+  unit            String
+  confidence      QuantityConfidence @default(APPROXIMATE)
+  expiryDate      DateTime?
+  purchaseDate    DateTime?
+  storageLocation StorageLocation    @default(PANTRY)
+  opened          Boolean            @default(false)
+  notes           String?
   lastConfirmedAt DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   group        InventoryGroup?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -574,17 +661,17 @@ model InventoryItem {
 }
 
 model InventoryTransaction {
-  id              String                    @id @default(cuid())
-  inventoryItemId String
-  userId          String
-  type            InventoryTransactionType
-  quantity        Float
-  unit            String
-  recipeId        String?
+  id               String                   @id @default(cuid())
+  inventoryItemId  String
+  userId           String
+  type             InventoryTransactionType
+  quantity         Float
+  unit             String
+  recipeId         String?
   cookingSessionId String?
-  note            String?
-  estimated       Boolean                   @default(false)
-  createdAt       DateTime                  @default(now())
+  note             String?
+  estimated        Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
 
   inventoryItem  InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -596,12 +683,12 @@ model InventoryTransaction {
 }
 
 model CookingSession {
-  id        String   @id @default(cuid())
-  userId    String
-  recipeId  String
-  servings  Int
-  cookedAt  DateTime @default(now())
-  notes     String?
+  id               String   @id @default(cuid())
+  userId           String
+  recipeId         String
+  servings         Int
+  cookedAt         DateTime @default(now())
+  notes            String?
   /// Snapshot of consumption lines at cook time (needed / consumed / shortfall).
   consumptionsJson Json?
 

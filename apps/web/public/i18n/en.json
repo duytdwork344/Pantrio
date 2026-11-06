@@ -15,7 +15,11 @@
   },
   "language": {
     "label": "Language",
-    "switchTo": "Change language"
+    "switchTo": "Change language",
+    "names": {
+      "vi": "Vietnamese",
+      "en": "English"
+    }
   },
   "common": {
     "loading": "Loading…",
@@ -68,6 +72,12 @@
     "AUTH_EMAIL_TAKEN": "This email is already registered.",
     "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
     "USER_NOT_FOUND": "Account not found.",
-    "LOCALE_NOT_SUPPORTED": "This language is not supported yet."
+    "LOCALE_NOT_SUPPORTED": "This language is not supported yet.",
+    "TRANSLATION_INCOMPLETE": "The {{locale}} translation is incomplete: it needs a title and all {{steps}} steps.",
+    "TRANSLATION_IS_SOURCE": "{{locale}} is the original language; edit it in the main fields.",
+    "RECIPE_NOT_PUBLISHED": "This recipe is not published yet."
+  },
+  "content": {
+    "fallbackNotice": "No {{missing}} version yet · showing the original ({{shown}})"
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -13,7 +13,11 @@ import {
   type AuthUser,
 } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
-import { ModerationRecipeDetailDto, ReviewRecipeDto } from './dto/recipe.dto';
+import {
+  ModerationRecipeDetailDto,
+  RecipeTranslationBodyDto,
+  ReviewRecipeDto,
+} from './dto/recipe.dto';
 import { RecipesService } from './recipes.service';
 
 @ApiTags('moderation')
@@ -29,6 +33,39 @@ export class RecipeModerationController {
   })
   listPending() {
     return this.recipesService.listPendingRevisions();
+  }
+
+  @Get('missing-translations')
+  @RequirePermissions(Permission.MODERATION)
+  @ApiOperation({
+    summary:
+      'Published catalog recipes without a complete translation in `locale` (requirements 2b.3 #3)',
+  })
+  @ApiQuery({ name: 'locale', required: true, example: 'en' })
+  listMissingTranslations(@Query('locale') locale: string) {
+    return this.recipesService.listMissingTranslations(locale);
+  }
+
+  @Put(':id/translations/:locale')
+  @RequirePermissions(Permission.MODERATION)
+  @ApiOperation({
+    summary:
+      'Add or fix a translation. Saved into the pending revision when there is one (publish with approve); otherwise published right away as a new revision.',
+  })
+  @ApiOkResponse({ type: ModerationRecipeDetailDto })
+  @ApiConflictResponse({ description: 'The revision changed meanwhile' })
+  upsertTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: RecipeTranslationBodyDto,
+  ) {
+    return this.recipesService.upsertTranslationAsModerator(
+      id,
+      locale,
+      dto,
+      user,
+    );
   }
 
   @Get(':id')

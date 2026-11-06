@@ -46,7 +46,7 @@
     }
   },
   "errorUnknown": "Đã có lỗi xảy ra. Vui lòng thử lại.",
-  "errorMessage": "{code, select, BAD_REQUEST{Yêu cầu không hợp lệ.} UNAUTHORIZED{Bạn cần đăng nhập để tiếp tục.} FORBIDDEN{Bạn không có quyền thực hiện thao tác này.} NOT_FOUND{Không tìm thấy nội dung.} CONFLICT{Dữ liệu đã thay đổi hoặc bị trùng. Vui lòng tải lại.} PAYLOAD_TOO_LARGE{Tệp quá lớn.} TOO_MANY_REQUESTS{Bạn thao tác quá nhanh, vui lòng thử lại sau.} INTERNAL_ERROR{Máy chủ gặp sự cố. Vui lòng thử lại sau.} VALIDATION_FAILED{Thông tin nhập chưa hợp lệ.} AUTH_EMAIL_TAKEN{Email này đã được đăng ký.} AUTH_INVALID_CREDENTIALS{Email hoặc mật khẩu không đúng.} USER_NOT_FOUND{Không tìm thấy tài khoản.} LOCALE_NOT_SUPPORTED{Ngôn ngữ chưa được hỗ trợ.} other{{fallback}}}",
+  "errorMessage": "{code, select, BAD_REQUEST{Yêu cầu không hợp lệ.} UNAUTHORIZED{Bạn cần đăng nhập để tiếp tục.} FORBIDDEN{Bạn không có quyền thực hiện thao tác này.} NOT_FOUND{Không tìm thấy nội dung.} CONFLICT{Dữ liệu đã thay đổi hoặc bị trùng. Vui lòng tải lại.} PAYLOAD_TOO_LARGE{Tệp quá lớn.} TOO_MANY_REQUESTS{Bạn thao tác quá nhanh, vui lòng thử lại sau.} INTERNAL_ERROR{Máy chủ gặp sự cố. Vui lòng thử lại sau.} VALIDATION_FAILED{Thông tin nhập chưa hợp lệ.} AUTH_EMAIL_TAKEN{Email này đã được đăng ký.} AUTH_INVALID_CREDENTIALS{Email hoặc mật khẩu không đúng.} USER_NOT_FOUND{Không tìm thấy tài khoản.} LOCALE_NOT_SUPPORTED{Ngôn ngữ chưa được hỗ trợ.} TRANSLATION_INCOMPLETE{Bản dịch chưa đủ: cần tiêu đề và nội dung mọi bước.} TRANSLATION_IS_SOURCE{Đây là ngôn ngữ gốc của bài, hãy sửa ở phần nội dung chính.} RECIPE_NOT_PUBLISHED{Công thức chưa được xuất bản.} other{{fallback}}}",
   "@errorMessage": {
     "description": "API error by code (ErrorCode in @pantrio/shared); fallback = server message",
     "placeholders": {
@@ -54,6 +54,27 @@
         "type": "String"
       },
       "fallback": {
+        "type": "String"
+      }
+    }
+  },
+  "languageName": "{code, select, vi{tiếng Việt} en{tiếng Anh} other{{code}}}",
+  "contentFallbackNotice": "Chưa có bản {missing} · đang hiển thị bản gốc ({shown})",
+  "@languageName": {
+    "description": "Language name in a sentence",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "@contentFallbackNotice": {
+    "description": "Content shown in another language than the app (2b.2 #6)",
+    "placeholders": {
+      "missing": {
+        "type": "String"
+      },
+      "shown": {
         "type": "String"
       }
     }

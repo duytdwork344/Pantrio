@@ -153,6 +153,14 @@ Quy tắc:
 4. Article: chưa có kiểm duyệt → moderator sửa translation trực tiếp (ghi `origin`); khi Article có kiểm duyệt (checklist **3a**) thì mirror Recipe.
 5. Group cookbook (`GROUP`): cùng bảng translation; member sửa trực tiếp, không moderator.
 
+2b.3b API (đã làm)
+
+- Đọc: `title` / `description` / `steps[].body` / `ingredients[].note` theo ngôn ngữ hiển thị; kèm `sourceLocale`, `displayLocale`, `availableLocales`. `translations[]` (mọi ngôn ngữ, `complete`, `origin`) chỉ trả cho tác giả, moderator, thành viên nhóm (cookbook).
+- Ghi (`POST/PATCH /recipes`, `/groups/me/recipes`, `/articles`): các field phẳng là ngôn ngữ gốc (`sourceLocale`, mặc định = gốc hiện tại, bài mới = locale request); `translations[]` là các ngôn ngữ khác, mỗi mục `{ locale, title, description?, steps[], notes?[{ foodId, note }] }` (article: `{ locale, title, summary?, body }`). Gửi `translations` = thay toàn bộ ngôn ngữ khác (bỏ mục = xoá); không gửi = giữ nguyên, căn lại theo số bước (thêm bước → bản dịch thành chưa đủ, không hiển thị cho tới khi bổ sung). Bản dịch không đổi giữ `origin` cũ.
+- Lỗi: `TRANSLATION_INCOMPLETE` (tab nửa vời), `TRANSLATION_IS_SOURCE` (gửi bản gốc trong `translations`), `LOCALE_NOT_SUPPORTED`, `RECIPE_NOT_PUBLISHED`.
+- Moderator: `PUT /moderation/recipes/:id/translations/:locale`, `GET /moderation/recipes/missing-translations?locale=`; article tương tự dưới `/moderation/articles`.
+- Discover: `GET /recipes?onlyMyLocale=true`.
+
 2b.4 Migration
 
 1. Thêm `sourceLocale` (default `vi`) cho Recipe / Article; backfill `RecipeTranslation`, `RecipeStepTranslation`, `RecipeIngredientTranslation`, `ArticleTranslation` từ cột hiện có với `locale = sourceLocale`. Seed tiếng Anh (Carbonara, Chicken Tomato Pasta) sửa tay `sourceLocale = en`.

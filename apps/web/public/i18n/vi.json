@@ -15,7 +15,11 @@
   },
   "language": {
     "label": "Ngôn ngữ",
-    "switchTo": "Đổi ngôn ngữ"
+    "switchTo": "Đổi ngôn ngữ",
+    "names": {
+      "vi": "tiếng Việt",
+      "en": "tiếng Anh"
+    }
   },
   "common": {
     "loading": "Đang tải…",
@@ -68,6 +72,12 @@
     "AUTH_EMAIL_TAKEN": "Email này đã được đăng ký.",
     "AUTH_INVALID_CREDENTIALS": "Email hoặc mật khẩu không đúng.",
     "USER_NOT_FOUND": "Không tìm thấy tài khoản.",
-    "LOCALE_NOT_SUPPORTED": "Ngôn ngữ chưa được hỗ trợ."
+    "LOCALE_NOT_SUPPORTED": "Ngôn ngữ chưa được hỗ trợ.",
+    "TRANSLATION_INCOMPLETE": "Bản dịch {{locale}} chưa đủ: cần tiêu đề và đủ {{steps}} bước.",
+    "TRANSLATION_IS_SOURCE": "{{locale}} là ngôn ngữ gốc của bài, hãy sửa ở phần nội dung chính.",
+    "RECIPE_NOT_PUBLISHED": "Công thức chưa được xuất bản."
+  },
+  "content": {
+    "fallbackNotice": "Chưa có bản {{missing}} · đang hiển thị bản gốc ({{shown}})"
   }
 }

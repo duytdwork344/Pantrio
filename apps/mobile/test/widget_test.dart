@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
+import 'package:pantrio_mobile/core/i18n/content_fallback_notice.dart';
 import 'package:pantrio_mobile/core/i18n/l10n.dart';
 import 'package:pantrio_mobile/core/i18n/locale_controller.dart';
 import 'package:pantrio_mobile/main.dart';
@@ -60,6 +61,32 @@ void main() {
     );
     expect(ctx.l10n.difficultyLabel('EASY'), 'Dễ');
     expect(ctx.l10n.unitLabel('pcs'), 'cái');
+  });
+
+  testWidgets('fallback notice shows only when content is in another language', (tester) async {
+    await _pumpApp(tester, savedLocale: 'vi');
+    final ctx = _ctx(tester);
+    final notice = ctx.l10n.contentFallbackNotice(
+      ctx.l10n.languageName('vi'),
+      ctx.l10n.languageName('en'),
+    );
+    expect(notice, 'Chưa có bản tiếng Việt · đang hiển thị bản gốc (tiếng Anh)');
+
+    await tester.pumpWidget(
+      Localizations(
+        locale: const Locale('vi'),
+        delegates: AppLocalizations.localizationsDelegates,
+        child: const Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(children: [
+            ContentFallbackNotice(displayLocale: 'en'),
+            ContentFallbackNotice(displayLocale: 'vi'),
+          ]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(notice), findsOneWidget);
   });
 
   test('matchLocaleCode maps tags to supported locales', () {

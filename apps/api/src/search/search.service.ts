@@ -1,15 +1,41 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  RecipeDifficulty,
-  RecipeVisibility,
-} from '@prisma/client';
+import { RecipeDifficulty, RecipeVisibility } from '@prisma/client';
 import { Client } from '@opensearch-project/opensearch';
+import { SUPPORTED_LOCALES, localeChain } from '@pantrio/shared';
+import { currentLocale } from '../common/i18n/request-locale';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  availableLocales,
+  localizedHeader,
+  recipeHeaderInclude,
+  textsFromRows,
+} from '../recipes/recipe-content';
 import type { RecipeSearchHitDto } from './dto/search.dto';
+
+/** Text of one locale in the index (requirements 2b.1 #10). */
+type LocalizedFields = {
+  title: string;
+  description: string | null;
+  instructions: string;
+};
+
+/** Recipe + translations + step texts: everything toDocument reads. */
+const documentInclude = {
+  translations: true,
+  steps: {
+    include: { translations: true },
+    orderBy: { sortOrder: 'asc' as const },
+  },
+  ingredients: {
+    include: { translations: true, food: { include: { translations: true } } },
+    orderBy: { sortOrder: 'asc' as const },
+  },
+};
 
 export type RecipeSearchDocument = {
   id: string;
+  /** Source-locale title (legacy field; search uses content.<locale>.*). */
   title: string;
   slug: string;
   description: string | null;
@@ -24,6 +50,10 @@ export type RecipeSearchDocument = {
   ingredientNames: string[];
   ingredientFoodIds: string[];
   instructions: string;
+  sourceLocale: string;
+  /** Locales with a complete translation. */
+  locales: string[];
+  content: Record<string, LocalizedFields>;
   createdAt: string;
   updatedAt: string;
 };
@@ -40,7 +70,8 @@ export class SearchService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    this.enabled = (this.config.get<string>('SEARCH_ENABLED') ?? 'true') !== 'false';
+    this.enabled =
+      (this.config.get<string>('SEARCH_ENABLED') ?? 'true') !== 'false';
     this.index =
       this.config.get<string>('SEARCH_INDEX_RECIPES') ?? 'pantrio-recipes';
     const node =
@@ -111,7 +142,9 @@ export class SearchService implements OnModuleInit {
       const status = (error as { meta?: { statusCode?: number } })?.meta
         ?.statusCode;
       if (status !== 404) {
-        this.logger.warn(`Failed to delete recipe ${recipeId} from index: ${String(error)}`);
+        this.logger.warn(
+          `Failed to delete recipe ${recipeId} from index: ${String(error)}`,
+        );
       }
     }
   }
@@ -128,7 +161,9 @@ export class SearchService implements OnModuleInit {
         const hits = await this.searchOpenSearch(params, limit);
         return { hits, backend: 'opensearch' };
       } catch (error) {
-        this.logger.warn(`OpenSearch query failed, SQL fallback: ${String(error)}`);
+        this.logger.warn(
+          `OpenSearch query failed, SQL fallback: ${String(error)}`,
+        );
         this.ready = false;
       }
     }
@@ -151,12 +186,7 @@ export class SearchService implements OnModuleInit {
         groupId: null,
         publishedVersion: { not: null },
       },
-      include: {
-        ingredients: {
-          include: { food: { include: { translations: true } } },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
+      include: documentInclude,
     });
 
     let indexed = 0;
@@ -226,11 +256,12 @@ export class SearchService implements OnModuleInit {
               {
                 multi_match: {
                   query: q,
+                  // Every language: readers may type the dish in any of them.
                   fields: [
-                    'title^4',
-                    'description^2',
+                    'content.*.title^4',
+                    'content.*.description^2',
                     'ingredientNames^3',
-                    'instructions',
+                    'content.*.instructions',
                   ],
                   fuzziness: 'AUTO',
                   operator: 'and' as const,
@@ -291,6 +322,16 @@ export class SearchService implements OnModuleInit {
                 { description: { contains: q, mode: 'insensitive' } },
                 { instructions: { contains: q, mode: 'insensitive' } },
                 {
+                  translations: {
+                    some: {
+                      OR: [
+                        { title: { contains: q, mode: 'insensitive' } },
+                        { description: { contains: q, mode: 'insensitive' } },
+                      ],
+                    },
+                  },
+                },
+                {
                   ingredients: {
                     some: {
                       food: {
@@ -307,34 +348,67 @@ export class SearchService implements OnModuleInit {
             }
           : {}),
       },
+      include: recipeHeaderInclude,
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
-    return recipes.map((recipe) => this.toHit({
-      id: recipe.id,
-      title: recipe.title,
-      slug: recipe.slug,
-      description: recipe.description,
-      servings: recipe.servings,
-      prepTimeMin: recipe.prepTimeMin,
-      cookTimeMin: recipe.cookTimeMin,
-      difficulty: recipe.difficulty,
-      imageUrl: recipe.imageUrl,
-      shareCount: recipe.shareCount,
-      visibility: recipe.visibility,
-      publishedVersion: recipe.publishedVersion ?? 0,
-      ingredientNames: [],
-      ingredientFoodIds: [],
-      instructions: recipe.instructions,
-      createdAt: recipe.createdAt.toISOString(),
-      updatedAt: recipe.updatedAt.toISOString(),
-    }));
+    return recipes.map((recipe) => {
+      const header = localizedHeader(recipe, recipe.sourceLocale);
+      return this.toHit({
+        id: recipe.id,
+        title: recipe.title,
+        slug: recipe.slug,
+        description: recipe.description,
+        servings: recipe.servings,
+        prepTimeMin: recipe.prepTimeMin,
+        cookTimeMin: recipe.cookTimeMin,
+        difficulty: recipe.difficulty,
+        imageUrl: recipe.imageUrl,
+        shareCount: recipe.shareCount,
+        visibility: recipe.visibility,
+        publishedVersion: recipe.publishedVersion ?? 0,
+        ingredientNames: [],
+        ingredientFoodIds: [],
+        instructions: recipe.instructions,
+        sourceLocale: recipe.sourceLocale,
+        locales: header.availableLocales,
+        content: Object.fromEntries(
+          (recipe.translations ?? []).map((row) => [
+            row.locale,
+            {
+              title: row.title,
+              description: row.description,
+              instructions: '',
+            },
+          ]),
+        ),
+        createdAt: recipe.createdAt.toISOString(),
+        updatedAt: recipe.updatedAt.toISOString(),
+      });
+    });
   }
 
   private async ensureIndex() {
     if (!this.client) return;
     const exists = await this.client.indices.exists({ index: this.index });
-    if (exists.body) return;
+    if (exists.body) {
+      // Index made before per-locale content (2b): drop it; boot reindexes.
+      const mapping = await this.client.indices.getMapping({
+        index: this.index,
+      });
+      const props = (
+        Object.values(mapping.body ?? {})[0] as
+          { mappings?: { properties?: Record<string, unknown> } } | undefined
+      )?.mappings?.properties;
+      if (props?.content) return;
+      this.logger.log(`Recreating ${this.index} with per-locale fields`);
+      await this.client.indices.delete({ index: this.index });
+    }
+    const text = { type: 'text', analyzer: 'pantrio_text' } as const;
+    const localized = {
+      type: 'object',
+      properties: { title: text, description: text, instructions: text },
+    } as const;
     await this.client.indices.create({
       index: this.index,
       body: {
@@ -370,6 +444,14 @@ export class SearchService implements OnModuleInit {
             ingredientNames: { type: 'text', analyzer: 'pantrio_text' },
             ingredientFoodIds: { type: 'keyword' },
             instructions: { type: 'text', analyzer: 'pantrio_text' },
+            sourceLocale: { type: 'keyword' },
+            locales: { type: 'keyword' },
+            // vi keeps asciifolding; CJK locales will need an ICU analyzer (2b.1 #10).
+            content: {
+              properties: Object.fromEntries(
+                SUPPORTED_LOCALES.map((code) => [code, localized]),
+              ),
+            },
             createdAt: { type: 'date' },
             updatedAt: { type: 'date' },
           },
@@ -389,12 +471,7 @@ export class SearchService implements OnModuleInit {
   ): Promise<RecipeSearchDocument | null> {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
-      include: {
-        ingredients: {
-          include: { food: { include: { translations: true } } },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
+      include: documentInclude,
     });
     if (
       !recipe ||
@@ -409,6 +486,8 @@ export class SearchService implements OnModuleInit {
 
   private toDocument(recipe: {
     id: string;
+    authorId: string;
+    sourceLocale: string;
     title: string;
     slug: string;
     description: string | null;
@@ -423,8 +502,15 @@ export class SearchService implements OnModuleInit {
     instructions: string;
     createdAt: Date;
     updatedAt: Date;
+    translations: Parameters<typeof textsFromRows>[0]['translations'];
+    steps: Array<{
+      body: string;
+      translations: Array<{ locale: string; body: string }>;
+    }>;
     ingredients: Array<{
       foodId: string;
+      note: string | null;
+      translations: Array<{ locale: string; note: string }>;
       food: {
         translations: Array<{ locale: string; name: string }>;
       };
@@ -432,6 +518,12 @@ export class SearchService implements OnModuleInit {
   }): RecipeSearchDocument {
     const ingredientNames = recipe.ingredients.flatMap((item) =>
       item.food.translations.map((row) => row.name),
+    );
+    const texts = textsFromRows(recipe);
+    const locales = availableLocales(
+      texts,
+      recipe.sourceLocale,
+      recipe.steps.length,
     );
     return {
       id: recipe.id,
@@ -449,17 +541,45 @@ export class SearchService implements OnModuleInit {
       ingredientNames: [...new Set(ingredientNames)],
       ingredientFoodIds: recipe.ingredients.map((item) => item.foodId),
       instructions: recipe.instructions,
+      sourceLocale: recipe.sourceLocale,
+      locales,
+      content: Object.fromEntries(
+        texts
+          .filter((text) => locales.includes(text.locale))
+          .map((text) => [
+            text.locale,
+            {
+              title: text.title,
+              description: text.description,
+              instructions: text.steps.join('\n'),
+            },
+          ]),
+      ),
       createdAt: recipe.createdAt.toISOString(),
       updatedAt: recipe.updatedAt.toISOString(),
     };
   }
 
   private toHit(doc: RecipeSearchDocument, score?: number): RecipeSearchHitDto {
+    const locales = doc.locales?.length
+      ? doc.locales
+      : [doc.sourceLocale ?? 'vi'];
+    const displayLocale =
+      localeChain(currentLocale()).find(
+        (code) => locales.includes(code) && doc.content?.[code],
+      ) ?? doc.sourceLocale;
+    const shown = (displayLocale && doc.content?.[displayLocale]) || {
+      title: doc.title,
+      description: doc.description,
+    };
     return {
       id: doc.id,
-      title: doc.title,
+      title: shown.title,
       slug: doc.slug,
-      description: doc.description,
+      description: shown.description,
+      sourceLocale: doc.sourceLocale,
+      displayLocale: displayLocale ?? doc.sourceLocale,
+      availableLocales: locales,
       servings: doc.servings,
       prepTimeMin: doc.prepTimeMin,
       cookTimeMin: doc.cookTimeMin,

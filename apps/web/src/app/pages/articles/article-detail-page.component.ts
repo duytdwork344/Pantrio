@@ -1,3 +1,4 @@
+import { FallbackNoticeComponent } from '../../core/i18n/fallback-notice.component';
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,7 +8,7 @@ import type { ArticleDetail } from '../../core/models';
 
 @Component({
   selector: 'app-article-detail-page',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, FallbackNoticeComponent],
   templateUrl: './article-detail-page.component.html',
   styleUrl: './article-detail-page.component.scss',
 })

@@ -15,7 +15,14 @@ export type AuthResponse = {
   user: UserProfile;
 };
 
-export type RecipeSummary = {
+/** Which language a piece of content is shown in (requirements 2b.2). */
+export type ContentLocaleInfo = {
+  sourceLocale?: string;
+  displayLocale?: string;
+  availableLocales?: string[];
+};
+
+export type RecipeSummary = ContentLocaleInfo & {
   id: string;
   title: string;
   slug: string;
@@ -229,7 +236,7 @@ export type RecipeRecommendation = {
   }>;
 };
 
-export type ArticleSummary = {
+export type ArticleSummary = ContentLocaleInfo & {
   id: string;
   title: string;
   slug: string;

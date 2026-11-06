@@ -1,8 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Permission } from '@pantrio/shared';
@@ -15,6 +25,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import {
   ArticleDetailDto,
   ArticleSummaryDto,
+  ArticleTranslationBodyDto,
   CreateArticleDto,
   UpdateArticleDto,
 } from './dto/article.dto';
@@ -67,8 +78,7 @@ export class ArticlesController {
   @ApiBearerAuth()
   @RequirePermissions(Permission.ARTICLE_CREATE)
   @ApiOperation({
-    summary:
-      'Update own article (publish + replace recipeIds when provided)',
+    summary: 'Update own article (publish + replace recipeIds when provided)',
   })
   @ApiOkResponse({ type: ArticleDetailDto })
   update(
@@ -88,7 +98,9 @@ export class MeArticlesController {
 
   @Get('articles')
   @RequirePermissions(Permission.ARTICLE_CREATE)
-  @ApiOperation({ summary: 'List articles authored by current user (incl. drafts)' })
+  @ApiOperation({
+    summary: 'List articles authored by current user (incl. drafts)',
+  })
   @ApiOkResponse({ type: [ArticleSummaryDto] })
   listMine(@CurrentUser() user: AuthUser): Promise<ArticleSummaryDto[]> {
     return this.articlesService.listMine(user.id);
@@ -96,12 +108,56 @@ export class MeArticlesController {
 
   @Get('articles/:id')
   @RequirePermissions(Permission.ARTICLE_CREATE)
-  @ApiOperation({ summary: 'Get own article by id (for studio editor / drafts)' })
+  @ApiOperation({
+    summary: 'Get own article by id (for studio editor / drafts)',
+  })
   @ApiOkResponse({ type: ArticleDetailDto })
   getMine(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
   ): Promise<ArticleDetailDto> {
     return this.articlesService.findMineById(id, user.id);
+  }
+}
+
+@ApiTags('moderation')
+@ApiBearerAuth()
+@Controller('moderation/articles')
+export class ArticleModerationController {
+  constructor(private readonly articlesService: ArticlesService) {}
+
+  @Get('missing-translations')
+  @RequirePermissions(Permission.MODERATION)
+  @ApiOperation({
+    summary:
+      'Published articles without a translation in `locale` (requirements 2b.3 #3)',
+  })
+  @ApiQuery({ name: 'locale', required: true, example: 'en' })
+  @ApiOkResponse({ type: [ArticleSummaryDto] })
+  listMissingTranslations(
+    @Query('locale') locale: string,
+  ): Promise<ArticleSummaryDto[]> {
+    return this.articlesService.listMissingTranslations(locale);
+  }
+
+  @Put(':id/translations/:locale')
+  @RequirePermissions(Permission.MODERATION)
+  @ApiOperation({
+    summary:
+      'Add or fix an article translation (saved right away; origin MODERATOR)',
+  })
+  @ApiOkResponse({ type: ArticleDetailDto })
+  upsertTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ArticleTranslationBodyDto,
+  ): Promise<ArticleDetailDto> {
+    return this.articlesService.upsertTranslationAsModerator(
+      id,
+      locale,
+      dto,
+      user,
+    );
   }
 }

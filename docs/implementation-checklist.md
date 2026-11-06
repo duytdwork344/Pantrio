@@ -50,18 +50,18 @@ Tham chiếu: requirements **2b**. Locale hiện tại: `vi` (default) + `en`; t
 
 ### 0b.2 Nội dung Recipe / Article nhiều ngôn ngữ
 
-- [ ] Schema: `sourceLocale` trên Recipe / Article
-- [ ] Schema: `RecipeTranslation`, `RecipeStepTranslation`, `RecipeIngredientTranslation`, `ArticleTranslation` (`origin`, `translatedById`)
-- [ ] Migration backfill từ cột cũ (`locale = sourceLocale`); seed EN sửa `sourceLocale = en`
-- [ ] API read: chọn translation theo locale → fallback → `sourceLocale`; trả `availableLocales[]` + `displayLocale`
-- [ ] API write: create/update nhận `translations[]`; validate tab đủ trường bắt buộc (không lưu translation nửa vời)
-- [ ] `RecipeRevision.translationsJson`; approve copy translations
-- [ ] Moderator bổ sung translation: trong review PENDING, hoặc revision tự approve khi không có PENDING
-- [ ] Moderation queue: filter “Thiếu bản <locale>”
-- [ ] Article: moderator sửa translation trực tiếp (ghi `origin`)
-- [ ] Group cookbook: cùng bảng translation, member sửa trực tiếp
-- [ ] OpenSearch: field theo locale (`title.vi`, `title.en`) + reindex
-- [ ] Discover: ưu tiên bài có locale người xem + filter “Chỉ món có ngôn ngữ của tôi”
+- [x] Schema: `sourceLocale` trên Recipe / Article / RecipeRevision (migration `20261106120000_content_translations`)
+- [x] Schema: `RecipeTranslation`, `RecipeStepTranslation`, `RecipeIngredientTranslation`, `ArticleTranslation` (`origin` AUTHOR|MODERATOR|MACHINE, `translatedById`)
+- [x] Migration backfill từ cột cũ (`locale = sourceLocale`); seed EN `sourceLocale = en`; seed đồng bộ bản gốc (`syncSourceTranslations`)
+- [x] API read: chọn translation đầy đủ theo locale → fallback → `sourceLocale`; trả `sourceLocale` / `displayLocale` / `availableLocales[]` (detail, list, saved, planned, cooking, recommend, article, search); `translations[]` chỉ cho người sửa được
+- [x] API write: create/update nhận `sourceLocale` + `translations[]` (gửi = thay toàn bộ ngôn ngữ khác; không gửi = giữ, căn lại theo số bước); tab nửa vời → `TRANSLATION_INCOMPLETE`
+- [x] `RecipeRevision.translationsJson`; approve ghi translations (remap note khi merge Food)
+- [x] Moderator bổ sung translation: `PUT /moderation/recipes/:id/translations/:locale` — vào revision PENDING, hoặc revision mới tự approve
+- [x] Moderation queue: `GET /moderation/recipes/missing-translations?locale=` (+ `availableLocales` trên hàng đợi pending)
+- [x] Article: `PUT /moderation/articles/:id/translations/:locale` sửa trực tiếp; `GET /moderation/articles/missing-translations`
+- [x] Group cookbook: cùng bảng translation, ghi trực tiếp (không revision)
+- [x] OpenSearch: `content.<locale>.{title,description,instructions}` + `locales`; index cũ tự tạo lại khi boot; SQL fallback tìm cả bản dịch
+- [x] Discover: ưu tiên bài có locale người xem + `GET /recipes?onlyMyLocale=true`; article list cũng ưu tiên. Nhãn “Chưa có bản … · đang hiển thị bản gốc” trên detail (Web + Mobile)
 - [ ] Drop cột cũ (`title`, `description`, `body`, `note`) sau khi client chuyển hết
 
 ---

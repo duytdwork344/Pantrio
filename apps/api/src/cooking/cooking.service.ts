@@ -18,6 +18,7 @@ import {
   CookingSessionDto,
   RecommendationItemDto,
 } from './dto/cooking.dto';
+import { recipeCardText, recipeHeaderInclude } from '../recipes/recipe-content';
 
 type PantryScope = { userId: string; groupId: string | null } | { groupId: string };
 
@@ -34,6 +35,7 @@ export class CookingService {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: dto.recipeId },
       include: {
+        ...recipeHeaderInclude,
         ingredients: {
           include: { food: { include: { translations: true } } },
           orderBy: { sortOrder: 'asc' },
@@ -172,9 +174,8 @@ export class CookingService {
       notes: session.notes,
       recipe: {
         id: recipe.id,
-        title: recipe.title,
+        ...recipeCardText(recipe),
         slug: recipe.slug,
-        description: recipe.description,
         servings: recipe.servings,
         prepTimeMin: recipe.prepTimeMin,
         cookTimeMin: recipe.cookTimeMin,
@@ -189,7 +190,7 @@ export class CookingService {
     const sessions = await this.prisma.cookingSession.findMany({
       where: { userId },
       include: {
-        recipe: true,
+        recipe: { include: recipeHeaderInclude },
         transactions: {
           include: {
             inventoryItem: {
@@ -209,7 +210,7 @@ export class CookingService {
     const session = await this.prisma.cookingSession.findFirst({
       where: { id, userId },
       include: {
-        recipe: true,
+        recipe: { include: recipeHeaderInclude },
         transactions: {
           include: {
             inventoryItem: {
@@ -306,6 +307,7 @@ export class CookingService {
               publishedVersion: { not: null },
             },
         include: {
+          ...recipeHeaderInclude,
           ingredients: {
             include: { food: { include: { translations: true } } },
           },
@@ -374,9 +376,8 @@ export class CookingService {
       results.push({
         recipe: {
           id: recipe.id,
-          title: recipe.title,
+          ...recipeCardText(recipe),
           slug: recipe.slug,
-          description: recipe.description,
           servings: recipe.servings,
           prepTimeMin: recipe.prepTimeMin,
           cookTimeMin: recipe.cookTimeMin,
@@ -453,9 +454,8 @@ export class CookingService {
   }): CookingSessionDto {
     const recipeSummary = {
       id: session.recipe.id,
-      title: session.recipe.title,
+      ...recipeCardText(session.recipe),
       slug: session.recipe.slug,
-      description: session.recipe.description,
       servings: session.recipe.servings,
       prepTimeMin: session.recipe.prepTimeMin,
       cookTimeMin: session.recipe.cookTimeMin,

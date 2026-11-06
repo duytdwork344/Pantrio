@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pantrio_mobile/core/i18n/content_fallback_notice.dart';
 import 'package:flutter/services.dart';
 import 'package:pantrio_mobile/core/widgets/pick_recipe_image.dart';
 import 'package:pantrio_mobile/core/api/api_exception.dart';
@@ -479,6 +480,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                 ),
                 const SizedBox(height: 16),
               ],
+              ContentFallbackNotice(displayLocale: recipe.displayLocale),
               Text(
                 recipe.title,
                 style: Theme.of(context).textTheme.headlineSmall,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import {
+  ArticleModerationController,
   ArticlesController,
   MeArticlesController,
 } from './articles.controller';
@@ -8,7 +9,11 @@ import { ArticlesService } from './articles.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [ArticlesController, MeArticlesController],
+  controllers: [
+    ArticlesController,
+    MeArticlesController,
+    ArticleModerationController,
+  ],
   providers: [ArticlesService],
   exports: [ArticlesService],
 })

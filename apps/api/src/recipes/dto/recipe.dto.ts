@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { RecipeDifficulty, RecipeVisibility } from '@prisma/client';
-import { Unit } from '@pantrio/shared';
+import {
+  RecipeDifficulty,
+  RecipeVisibility,
+  TranslationOrigin,
+} from '@prisma/client';
+import { SUPPORTED_LOCALES, Unit } from '@pantrio/shared';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -19,7 +23,29 @@ import {
 } from 'class-validator';
 import { NormalizeUnit } from '../../common/transformers/normalize-unit';
 
-export class RecipeSummaryDto {
+export class RecipeLocaleInfoDto {
+  @ApiPropertyOptional({
+    example: 'vi',
+    description: 'Language the author wrote first',
+  })
+  sourceLocale?: string;
+
+  @ApiPropertyOptional({
+    example: 'en',
+    description:
+      'Locale of title/description/steps in this response (request locale or fallback)',
+  })
+  displayLocale?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['vi', 'en'],
+    description: 'Locales with a complete translation (source first)',
+  })
+  availableLocales?: string[];
+}
+
+export class RecipeSummaryDto extends RecipeLocaleInfoDto {
   @ApiProperty()
   id!: string;
 
@@ -100,7 +126,6 @@ export class RecipeIngredientDto {
   inInventory?: boolean;
 }
 
-
 export class RecipeStepDto {
   @ApiProperty()
   id!: string;
@@ -133,6 +158,81 @@ export class RecipeStepInputDto {
   sortOrder?: number;
 }
 
+export class RecipeNoteDto {
+  @ApiProperty()
+  @IsString()
+  foodId!: string;
+
+  @ApiProperty({ example: 'medium ripe' })
+  @IsString()
+  note!: string;
+}
+
+/** Text of one locale, without the locale (moderator PUT …/translations/:locale). */
+export class RecipeTranslationBodyDto {
+  @ApiProperty({ example: 'Sour soup with snakehead fish' })
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  description?: string | null;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Step bodies in step order; must match the number of steps',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  steps!: string[];
+
+  @ApiPropertyOptional({
+    type: [RecipeNoteDto],
+    description: 'Ingredient notes by foodId',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecipeNoteDto)
+  notes?: RecipeNoteDto[];
+}
+
+/** One non-source locale in create/update (requirements 2b.2). */
+export class RecipeTranslationInputDto extends RecipeTranslationBodyDto {
+  @ApiProperty({ enum: SUPPORTED_LOCALES, example: 'en' })
+  @IsIn(SUPPORTED_LOCALES)
+  locale!: string;
+}
+
+/** Full text of one locale, returned to editors (author, moderator, group member). */
+export class RecipeTranslationDto {
+  @ApiProperty({ example: 'en' })
+  locale!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  description?: string | null;
+
+  @ApiProperty({ type: [String] })
+  steps!: string[];
+
+  @ApiProperty({ type: [RecipeNoteDto] })
+  notes!: RecipeNoteDto[];
+
+  @ApiProperty({ description: 'Title and every step filled' })
+  complete!: boolean;
+
+  @ApiProperty({ enum: TranslationOrigin })
+  origin!: TranslationOrigin;
+
+  @ApiPropertyOptional({ nullable: true })
+  translatedById?: string | null;
+}
+
 export class RecipeDetailDto extends RecipeSummaryDto {
   @ApiProperty()
   authorId!: string;
@@ -147,7 +247,8 @@ export class RecipeDetailDto extends RecipeSummaryDto {
   visibility!: RecipeVisibility;
 
   @ApiProperty({
-    description: 'Legacy free-text; prefer steps[]. Derived from steps when writing.',
+    description:
+      'Legacy free-text; prefer steps[]. Derived from steps when writing.',
   })
   instructions!: string;
 
@@ -156,6 +257,12 @@ export class RecipeDetailDto extends RecipeSummaryDto {
 
   @ApiProperty({ type: [RecipeIngredientDto] })
   ingredients!: RecipeIngredientDto[];
+
+  @ApiPropertyOptional({
+    type: [RecipeTranslationDto],
+    description: 'Every locale (source first); only for viewers who can edit',
+  })
+  translations?: RecipeTranslationDto[];
 
   @ApiPropertyOptional({
     description: 'True when the authenticated user has saved this recipe',
@@ -308,7 +415,8 @@ export class CreateRecipeDto {
 
   @ApiPropertyOptional({
     example: '1. Boil pasta...\n2. Mix eggs and cheese...',
-    description: 'Legacy; used when steps omitted (split by newline into RecipeStep)',
+    description:
+      'Legacy; used when steps omitted (split by newline into RecipeStep)',
   })
   @IsOptional()
   @IsString()
@@ -352,6 +460,26 @@ export class CreateRecipeDto {
   @ValidateNested({ each: true })
   @Type(() => RecipeIngredientInputDto)
   ingredients!: RecipeIngredientInputDto[];
+
+  @ApiPropertyOptional({
+    enum: SUPPORTED_LOCALES,
+    description:
+      "Language of title / description / steps / notes above. Default: the recipe's current source, else the request locale",
+  })
+  @IsOptional()
+  @IsIn(SUPPORTED_LOCALES)
+  sourceLocale?: string;
+
+  @ApiPropertyOptional({
+    type: [RecipeTranslationInputDto],
+    description:
+      'Other locales, each complete. When sent it replaces all non-source translations (omitted = removed); omit to keep them',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecipeTranslationInputDto)
+  translations?: RecipeTranslationInputDto[];
 }
 
 /** Catalog create/update — do not set groupId / GROUP here (use /groups/me/recipes). */
@@ -436,6 +564,26 @@ export class CreateGroupRecipeDto {
   @ValidateNested({ each: true })
   @Type(() => RecipeIngredientInputDto)
   ingredients!: RecipeIngredientInputDto[];
+
+  @ApiPropertyOptional({
+    enum: SUPPORTED_LOCALES,
+    description:
+      "Language of title / description / steps / notes above. Default: the recipe's current source, else the request locale",
+  })
+  @IsOptional()
+  @IsIn(SUPPORTED_LOCALES)
+  sourceLocale?: string;
+
+  @ApiPropertyOptional({
+    type: [RecipeTranslationInputDto],
+    description:
+      'Other locales, each complete. When sent it replaces all non-source translations (omitted = removed); omit to keep them',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecipeTranslationInputDto)
+  translations?: RecipeTranslationInputDto[];
 }
 
 export class UpdateGroupRecipeDto extends PartialType(CreateGroupRecipeDto) {}

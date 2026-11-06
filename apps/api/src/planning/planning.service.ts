@@ -8,6 +8,7 @@ import {
   PlannedRecipeDto,
   UpdatePlannedRecipeDto,
 } from './dto/planned-recipe.dto';
+import { recipeCardText, recipeHeaderInclude } from '../recipes/recipe-content';
 
 @Injectable()
 export class PlanningService {
@@ -16,7 +17,7 @@ export class PlanningService {
   async list(userId: string): Promise<PlannedRecipeDto[]> {
     const rows = await this.prisma.plannedRecipe.findMany({
       where: { userId },
-      include: { recipe: true },
+      include: { recipe: { include: recipeHeaderInclude } },
       orderBy: [{ plannedFor: 'asc' }, { createdAt: 'desc' }],
     });
 
@@ -42,7 +43,7 @@ export class PlanningService {
         servings: dto.servings,
         plannedFor: dto.plannedFor ? new Date(dto.plannedFor) : null,
       },
-      include: { recipe: true },
+      include: { recipe: { include: recipeHeaderInclude } },
     });
 
     return this.toDto(row);
@@ -66,7 +67,7 @@ export class PlanningService {
             }
           : {}),
       },
-      include: { recipe: true },
+      include: { recipe: { include: recipeHeaderInclude } },
     });
 
     return this.toDto(row);
@@ -111,9 +112,8 @@ export class PlanningService {
       createdAt: row.createdAt,
       recipe: {
         id: row.recipe.id,
-        title: row.recipe.title,
+        ...recipeCardText(row.recipe),
         slug: row.recipe.slug,
-        description: row.recipe.description,
         servings: row.recipe.servings,
         prepTimeMin: row.recipe.prepTimeMin,
         cookTimeMin: row.recipe.cookTimeMin,
