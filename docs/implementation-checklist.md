@@ -1,6 +1,6 @@
 # Pantrio — Implementation Checklist
 
-Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7b.9**, **7b.10**, **7c**, **25. MVP**).
+Bám file này khi implement. Chi tiết domain: [requirements.md](./requirements.md) (đặc biệt mục **2b**, **2c**, **3b**, **3c**, **4.1**, **4.2b**, **4.2c**, **4.2d**, **4.2e**, **7b**, **7b.9**, **7b.10**, **7c**, **25. MVP**).
 
 Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 
@@ -27,6 +27,71 @@ Cách dùng: đổi `[ ]` → `[x]` khi xong; ghi ngày / PR nếu cần.
 - [x] Git repo
 - [ ] Commit / push đồng bộ toàn bộ thay đổi Catalog + Auth + docs (nếu còn dirty)
 - [ ] CI cơ bản (lint / test / migrate check) — sau
+
+---
+
+## 0b. Đa ngôn ngữ — i18n (API + Web + Mobile) — làm trước polish
+
+Tham chiếu: requirements **2b**. Locale hiện tại: `vi` (default) + `en`; thêm ngôn ngữ sau = thêm dữ liệu / file dịch.
+
+### 0b.1 Nền tảng (không đổi UI)
+
+- [ ] Shared: locale registry (`SUPPORTED_LOCALES` + fallback chain) trong `@pantrio/shared`
+- [ ] API: `User.locale` (nullable) + `PATCH /users/me` đổi ngôn ngữ
+- [ ] API: resolve locale `Accept-Language` → `User.locale` → `DEFAULT_LOCALE` (middleware / decorator); giữ `?locale=` tương thích
+- [ ] API: chuẩn lỗi `{ code, message, params? }` (exception filter + helper); module cũ chuyển dần
+- [ ] `Nutrient.nameEn/nameVi` → `NutrientTranslation` + backfill
+- [ ] Mobile: `flutter_localizations` + `intl` + ARB (`gen-l10n`), file `vi` + `en`; interceptor `Accept-Language`
+- [ ] Mobile: sửa default `locale = 'en'` → theo app locale (`pantrio_api_client.dart`)
+- [ ] Web: Transloco + JSON `vi` / `en`; interceptor `Accept-Language`
+- [ ] Nhãn enum / đơn vị theo key (`difficulty.*`, `storage.*`, `unit.*`) Web + Mobile
+- [ ] Formatter ngày / số / tiền theo locale (Web + Mobile)
+- [ ] CI / script kiểm tra parity key giữa các file locale
+
+### 0b.2 Nội dung Recipe / Article nhiều ngôn ngữ
+
+- [ ] Schema: `sourceLocale` trên Recipe / Article
+- [ ] Schema: `RecipeTranslation`, `RecipeStepTranslation`, `RecipeIngredientTranslation`, `ArticleTranslation` (`origin`, `translatedById`)
+- [ ] Migration backfill từ cột cũ (`locale = sourceLocale`); seed EN sửa `sourceLocale = en`
+- [ ] API read: chọn translation theo locale → fallback → `sourceLocale`; trả `availableLocales[]` + `displayLocale`
+- [ ] API write: create/update nhận `translations[]`; validate tab đủ trường bắt buộc (không lưu translation nửa vời)
+- [ ] `RecipeRevision.translationsJson`; approve copy translations
+- [ ] Moderator bổ sung translation: trong review PENDING, hoặc revision tự approve khi không có PENDING
+- [ ] Moderation queue: filter “Thiếu bản <locale>”
+- [ ] Article: moderator sửa translation trực tiếp (ghi `origin`)
+- [ ] Group cookbook: cùng bảng translation, member sửa trực tiếp
+- [ ] OpenSearch: field theo locale (`title.vi`, `title.en`) + reindex
+- [ ] Discover: ưu tiên bài có locale người xem + filter “Chỉ món có ngôn ngữ của tôi”
+- [ ] Drop cột cũ (`title`, `description`, `body`, `note`) sau khi client chuyển hết
+
+---
+
+## 0c. Polish UI theo IA mới (Web + Mobile)
+
+Tham chiếu: requirements **2c**, thiết kế `design/Pantrio.figcraft`. Mỗi màn polish → tách chuỗi vào ARB / JSON (**0b**) + chuyển lỗi module đó sang `code`.
+
+### Mobile
+
+- [ ] `AppTheme` đầy đủ theo Foundations (màu, TextTheme, Card / Chip / Button / Input / NavigationBar / BottomSheet)
+- [ ] Shell 5 tab: Nấu gì · Công thức · Kho · Đi chợ · Tôi; bỏ actions AppBar cũ
+- [ ] Scope Cá nhân / Nhóm dùng chung toàn app (pill header, nhớ lựa chọn); bỏ `ScopeSegmentBar` / `GroupHeaderBar` ở từng tab
+- [ ] Nấu gì: cảnh báo sắp hết hạn, Nấu được ngay / Thiếu 1–2, Kế hoạch tuần → tạo danh sách đi chợ
+- [ ] Công thức: tab con Khám phá · Đã lưu · Sổ tay nhóm · Studio
+- [ ] Kho: filter nơi cất, nhóm Sắp hết hạn, mở food → lô
+- [ ] Đi chợ: CTA từ kế hoạch, đang mở / đã xong; detail nhóm theo loại + “Cho: <món>”
+- [ ] Recipe detail: header Chia sẻ / Lưu, stepper khẩu phần, 3 tab, footer Lên kế hoạch · Nấu (tách widget từ `recipe_detail_page.dart`)
+- [ ] Bottom sheet xác nhận nấu + API preview tiêu thụ FEFO (`POST /cook/preview` hoặc tương đương)
+- [ ] Tôi: hồ sơ, nhóm (mã mời / đổi mã / rời), dinh dưỡng, lịch sử nấu, studio, ngôn ngữ, đăng xuất
+- [ ] Editor recipe (cookbook + catalog): tab ngôn ngữ (**0b.2**)
+
+### Web
+
+- [ ] Nav mới + menu avatar (Dinh dưỡng, Ngôn ngữ, Đăng xuất)
+- [ ] Khám phá: Hero → Gợi ý từ tủ → Mới hôm nay → Tất cả + filter → Bài viết
+- [ ] Recipe detail 2 cột + panel sticky (Lưu / Chia sẻ / Lên kế hoạch)
+- [ ] Trang Đã lưu `/me/saved` (cũng là mục **8**)
+- [ ] Studio editor recipe / article: tab ngôn ngữ (**0b.2**)
+- [ ] Moderation review: bổ sung bản dịch + filter thiếu locale
 
 ---
 
@@ -404,7 +469,10 @@ Note: bootstrap seed users cover admin/creator/moderator (`pnpm db:seed`).
 13. **Recipe search OpenSearch (checklist 8b / requirements 22)** — Docker → index → `GET /search/recipes` → Discover _(xong lát cắt recipe)_
 14. **Nutrition (checklist 2b / requirements 7b.9)** — Nutrient seed → FoodNutrient → recipe aggregate → Web/Mobile _(xong lát cắt MVP)_
 15. **Nutrition targets (checklist 2b.1 / requirements 7b.10)** — personal Mifflin/macro + recipe % _(xong lát cắt personal; group profile sau)_
-16. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), Discover filter kcal, diary/meal log, AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
+16. **i18n nền (checklist 0b.1 / requirements 2b)** — UI strings Web/Mobile + `User.locale` + `Accept-Language` + enum labels + `NutrientTranslation` _(tiếp theo)_
+17. **Nội dung đa ngôn ngữ (checklist 0b.2)** — translation Recipe/Article + backfill + revision `translationsJson` + moderator bổ sung
+18. **Polish UI theo IA (checklist 0c / requirements 2c)** — theme → shell 5 tab → từng màn (tách chuỗi i18n cùng lúc)
+19. Phase sau: multi-group, OAuth (**3b**), CreatorRequest (**3c**), FoodAlias (**7b.8**), Discover filter kcal, diary/meal log, AI scan, tracked share URL, barcode/Mart (**requirements 27** — đã bàn, chưa làm), …
 
 ---
 

@@ -90,6 +90,108 @@ Smart kitchen
 
 IoT không thuộc MVP.
 
+2b. Đa ngôn ngữ (i18n) — đã chốt (2026-11-06)
+
+**Phạm vi hiện tại:** `vi` (mặc định) + `en`. **Định hướng:** thêm ngôn ngữ mới = thêm dữ liệu / file dịch, **không** thêm cột, enum hay sửa code nghiệp vụ.
+
+2b.1 Nguyên tắc chung
+
+1. Locale là cấu hình: mã BCP-47 (`vi`, `en`, sau `ja`, `zh-Hans`…), lưu `String` trong DB, validate theo `SUPPORTED_LOCALES` (`@pantrio/shared`). Mỗi locale có fallback chain (vd. `ja → en → vi`); cuối cùng luôn về `DEFAULT_LOCALE = vi` hoặc `sourceLocale` của nội dung.
+2. Một pattern cho mọi dữ liệu dịch được: bảng gốc giữ phần trung lập ngôn ngữ; `XxxTranslation(xxxId, locale, …text)` + `@@unique([xxxId, locale])`. Đã có: `FoodTranslation`. Chuyển ngay: `Nutrient.nameEn/nameVi` → `NutrientTranslation`. Không bao giờ thêm cột theo ngôn ngữ.
+3. Chọn locale khi request: header `Accept-Language` (client interceptor) → `User.locale` → `DEFAULT_LOCALE`. Bỏ dần query `?locale=` rải rác (giữ tương thích khi chuyển).
+4. `User.locale` (String, nullable): đổi trong tab **Tôi → Ngôn ngữ** (Mobile) / menu avatar (Web).
+5. UI strings:
+   - Mobile: `flutter_localizations` + `intl` + ARB (`gen-l10n`).
+   - Web: **Transloco** (đổi ngôn ngữ runtime, JSON theo locale).
+   - Key theo màn hình (`inventory.expiringSoon`, `shopping.fromPlanned`); dùng chung tên key Web/Mobile khi trùng nghĩa.
+   - ICU message cho số nhiều / select; không ghép chuỗi tay.
+   - Thiếu key → fallback; CI kiểm tra parity key giữa các locale. Sau có thể nối TMS (Tolgee / Crowdin / Weblate) đọc trực tiếp file.
+6. Enum / đơn vị: lưu giá trị chuẩn (`EASY`, `FRIDGE`, `g`, `pcs`); client dịch nhãn theo key (`difficulty.EASY`, `unit.pcs`).
+7. Định dạng ngày / số / tiền qua `Intl` theo locale; không tự ghép kiểu `'exp ${date}'`.
+8. Lỗi API: chuẩn `{ code, message, params? }` — `code` ổn định (vd. `SHOPPING_ITEM_ALREADY_PURCHASED`), client dịch theo `code`; `message` tiếng Anh chỉ để debug. Chuyển dần theo module khi polish màn tương ứng.
+9. Sẵn sàng ngôn ngữ khó (làm ngay khi polish, gần như không tốn thêm): layout dùng start/end (`EdgeInsetsDirectional`, CSS logical properties) cho RTL; font fallback CJK / Thai; không fix width nút / chip (độ dài chuỗi khác nhau giữa ngôn ngữ).
+10. Search: OpenSearch tách field theo locale (`title.vi`, `title.en`) + analyzer riêng (vi giữ asciifolding; CJK cần ICU — phase sau).
+11. URL: một `slug` / recipe, không theo ngôn ngữ. Web có thể thêm tiền tố `/en/` + `hreflang` sau (SEO).
+
+2b.2 Recipe / Article nhiều ngôn ngữ
+
+Tách dữ liệu:
+
+```
+Recipe (trung lập)            servings, prepTimeMin, cookTimeMin, difficulty, imageUrl, videoUrl,
+                              visibility, groupId, sourceLocale
+RecipeTranslation             recipeId, locale, title, description?,
+                              origin (AUTHOR | MODERATOR | MACHINE), translatedById?, updatedAt
+                              @@unique([recipeId, locale])
+RecipeIngredient (trung lập)  foodId, quantity, unit, optional, sortOrder
+RecipeIngredientTranslation   ingredientId, locale, note
+RecipeStep (trung lập)        sortOrder, imageUrl
+RecipeStepTranslation         stepId, locale, body
+
+Article (trung lập)           coverUrl, publishedAt, recipes (ArticleRecipe), sourceLocale
+ArticleTranslation            articleId, locale, title, summary?, body, origin, translatedById?, updatedAt
+```
+
+Quy tắc:
+
+1. Tên nguyên liệu không cần dịch theo recipe — đi qua `foodId` → `FoodTranslation`.
+2. Bài **có ngôn ngữ X** ⇔ tồn tại translation locale X **đầy đủ** trường bắt buộc (Recipe: `title` + `body` mọi bước; Article: `title` + `body`). API trả `availableLocales[]`; không lưu cờ riêng.
+3. `sourceLocale` = ngôn ngữ tab tác giả nhập đầu tiên (đổi được); dùng làm fallback + nhãn “Bản gốc”.
+4. Các ngôn ngữ **dùng chung cấu trúc bước** (số bước, thứ tự, ảnh); chỉ chữ khác nhau. Chấp nhận đánh đổi: bản dịch không thêm / bớt bước được.
+5. Editor: phần trung lập (ảnh, video, khẩu phần, thời gian, nguyên liệu, thứ tự + ảnh bước) nằm ngoài tab; tab ngôn ngữ chứa phần chữ. Tab không phải bản gốc hiện chữ bản gốc làm tham chiếu. Mỗi tab **trống hoàn toàn hoặc đủ trường bắt buộc** — không lưu translation nửa vời.
+6. Hiển thị: dùng translation theo locale người xem → fallback chain → `sourceLocale`, kèm nhãn “Chưa có bản <ngôn ngữ> · đang hiển thị bản gốc”. Discover ưu tiên bài có locale người xem; filter “Chỉ món có ngôn ngữ của tôi”.
+7. `instructions` (derived) suy theo từng locale từ steps hoặc bỏ hẳn khi client đã chuyển hết sang `steps[]`.
+
+2b.3 Kiểm duyệt + moderator bổ sung bản dịch
+
+1. `RecipeRevision` thêm `translationsJson` (snapshot mọi translation, như `stepsJson`). Tác giả sửa bất kỳ locale nào → revision `PENDING` (luồng **4.2b** giữ nguyên).
+2. Moderator bổ sung / sửa bản dịch:
+   - Recipe **đang có revision PENDING** → moderator thêm translation ngay trong màn review revision đó rồi approve (không sinh 409).
+   - **Không có PENDING** → tạo revision mới từ bản published, chỉ đổi translation, **tự approve** (`reviewedByUserId` = moderator, `origin = MODERATOR`).
+   - Translation do moderator thêm thuộc về recipe; tác giả vẫn sửa được (sửa → lại qua duyệt).
+3. Hàng đợi moderator có filter “Thiếu bản <locale>” để chủ động bổ sung.
+4. Article: chưa có kiểm duyệt → moderator sửa translation trực tiếp (ghi `origin`); khi Article có kiểm duyệt (checklist **3a**) thì mirror Recipe.
+5. Group cookbook (`GROUP`): cùng bảng translation; member sửa trực tiếp, không moderator.
+
+2b.4 Migration
+
+1. Thêm `sourceLocale` (default `vi`) cho Recipe / Article; backfill `RecipeTranslation`, `RecipeStepTranslation`, `RecipeIngredientTranslation`, `ArticleTranslation` từ cột hiện có với `locale = sourceLocale`. Seed tiếng Anh (Carbonara, Chicken Tomato Pasta) sửa tay `sourceLocale = en`.
+2. Giữ cột cũ (`title`, `description`, `body`, `note`) một thời gian để client cũ chạy, rồi drop.
+3. `Nutrient.nameEn/nameVi` → `NutrientTranslation` (backfill 2 locale).
+
+Không làm (lát cắt i18n đầu):
+
+- Dịch máy tự động (để `origin = MACHINE` sẵn cho sau).
+- Slug theo ngôn ngữ; locale vùng (`vi-VN`, `en-GB`) cho nội dung.
+- Bản dịch có cấu trúc bước khác bản gốc.
+
+Thứ tự: nền i18n (UI strings + `User.locale` + `Accept-Language` + enum labels + formatter + `NutrientTranslation`) → schema translation Recipe/Article + backfill + `availableLocales` → revision `translationsJson` + luồng moderator → polish màn (kèm editor tab ngôn ngữ).
+
+2c. Điều hướng & phân bổ màn hình (IA) — đã chốt (2026-11-06)
+
+Thiết kế tham chiếu: `design/Pantrio.figcraft` (trang **IA · Phân bổ chức năng**, **Mobile**, **Web**). Áp dụng cho toàn bộ màn khi polish.
+
+Mobile — 5 tab đáy:
+
+1. **Nấu gì** (Home): cảnh báo sắp hết hạn → món dùng chúng; Nấu được ngay / Thiếu 1–2 nguyên liệu (+ Đi chợ); Kế hoạch tuần (Planned) → Tạo danh sách đi chợ.
+2. **Công thức**: search + filter; tab con Khám phá · Đã lưu · Sổ tay nhóm · Studio (chỉ `recipe:create`).
+3. **Kho**: filter theo nơi cất; nhóm “Sắp hết hạn” lên đầu; mở food → các lô (FEFO); FAB thêm (search-first).
+4. **Đi chợ**: CTA “Tạo từ kế hoạch tuần”; danh sách đang mở / đã xong; detail nhóm theo loại, “Cho: <món>”, Mua xong → nhập kho cùng phạm vi.
+5. **Tôi**: hồ sơ + vai trò; nhóm (thành viên, mã mời, đổi mã, rời nhóm); mục tiêu dinh dưỡng; lịch sử nấu; studio; ngôn ngữ; đăng xuất.
+
+Quy tắc chung:
+
+- Phạm vi **Cá nhân / Nhóm** là một lựa chọn dùng chung toàn app (pill trên header Nấu gì / Kho / Đi chợ), nhớ lựa chọn; quản lý nhóm chỉ ở tab Tôi.
+- Recipe detail: header ← · Chia sẻ · Lưu; khẩu phần stepper; tab Nguyên liệu · Các bước · Dinh dưỡng; footer cố định Lên kế hoạch · Nấu × n → bottom sheet xác nhận trừ kho (xem trước lượng tiêu thụ FEFO; cần API preview).
+- Toàn bộ UI dùng i18n (**2b**), bản `vi` là chuẩn khi thiết kế.
+
+Web:
+
+- Nav: Khám phá · Bài viết · Đã lưu (login) · Studio (`recipe:create` / `article:create`) · Kiểm duyệt (moderation); menu avatar: Dinh dưỡng, Ngôn ngữ, Đăng xuất.
+- Khám phá: Hero tìm theo nguyên liệu → Gợi ý từ tủ (login) → Mới hôm nay → Tất cả công thức + filter → Bài viết.
+- Chi tiết công thức 2 cột: trái ảnh/video + mô tả + các bước; phải (sticky) khẩu phần, nguyên liệu + trạng thái tủ, dinh dưỡng, Lưu / Chia sẻ / Lên kế hoạch.
+- Trang mới: Đã lưu (`/me/saved`).
+
 3. User & Role
 
 Định hướng các role:
@@ -387,6 +489,7 @@ Hành vi:
 3. Ảnh bước: optional; chụp/thư viện → `POST /media` → gắn `imageUrl` trên step.
 4. Migrate dữ liệu cũ: mỗi recipe có `instructions` → tách dòng → `RecipeStep` nếu chưa có step.
 5. UX ưu tiên: **Group cookbook** editor + viewer; catalog/CREATOR dùng cùng model.
+6. Đa ngôn ngữ: `body` chuyển sang `RecipeStepTranslation` (xem **2b.2**); `sortOrder` + `imageUrl` dùng chung mọi ngôn ngữ.
 
 Không làm (MVP steps):
 
@@ -710,7 +813,7 @@ Bảng:
 Nutrient (seed — danh mục “Chất”)
 - id
 - code                 # ổn định: energy_kcal | protein | carb | fat | fiber | sugar | sodium | …
-- nameEn / nameVi?     # hoặc translation table sau; MVP có thể name + locale đơn giản
+- (tên)               # MVP: nameEn / nameVi → chuyển NutrientTranslation (xem 2b.1, 2b.4)
 - unit                 # kcal | g | mg | …
 - group                # ENERGY | MACRO | CARB_DETAIL | MINERAL | VITAMIN | OTHER
 - sortOrder
