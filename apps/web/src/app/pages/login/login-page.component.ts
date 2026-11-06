@@ -1,7 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth.service';
+import { apiErrorMessage } from '../../core/i18n/api-error';
 
 @Component({
   selector: 'app-login-page',
@@ -13,6 +15,7 @@ export class LoginPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly t = inject(TranslocoService);
 
   readonly error = signal<string | null>(null);
   readonly submitting = signal(false);
@@ -35,12 +38,9 @@ export class LoginPageComponent {
         this.submitting.set(false);
         void this.router.navigateByUrl('/');
       },
-      error: (err: { error?: { message?: string | string[] } }) => {
+      error: (err) => {
         this.submitting.set(false);
-        const msg = err.error?.message;
-        this.error.set(
-          Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Login failed'),
-        );
+        this.error.set(apiErrorMessage(err, this.t, 'auth.loginFailed'));
       },
     });
   }

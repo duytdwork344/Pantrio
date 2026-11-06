@@ -10,11 +10,16 @@ import 'package:pantrio_mobile/core/models/user_profile.dart';
 
 typedef TokenProvider = String? Function();
 
+/// Active locale code (vi, en…), sent as Accept-Language.
+typedef LocaleProvider = String Function();
+
 class PantrioApiClient {
   PantrioApiClient({
     required this.baseUrl,
     required TokenProvider tokenProvider,
-  }) : _dio = Dio(
+    required LocaleProvider localeProvider,
+  })  : _localeProvider = localeProvider,
+        _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
             connectTimeout: const Duration(seconds: 10),
@@ -29,6 +34,7 @@ class PantrioApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          options.headers['Accept-Language'] = localeProvider();
           return handler.next(options);
         },
       ),
@@ -37,6 +43,7 @@ class PantrioApiClient {
 
   final String baseUrl;
   final Dio _dio;
+  final LocaleProvider _localeProvider;
 
   Future<({String accessToken, UserProfile user})> login({
     required String email,
@@ -55,6 +62,19 @@ class PantrioApiClient {
   Future<UserProfile> me() async {
     final data = await _get('users/me');
     return UserProfile.fromJson(data);
+  }
+
+  /// PATCH /users/me. [locale] null = follow the device (clears User.locale).
+  Future<UserProfile> updateMyLocale(String? locale) async {
+    try {
+      final response = await _dio.patch<dynamic>(
+        'users/me',
+        data: {'locale': locale},
+      );
+      return UserProfile.fromJson(_asMap(response.data));
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
   }
 
   Future<InventoryGroup?> getMyGroup() async {
@@ -170,12 +190,12 @@ class PantrioApiClient {
     return InventoryItem.fromJson(data);
   }
 
-  Future<List<FoodItem>> searchFoods({String? q, String locale = 'en'}) async {
+  /// Names come back in the app locale (Accept-Language).
+  Future<List<FoodItem>> searchFoods({String? q}) async {
     final data = await _getList(
       'foods',
       query: {
         if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
-        'locale': locale,
       },
     );
     return data.map(FoodItem.fromJson).toList();
@@ -184,7 +204,7 @@ class PantrioApiClient {
   Future<FoodItem> createPrivateFood({
     required String name,
     required String baseUnit,
-    String locale = 'en',
+    String? locale,
     String measurementType = 'WEIGHT',
   }) async {
     final slug = _slugify(name);
@@ -193,7 +213,8 @@ class PantrioApiClient {
       'measurementType': measurementType,
       'baseUnit': baseUnit,
       'translations': [
-        {'locale': locale, 'name': name.trim()},
+        // The name is typed in the app language unless told otherwise.
+        {'locale': locale ?? _localeProvider(), 'name': name.trim()},
       ],
     });
     return FoodItem.fromJson(data);
@@ -737,6 +758,8 @@ class PantrioApiClient {
     final status = e.response?.statusCode;
     final data = e.response?.data;
     String message = e.message ?? 'Network error';
+    String? code;
+    Map<String, dynamic> params = const {};
     if (data is Map) {
       final msg = data['message'];
       if (msg is String) {
@@ -744,8 +767,12 @@ class PantrioApiClient {
       } else if (msg is List && msg.isNotEmpty) {
         message = msg.join(', ');
       }
+      if (data['code'] is String) code = data['code'] as String;
+      if (data['params'] is Map) {
+        params = Map<String, dynamic>.from(data['params'] as Map);
+      }
     }
-    return ApiException(message, statusCode: status);
+    return ApiException(message, statusCode: status, code: code, params: params);
   }
 
   String _slugify(String value) {

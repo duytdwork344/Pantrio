@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Pantrio",
+    "tagline": "Nhà có gì, nấu được gì?"
+  },
+  "nav": {
+    "discover": "Khám phá",
+    "articles": "Bài viết",
+    "saved": "Đã lưu",
+    "studio": "Studio",
+    "moderation": "Kiểm duyệt",
+    "nutrition": "Dinh dưỡng",
+    "login": "Đăng nhập",
+    "logout": "Đăng xuất"
+  },
+  "language": {
+    "label": "Ngôn ngữ",
+    "switchTo": "Đổi ngôn ngữ"
+  },
+  "common": {
+    "loading": "Đang tải…",
+    "retry": "Thử lại",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "delete": "Xoá",
+    "seeAll": "Xem tất cả"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Mật khẩu",
+    "displayName": "Tên hiển thị",
+    "loginTitle": "Đăng nhập",
+    "registerTitle": "Tạo tài khoản",
+    "submitLogin": "Đăng nhập",
+    "submitRegister": "Đăng ký",
+    "loginFailed": "Đăng nhập không thành công",
+    "registerFailed": "Đăng ký không thành công"
+  },
+  "difficulty": {
+    "EASY": "Dễ",
+    "MEDIUM": "Trung bình",
+    "HARD": "Khó"
+  },
+  "storage": {
+    "PANTRY": "Tủ khô",
+    "FRIDGE": "Tủ lạnh",
+    "FREEZER": "Ngăn đông",
+    "OTHER": "Khác"
+  },
+  "unit": {
+    "g": "g",
+    "kg": "kg",
+    "ml": "ml",
+    "l": "l",
+    "pcs": "cái"
+  },
+  "errors": {
+    "UNKNOWN": "Đã có lỗi xảy ra. Vui lòng thử lại.",
+    "BAD_REQUEST": "Yêu cầu không hợp lệ.",
+    "UNAUTHORIZED": "Bạn cần đăng nhập để tiếp tục.",
+    "FORBIDDEN": "Bạn không có quyền thực hiện thao tác này.",
+    "NOT_FOUND": "Không tìm thấy nội dung.",
+    "CONFLICT": "Dữ liệu đã thay đổi hoặc bị trùng. Vui lòng tải lại.",
+    "PAYLOAD_TOO_LARGE": "Tệp quá lớn.",
+    "TOO_MANY_REQUESTS": "Bạn thao tác quá nhanh, vui lòng thử lại sau.",
+    "INTERNAL_ERROR": "Máy chủ gặp sự cố. Vui lòng thử lại sau.",
+    "VALIDATION_FAILED": "Thông tin nhập chưa hợp lệ.",
+    "AUTH_EMAIL_TAKEN": "Email này đã được đăng ký.",
+    "AUTH_INVALID_CREDENTIALS": "Email hoặc mật khẩu không đúng.",
+    "USER_NOT_FOUND": "Không tìm thấy tài khoản.",
+    "LOCALE_NOT_SUPPORTED": "Ngôn ngữ chưa được hỗ trợ."
+  }
+}

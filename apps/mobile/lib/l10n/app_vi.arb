@@ -1,0 +1,61 @@
+{
+  "@@locale": "vi",
+  "appName": "Pantrio",
+  "appTagline": "Nhà có gì, nấu được gì?",
+  "navRecipes": "Công thức",
+  "navInventory": "Kho",
+  "navShopping": "Đi chợ",
+  "navNutrition": "Dinh dưỡng",
+  "navLogin": "Đăng nhập",
+  "navLogout": "Đăng xuất",
+  "nutritionTarget": "Mục tiêu dinh dưỡng",
+  "languageLabel": "Ngôn ngữ",
+  "languageSystem": "Theo thiết bị",
+  "languageNote": "Công thức chưa có bản dịch sẽ hiển thị bản gốc kèm nhãn.",
+  "commonLoading": "Đang tải…",
+  "commonRetry": "Thử lại",
+  "commonSave": "Lưu",
+  "commonCancel": "Huỷ",
+  "commonDelete": "Xoá",
+  "commonSeeAll": "Xem tất cả",
+  "difficultyLabel": "{value, select, EASY{Dễ} MEDIUM{Trung bình} HARD{Khó} other{{value}}}",
+  "@difficultyLabel": {
+    "description": "Recipe difficulty enum (EASY|MEDIUM|HARD)",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "storageLabel": "{value, select, PANTRY{Tủ khô} FRIDGE{Tủ lạnh} FREEZER{Ngăn đông} OTHER{Khác} other{{value}}}",
+  "@storageLabel": {
+    "description": "StorageLocation enum",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "unitLabel": "{value, select, g{g} kg{kg} ml{ml} l{l} pcs{cái} other{{value}}}",
+  "@unitLabel": {
+    "description": "Canonical unit (g|kg|ml|l|pcs)",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "errorUnknown": "Đã có lỗi xảy ra. Vui lòng thử lại.",
+  "errorMessage": "{code, select, BAD_REQUEST{Yêu cầu không hợp lệ.} UNAUTHORIZED{Bạn cần đăng nhập để tiếp tục.} FORBIDDEN{Bạn không có quyền thực hiện thao tác này.} NOT_FOUND{Không tìm thấy nội dung.} CONFLICT{Dữ liệu đã thay đổi hoặc bị trùng. Vui lòng tải lại.} PAYLOAD_TOO_LARGE{Tệp quá lớn.} TOO_MANY_REQUESTS{Bạn thao tác quá nhanh, vui lòng thử lại sau.} INTERNAL_ERROR{Máy chủ gặp sự cố. Vui lòng thử lại sau.} VALIDATION_FAILED{Thông tin nhập chưa hợp lệ.} AUTH_EMAIL_TAKEN{Email này đã được đăng ký.} AUTH_INVALID_CREDENTIALS{Email hoặc mật khẩu không đúng.} USER_NOT_FOUND{Không tìm thấy tài khoản.} LOCALE_NOT_SUPPORTED{Ngôn ngữ chưa được hỗ trợ.} other{{fallback}}}",
+  "@errorMessage": {
+    "description": "API error by code (ErrorCode in @pantrio/shared); fallback = server message",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "fallback": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -78,7 +78,9 @@ type RecipeWithIngredients = Prisma.RecipeGetPayload<{
         food: {
           include: {
             translations: true;
-            nutrients: { include: { nutrient: true } };
+            nutrients: {
+              include: { nutrient: { include: { translations: true } } };
+            };
           };
         };
       };
@@ -717,7 +719,7 @@ export class RecipesService {
             include: {
               translations: true,
               nutrients: {
-                include: { nutrient: true },
+                include: { nutrient: { include: { translations: true } } },
                 orderBy: { nutrient: { sortOrder: 'asc' as const } },
               },
             },
@@ -1032,8 +1034,7 @@ export class RecipesService {
     for (const food of foods) {
       if (food.visibility !== FoodVisibility.PRIVATE) continue;
       const name =
-        food.translations.find((item) => item.locale === 'vi')?.name ??
-        food.slug;
+        pickTranslation(food.translations)?.name ?? food.slug;
       const suggestions = await this.catalog.privateFoodsForReview([food.id]);
       const suggestionList = suggestions[0]?.suggestions ?? [];
       const decision = decisionByFood.get(food.id);
@@ -1259,7 +1260,7 @@ export class RecipesService {
           include: {
             translations: true,
             nutrients: {
-              include: { nutrient: true },
+              include: { nutrient: { include: { translations: true } } },
               orderBy: { nutrient: { sortOrder: 'asc' } },
             },
           },

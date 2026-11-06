@@ -31,6 +31,17 @@ Pantrio/
 | Mobile | Flutter |
 | Database | PostgreSQL (+ Redis, MinIO, OpenSearch) |
 
+## i18n (vi + en)
+
+See `docs/requirements.md` **2b**.
+
+- UI strings: Web `apps/web/public/i18n/<locale>.json` (Transloco), Mobile `apps/mobile/lib/l10n/app_<locale>.arb` (`flutter gen-l10n` runs on build).
+- Clients send `Accept-Language`; the API resolves `?locale=` → header → `User.locale` → `vi`.
+- API errors: `{ statusCode, code, message, params? }`; add new codes to `ErrorCode` in `packages/shared/src/errors.ts` and translate them on both clients.
+- Check key parity: `pnpm i18n:check`.
+
+Add a language: entry in `LOCALES` (`packages/shared/src/i18n.ts`) → `<locale>.json` + `app_<locale>.arb` → `supportedLocaleCodes` in `apps/mobile/lib/core/i18n/locale_controller.dart` → `pnpm i18n:check`.
+
 ## Prerequisites
 
 - Node.js 22+

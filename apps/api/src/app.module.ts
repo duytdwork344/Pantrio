@@ -1,8 +1,14 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ApiExceptionFilter } from './common/errors/api-exception.filter';
+import {
+  LocaleInterceptor,
+  LocaleMiddleware,
+} from './common/i18n/request-locale';
 import { CookingModule } from './cooking/cooking.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
@@ -37,5 +43,13 @@ import { UsersModule } from './users/users.module';
     MediaModule,
     NutritionModule,
   ],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(LocaleMiddleware).forRoutes('{*splat}');
+  }
+}

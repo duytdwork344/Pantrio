@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DEFAULT_LOCALE, Permission, SUPPORTED_LOCALES } from '@pantrio/shared';
+import {
+  DEFAULT_LOCALE,
+  isSupportedLocale,
+  Permission,
+  SUPPORTED_LOCALES,
+} from '@pantrio/shared';
 import { FoodVisibility, Prisma } from '@prisma/client';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import {
@@ -25,7 +30,11 @@ import {
   UpdateFoodDto,
   UpsertFoodTranslationDto,
 } from './dto/food.dto';
-import { mapFoodNutrients } from '../common/nutrition/aggregate';
+import {
+  mapFoodNutrients,
+  nutrientInclude,
+  nutrientNames,
+} from '../common/nutrition/aggregate';
 import { Unit } from '@pantrio/shared';
 
 function slugify(value: string): string {
@@ -94,8 +103,7 @@ type FoodWithTranslations = Prisma.FoodGetPayload<{
     nutrient: {
       id: string;
       code: string;
-      nameEn: string;
-      nameVi: string;
+      translations: Array<{ locale: string; name: string }>;
       unit: string;
       group: import('@prisma/client').NutrientGroup;
       sortOrder: number;
@@ -106,7 +114,7 @@ type FoodWithTranslations = Prisma.FoodGetPayload<{
 const foodDetailInclude = {
   translations: true,
   nutrients: {
-    include: { nutrient: true },
+    include: { nutrient: nutrientInclude },
     orderBy: { nutrient: { sortOrder: 'asc' as const } },
   },
 } satisfies Prisma.FoodInclude;
@@ -166,7 +174,7 @@ export class CatalogService {
       where,
       include: {
         translations: true,
-        nutrients: { include: { nutrient: true } },
+        nutrients: { include: { nutrient: nutrientInclude } },
       },
       orderBy: { slug: 'asc' },
       take: 100,
@@ -388,12 +396,12 @@ export class CatalogService {
   async listNutrients(): Promise<NutrientDto[]> {
     const rows = await this.prisma.nutrient.findMany({
       orderBy: { sortOrder: 'asc' },
+      ...nutrientInclude,
     });
     return rows.map((row) => ({
       id: row.id,
       code: row.code,
-      nameEn: row.nameEn,
-      nameVi: row.nameVi,
+      ...nutrientNames(row),
       unit: row.unit,
       group: row.group,
       sortOrder: row.sortOrder,
@@ -595,7 +603,7 @@ export class CatalogService {
     for (const food of foods) {
       rows.push({
         foodId: food.id,
-        name: pickTranslation(food.translations, 'vi')?.name ?? food.slug,
+        name: pickTranslation(food.translations)?.name ?? food.slug,
         slug: food.slug,
         suggestions: await this.suggestSimilar(food),
       });
@@ -733,7 +741,7 @@ export class CatalogService {
       .map((candidate) => ({
         id: candidate.id,
         name:
-          pickTranslation(candidate.translations, 'vi')?.name ?? candidate.slug,
+          pickTranslation(candidate.translations)?.name ?? candidate.slug,
         slug: candidate.slug,
         visibility: candidate.visibility,
       }));
@@ -840,7 +848,7 @@ export class CatalogService {
 
     for (const item of translations) {
       const locale = item.locale.toLowerCase().trim();
-      if (!(SUPPORTED_LOCALES as readonly string[]).includes(locale)) {
+      if (!isSupportedLocale(locale)) {
         throw new BadRequestException(
           `Unsupported locale '${item.locale}'. Supported: ${SUPPORTED_LOCALES.join(', ')}`,
         );

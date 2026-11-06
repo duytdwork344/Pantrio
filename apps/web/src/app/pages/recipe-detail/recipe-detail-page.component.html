@@ -29,7 +29,7 @@
         <p class="lead">{{ r.description }}</p>
       }
       <p class="meta">
-        {{ r.servings }} servings · {{ r.difficulty }}
+        {{ r.servings }} servings · {{ 'difficulty.' + r.difficulty | transloco }}
         @if (r.prepTimeMin) {
           · prep {{ r.prepTimeMin }}m
         }
@@ -129,7 +129,7 @@
                     [disabled]="!item.contributions?.length"
                     (click)="toggleNutrient(item.code)"
                   >
-                    <span>{{ item.nameVi }}</span>
+                    <span>{{ item.name }}</span>
                     <strong>
                       {{ formatNutrient(item.amount) }}
                       {{ item.unit }}

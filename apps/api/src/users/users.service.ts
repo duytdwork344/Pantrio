@@ -49,6 +49,7 @@ export class UsersService {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      locale: user.locale,
       roles,
       permissions,
     };
@@ -59,6 +60,7 @@ export class UsersService {
     passwordHash: string;
     displayName: string;
     roleName?: string;
+    locale?: string | null;
   }) {
     const roleName = input.roleName ?? 'USER';
     const role = await this.prisma.role.findUniqueOrThrow({
@@ -70,11 +72,28 @@ export class UsersService {
         email: input.email,
         passwordHash: input.passwordHash,
         displayName: input.displayName,
+        locale: input.locale ?? null,
         roles: {
           create: [{ roleId: role.id }],
         },
       },
     });
+  }
+
+  async updateMe(
+    userId: string,
+    input: { locale?: string | null; displayName?: string },
+  ) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.locale !== undefined ? { locale: input.locale } : {}),
+        ...(input.displayName !== undefined
+          ? { displayName: input.displayName.trim() }
+          : {}),
+      },
+    });
+    return this.getProfile(userId);
   }
 
   async getProfile(userId: string) {
@@ -90,6 +109,7 @@ export class UsersService {
         email: true,
         displayName: true,
         avatarUrl: true,
+        locale: true,
         createdAt: true,
       },
     });

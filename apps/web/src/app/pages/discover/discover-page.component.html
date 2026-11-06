@@ -78,9 +78,9 @@
         (ngModelChange)="difficulty.set($event); onFilterChange()"
       >
         <option value="">Độ khó</option>
-        <option value="EASY">EASY</option>
-        <option value="MEDIUM">MEDIUM</option>
-        <option value="HARD">HARD</option>
+        <option value="EASY">{{ 'difficulty.EASY' | transloco }}</option>
+        <option value="MEDIUM">{{ 'difficulty.MEDIUM' | transloco }}</option>
+        <option value="HARD">{{ 'difficulty.HARD' | transloco }}</option>
       </select>
       <input
         type="number"
@@ -114,7 +114,7 @@
               }
               <div class="media-body">
                 <h3>{{ recipe.title }}</h3>
-                <p>{{ recipe.description || (recipe.servings + ' servings · ' + recipe.difficulty) }}</p>
+                <p>{{ recipe.description || (recipe.servings + ' servings · ' + ('difficulty.' + recipe.difficulty | transloco)) }}</p>
               </div>
             </a>
           </li>

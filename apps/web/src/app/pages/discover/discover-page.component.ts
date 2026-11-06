@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -11,7 +12,7 @@ import type {
 
 @Component({
   selector: 'app-discover-page',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, TranslocoPipe],
   templateUrl: './discover-page.component.html',
   styleUrl: './discover-page.component.scss',
 })

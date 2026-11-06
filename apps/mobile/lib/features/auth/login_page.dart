@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pantrio_mobile/core/api/api_exception.dart';
+import 'package:pantrio_mobile/core/i18n/l10n.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
 import 'package:provider/provider.dart';
 
@@ -37,10 +37,8 @@ class _LoginPageState extends State<LoginPage> {
             email: _email.text,
             password: _password.text,
           );
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = localizedError(context, e));
     } finally {
       if (mounted) {
         setState(() => _busy = false);

@@ -1,11 +1,11 @@
 import { NutrientGroup } from '@prisma/client';
+import { pickTranslation } from '../i18n/locale';
 import { convertQuantity } from '../units/convert';
 
 export type NutrientMeta = {
   id: string;
   code: string;
-  nameEn: string;
-  nameVi: string;
+  translations: Array<{ locale: string; name: string }>;
   unit: string;
   group: NutrientGroup;
   sortOrder: number;
@@ -24,10 +24,32 @@ export type NutrientContributionDto = {
   amount: number;
 };
 
-export type NutrientAmountDto = {
-  code: string;
+/** Prisma include for a nutrient with its names (NutrientTranslation). */
+export const nutrientInclude = { include: { translations: true } } as const;
+
+export type NutrientNames = {
+  /** Name in the request locale (fallback chain, then any). */
+  name: string;
+  /** @deprecated use `name`; kept for clients built before 2b. */
   nameEn: string;
+  /** @deprecated use `name`; kept for clients built before 2b. */
   nameVi: string;
+};
+
+export function nutrientNames(
+  meta: Pick<NutrientMeta, 'code' | 'translations'>,
+): NutrientNames {
+  const byLocale = (locale: string) =>
+    meta.translations.find((item) => item.locale === locale)?.name;
+  return {
+    name: pickTranslation(meta.translations)?.name ?? meta.code,
+    nameEn: byLocale('en') ?? meta.code,
+    nameVi: byLocale('vi') ?? meta.code,
+  };
+}
+
+export type NutrientAmountDto = NutrientNames & {
+  code: string;
   unit: string;
   group: NutrientGroup;
   sortOrder: number;
@@ -59,8 +81,7 @@ export function mapFoodNutrients(rows: FoodNutrientRow[]) {
     .sort((a, b) => a.nutrient.sortOrder - b.nutrient.sortOrder)
     .map((row) => ({
       code: row.nutrient.code,
-      nameEn: row.nutrient.nameEn,
-      nameVi: row.nutrient.nameVi,
+      ...nutrientNames(row.nutrient),
       unit: row.nutrient.unit,
       group: row.nutrient.group,
       sortOrder: row.nutrient.sortOrder,
@@ -163,14 +184,12 @@ export function aggregateRecipeNutrition(params: {
     );
     return {
       code: entry.meta.code,
-      nameEn: entry.meta.nameEn,
-      nameVi: entry.meta.nameVi,
+      ...nutrientNames(entry.meta),
       unit: entry.meta.unit,
       group: entry.meta.group,
       sortOrder: entry.meta.sortOrder,
       amount: roundNutrient(entry.amount),
-      complete:
-        requiredCount > 0 && entry.presentInRequired === requiredCount,
+      complete: requiredCount > 0 && entry.presentInRequired === requiredCount,
       contributions: contributions.map((row) => ({
         foodId: row.foodId,
         foodName: row.foodName,

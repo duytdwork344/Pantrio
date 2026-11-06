@@ -102,7 +102,7 @@ export class ModerationReviewPageComponent {
   search(foodId: string): void {
     const q = (this.queries()[foodId] ?? '').trim();
     if (q.length < 2) return;
-    this.api.searchFoods(q, 'vi').subscribe({
+    this.api.searchFoods(q).subscribe({
       next: (hits) => {
         this.extraHits.update((current) => ({
           ...current,

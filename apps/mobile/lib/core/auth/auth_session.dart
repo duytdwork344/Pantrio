@@ -1,18 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:pantrio_mobile/core/api/api_config.dart';
 import 'package:pantrio_mobile/core/api/pantrio_api_client.dart';
+import 'package:pantrio_mobile/core/i18n/locale_controller.dart';
 import 'package:pantrio_mobile/core/models/inventory_group.dart';
 import 'package:pantrio_mobile/core/models/user_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthSession extends ChangeNotifier {
-  AuthSession({String? baseUrl})
+  AuthSession({String? baseUrl, required this.localeController})
       : baseUrl = baseUrl ?? ApiConfig.defaultBaseUrl() {
     api = PantrioApiClient(
       baseUrl: this.baseUrl,
       tokenProvider: () => accessToken,
+      localeProvider: () => localeController.code,
     );
   }
+
+  final LocaleController localeController;
 
   static const _tokenKey = 'pantrio_access_token';
 
@@ -44,6 +48,7 @@ class AuthSession extends ChangeNotifier {
       }
       accessToken = token;
       user = await api.me();
+      await _applyUserLocale();
       await _assignMembership();
     } catch (_) {
       await logout(notify: false);
@@ -62,8 +67,28 @@ class AuthSession extends ChangeNotifier {
     user = result.user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, result.accessToken);
+    await _applyUserLocale();
     await _assignMembership();
     notifyListeners();
+  }
+
+  /// Change the app language ([code] null = follow the device). Saved on the
+  /// device right away and on the account (User.locale) when signed in.
+  Future<void> setLocale(String? code) async {
+    await localeController.setPreference(code);
+    if (!isAuthenticated) return;
+    try {
+      user = await api.updateMyLocale(localeController.preference);
+      notifyListeners();
+    } catch (_) {
+      // Kept on the device; the account copy syncs on the next change.
+    }
+  }
+
+  /// A saved account language wins over the device setting after sign-in.
+  Future<void> _applyUserLocale() async {
+    final fromUser = matchLocaleCode(user?.locale);
+    if (fromUser != null) await localeController.setPreference(fromUser);
   }
 
   /// Re-read GET /groups/me and notify every tab that shows group state.

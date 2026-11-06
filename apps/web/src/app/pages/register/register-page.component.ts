@@ -1,7 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth.service';
+import { apiErrorMessage } from '../../core/i18n/api-error';
+import { LocaleService } from '../../core/i18n/locale.service';
 
 @Component({
   selector: 'app-register-page',
@@ -13,6 +16,8 @@ export class RegisterPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly t = inject(TranslocoService);
+  private readonly locale = inject(LocaleService);
 
   readonly error = signal<string | null>(null);
   readonly submitting = signal(false);
@@ -31,17 +36,15 @@ export class RegisterPageComponent {
     this.submitting.set(true);
     this.error.set(null);
     const { email, displayName, password } = this.form.getRawValue();
-    this.auth.register(email, displayName, password).subscribe({
+    this.auth
+      .register(email, displayName, password, this.locale.locale()).subscribe({
       next: () => {
         this.submitting.set(false);
         void this.router.navigateByUrl('/');
       },
-      error: (err: { error?: { message?: string | string[] } }) => {
+      error: (err) => {
         this.submitting.set(false);
-        const msg = err.error?.message;
-        this.error.set(
-          Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Register failed'),
-        );
+        this.error.set(apiErrorMessage(err, this.t, 'auth.registerFailed'));
       },
     });
   }

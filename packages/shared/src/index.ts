@@ -91,9 +91,5 @@ export const ROLE_PERMISSIONS = {
 
 export type RoleName = keyof typeof ROLE_PERMISSIONS;
 
-/** Default content locale for catalog / future recipe translations */
-export const DEFAULT_LOCALE = 'vi' as const;
-
-export const SUPPORTED_LOCALES = ['vi', 'en'] as const;
-
-export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+export * from './i18n';
+export * from './errors';

@@ -13,6 +13,13 @@ export class UserProfileDto {
   @ApiPropertyOptional()
   avatarUrl?: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'vi',
+    description: 'Preferred locale; null = follow Accept-Language',
+  })
+  locale?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

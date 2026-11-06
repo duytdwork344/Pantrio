@@ -118,6 +118,8 @@ model User {
   passwordHash String
   displayName  String
   avatarUrl    String?
+  /// Preferred UI/content locale (BCP-47, e.g. vi, en). Null = follow Accept-Language / default (requirements 2b.1).
+  locale       String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -236,13 +238,25 @@ model FoodTranslation {
 model Nutrient {
   id        String        @id @default(cuid())
   code      String        @unique
-  nameEn    String
-  nameVi    String
   unit      String
   group     NutrientGroup
   sortOrder Int           @default(0)
 
+  translations  NutrientTranslation[]
   foodNutrients FoodNutrient[]
+}
+
+/// Display name per locale (requirements 2b.1 #2). Same pattern as FoodTranslation.
+model NutrientTranslation {
+  id         String @id @default(cuid())
+  nutrientId String
+  locale     String
+  name       String
+
+  nutrient Nutrient @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+
+  @@unique([nutrientId, locale])
+  @@index([locale])
 }
 
 model FoodNutrient {

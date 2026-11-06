@@ -671,18 +671,26 @@ const FOOD_NUTRIENTS: Record<
 };
 
 async function seedNutrition() {
-  for (const nutrient of NUTRIENTS) {
-    await prisma.nutrient.upsert({
+  for (const { nameEn, nameVi, ...nutrient } of NUTRIENTS) {
+    const row = await prisma.nutrient.upsert({
       where: { code: nutrient.code },
       update: {
-        nameEn: nutrient.nameEn,
-        nameVi: nutrient.nameVi,
         unit: nutrient.unit,
         group: nutrient.group,
         sortOrder: nutrient.sortOrder,
       },
       create: nutrient,
     });
+    for (const [locale, name] of [
+      ['vi', nameVi],
+      ['en', nameEn],
+    ] as const) {
+      await prisma.nutrientTranslation.upsert({
+        where: { nutrientId_locale: { nutrientId: row.id, locale } },
+        update: { name },
+        create: { nutrientId: row.id, locale, name },
+      });
+    }
   }
 
   const nutrients = await prisma.nutrient.findMany();

@@ -38,14 +38,21 @@ export class AuthService {
       .pipe(tap((res) => this.persist(res)));
   }
 
-  register(email: string, displayName: string, password: string) {
+  register(email: string, displayName: string, password: string, locale?: string) {
     return this.http
       .post<AuthResponse>(`${environment.apiBaseUrl}/auth/register`, {
         email,
         displayName,
         password,
+        ...(locale ? { locale } : {}),
       })
       .pipe(tap((res) => this.persist(res)));
+  }
+
+  /** Replace the cached profile, e.g. after PATCH /users/me. */
+  updateUser(user: UserProfile): void {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.userSignal.set(user);
   }
 
   logout(): void {

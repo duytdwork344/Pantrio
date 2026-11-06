@@ -31,10 +31,13 @@ export class FoodNutrientDto {
   @ApiProperty({ example: 'energy_kcal' })
   code!: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Name in the request locale' })
+  name!: string;
+
+  @ApiProperty({ deprecated: true, description: 'Use `name`' })
   nameEn!: string;
 
-  @ApiProperty()
+  @ApiProperty({ deprecated: true, description: 'Use `name`' })
   nameVi!: string;
 
   @ApiProperty({ example: 'kcal' })
@@ -296,10 +299,13 @@ export class NutrientDto {
   @ApiProperty()
   code!: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Name in the request locale' })
+  name!: string;
+
+  @ApiProperty({ deprecated: true, description: 'Use `name`' })
   nameEn!: string;
 
-  @ApiProperty()
+  @ApiProperty({ deprecated: true, description: 'Use `name`' })
   nameVi!: string;
 
   @ApiProperty()

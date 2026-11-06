@@ -169,6 +169,7 @@ export class RecipeDetailDto extends RecipeSummaryDto {
   nutrition?: {
     perServing: Array<{
       code: string;
+      name: string;
       nameEn: string;
       nameVi: string;
       unit: string;
@@ -184,6 +185,7 @@ export class RecipeDetailDto extends RecipeSummaryDto {
     }>;
     total: Array<{
       code: string;
+      name: string;
       nameEn: string;
       nameVi: string;
       unit: string;

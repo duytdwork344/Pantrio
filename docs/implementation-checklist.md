@@ -36,17 +36,17 @@ Tham chiếu: requirements **2b**. Locale hiện tại: `vi` (default) + `en`; t
 
 ### 0b.1 Nền tảng (không đổi UI)
 
-- [ ] Shared: locale registry (`SUPPORTED_LOCALES` + fallback chain) trong `@pantrio/shared`
-- [ ] API: `User.locale` (nullable) + `PATCH /users/me` đổi ngôn ngữ
-- [ ] API: resolve locale `Accept-Language` → `User.locale` → `DEFAULT_LOCALE` (middleware / decorator); giữ `?locale=` tương thích
-- [ ] API: chuẩn lỗi `{ code, message, params? }` (exception filter + helper); module cũ chuyển dần
-- [ ] `Nutrient.nameEn/nameVi` → `NutrientTranslation` + backfill
-- [ ] Mobile: `flutter_localizations` + `intl` + ARB (`gen-l10n`), file `vi` + `en`; interceptor `Accept-Language`
-- [ ] Mobile: sửa default `locale = 'en'` → theo app locale (`pantrio_api_client.dart`)
-- [ ] Web: Transloco + JSON `vi` / `en`; interceptor `Accept-Language`
-- [ ] Nhãn enum / đơn vị theo key (`difficulty.*`, `storage.*`, `unit.*`) Web + Mobile
-- [ ] Formatter ngày / số / tiền theo locale (Web + Mobile)
-- [ ] CI / script kiểm tra parity key giữa các file locale
+- [x] Shared: locale registry (`LOCALES` + `localeChain` / `negotiateLocale`) trong `@pantrio/shared` (`src/i18n.ts`)
+- [x] API: `User.locale` (nullable) + `PATCH /users/me` đổi ngôn ngữ; register nhận `locale` optional
+- [x] API: resolve locale `?locale=` → `Accept-Language` → `User.locale` → `DEFAULT_LOCALE` (`LocaleMiddleware` + `LocaleInterceptor`, AsyncLocalStorage; `pickTranslation()` tự dùng locale request); header `Content-Language`
+- [x] API: chuẩn lỗi `{ statusCode, code, message, params?, details? }` (`ApiExceptionFilter` + `AppException`, `ErrorCode` trong shared); auth/users đã dùng code riêng, module khác code theo HTTP status — chuyển dần
+- [x] `Nutrient.nameEn/nameVi` → `NutrientTranslation` + backfill (migration `20261106100000_i18n_foundation`); API trả `name` + giữ `nameEn/nameVi` (deprecated)
+- [x] Mobile: `flutter_localizations` + `intl` + ARB (`gen-l10n`), file `vi` + `en`; interceptor `Accept-Language`; `LocaleController` + sheet chọn ngôn ngữ
+- [x] Mobile: bỏ default `locale = 'en'` → theo app locale (`pantrio_api_client.dart`)
+- [x] Web: Transloco + JSON `vi` / `en` (`public/i18n`); interceptor `Accept-Language`; `LocaleService` + chọn ngôn ngữ trên shell
+- [x] Nhãn enum / đơn vị theo key (`difficulty.*`, `storage.*`, `unit.*`) Web + Mobile — áp dụng dần khi polish từng màn
+- [x] Formatter ngày / số theo locale (Web `fmtDate` / `fmtNumber`, Mobile `formatDate` / `formatNumber` / `formatQuantity`) — tiền khi có giá
+- [x] Script parity key + đủ `ErrorCode` + enum: `pnpm i18n:check` (gắn vào CI khi có CI)
 
 ### 0b.2 Nội dung Recipe / Article nhiều ngôn ngữ
 

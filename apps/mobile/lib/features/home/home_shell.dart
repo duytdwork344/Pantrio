@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pantrio_mobile/core/auth/auth_session.dart';
+import 'package:pantrio_mobile/core/i18n/l10n.dart';
+import 'package:pantrio_mobile/core/i18n/locale_controller.dart';
 import 'package:pantrio_mobile/features/auth/login_page.dart';
 import 'package:pantrio_mobile/features/inventory/inventory_page.dart';
 import 'package:pantrio_mobile/features/nutrition/nutrition_target_page.dart';
@@ -63,12 +65,17 @@ ClipRRect(
               ),
             ),
             const SizedBox(width: 10),
-            const Text('Pantrio'),
+            Text(context.l10n.appName),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Nutrition target',
+            tooltip: context.l10n.languageLabel,
+            onPressed: () => showLanguageSheet(context),
+            icon: const Icon(Icons.translate),
+          ),
+          IconButton(
+            tooltip: context.l10n.nutritionTarget,
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -89,7 +96,7 @@ ClipRRect(
               ),
             ),
           IconButton(
-            tooltip: 'Sign out',
+            tooltip: context.l10n.navLogout,
             onPressed: () => session.logout(),
             icon: const Icon(Icons.logout),
           ),
@@ -102,24 +109,72 @@ ClipRRect(
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.restaurant_menu_outlined),
-            selectedIcon: Icon(Icons.restaurant_menu),
-            label: 'Recipes',
+            icon: const Icon(Icons.restaurant_menu_outlined),
+            selectedIcon: const Icon(Icons.restaurant_menu),
+            label: context.l10n.navRecipes,
           ),
           NavigationDestination(
-            icon: Icon(Icons.kitchen_outlined),
-            selectedIcon: Icon(Icons.kitchen),
-            label: 'Inventory',
+            icon: const Icon(Icons.kitchen_outlined),
+            selectedIcon: const Icon(Icons.kitchen),
+            label: context.l10n.navInventory,
           ),
           NavigationDestination(
-            icon: Icon(Icons.shopping_basket_outlined),
-            selectedIcon: Icon(Icons.shopping_basket),
-            label: 'Shopping',
+            icon: const Icon(Icons.shopping_basket_outlined),
+            selectedIcon: const Icon(Icons.shopping_basket),
+            label: context.l10n.navShopping,
           ),
         ],
       ),
     );
   }
+}
+
+/// Language picker (design screen 10): device default or an explicit locale.
+/// Saved on the device and, when signed in, on the account (User.locale).
+Future<void> showLanguageSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) {
+      final l10n = sheetContext.l10n;
+      final session = sheetContext.read<AuthSession>();
+      final current = sheetContext.watch<LocaleController>().preference;
+      Widget option(String? code, String title) => RadioListTile<String?>(
+            value: code,
+            groupValue: current,
+            title: Text(title),
+            onChanged: (value) {
+              Navigator.of(sheetContext).pop();
+              session.setLocale(value);
+            },
+          );
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 8),
+              child: Text(
+                l10n.languageLabel,
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+            ),
+            for (final code in supportedLocaleCodes)
+              option(code, localeNativeNames[code] ?? code),
+            option(null, l10n.languageSystem),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(24, 8, 24, 16),
+              child: Text(
+                l10n.languageNote,
+                style: Theme.of(sheetContext).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }

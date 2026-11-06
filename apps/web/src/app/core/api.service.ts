@@ -128,15 +128,15 @@ export class ApiService {
     return this.http.get<RecipeSummary[]>(`${this.base}/me/recipes`);
   }
 
-  searchFoods(q: string, locale = 'vi') {
-    const params = new URLSearchParams({ q, locale });
+  // Locale goes in Accept-Language (localeInterceptor), not the query.
+  searchFoods(q: string) {
+    const params = new URLSearchParams({ q });
     return this.http.get<FoodHit[]>(`${this.base}/foods?${params.toString()}`);
   }
 
-  getFoodBySlug(slug: string, locale = 'vi') {
-    const params = new URLSearchParams({ locale });
+  getFoodBySlug(slug: string) {
     return this.http.get<FoodDetail>(
-      `${this.base}/foods/${encodeURIComponent(slug)}?${params.toString()}`,
+      `${this.base}/foods/${encodeURIComponent(slug)}`,
     );
   }
 
@@ -152,11 +152,9 @@ export class ApiService {
       basisQty?: number;
       basisUnit?: string;
     }>,
-    locale = 'vi',
   ) {
-    const params = new URLSearchParams({ locale });
     return this.http.put<FoodDetail>(
-      `${this.base}/foods/${encodeURIComponent(foodId)}/nutrients?${params.toString()}`,
+      `${this.base}/foods/${encodeURIComponent(foodId)}/nutrients`,
       { nutrients },
     );
   }
@@ -223,7 +221,7 @@ export class ApiService {
 
   listOrphanFoods() {
     return this.http.get<ModeratedFood[]>(
-      `${this.base}/foods/moderation/orphans?locale=vi`,
+      `${this.base}/foods/moderation/orphans`,
     );
   }
 

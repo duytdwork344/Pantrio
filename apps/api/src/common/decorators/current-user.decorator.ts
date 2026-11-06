@@ -4,6 +4,8 @@ export type AuthUser = {
   id: string;
   email: string;
   displayName: string;
+  /** Preferred locale (User.locale); null = Accept-Language / default. */
+  locale: string | null;
   roles: string[];
   permissions: string[];
 };

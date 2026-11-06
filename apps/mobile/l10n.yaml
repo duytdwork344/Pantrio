@@ -1,0 +1,8 @@
+# gen-l10n (requirements 2b.1 #5). Template = vi (DEFAULT_LOCALE).
+# Key convention: camelCase of the web key path, e.g. nav.discover → navDiscover.
+arb-dir: lib/l10n
+template-arb-file: app_vi.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+untranslated-messages-file: build/l10n_untranslated.json

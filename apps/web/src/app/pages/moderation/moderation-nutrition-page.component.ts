@@ -11,6 +11,7 @@ import type {
 
 type AmountRow = {
   code: string;
+  name: string;
   nameVi: string;
   nameEn: string;
   unit: string;
@@ -162,7 +163,7 @@ export class ModerationNutritionPageComponent {
       if (!raw) continue;
       const amount = Number(raw);
       if (!Number.isFinite(amount) || amount < 0) {
-        this.error.set(`Giá trị không hợp lệ cho ${row.nameVi} (${row.code}).`);
+        this.error.set(`Giá trị không hợp lệ cho ${row.name} (${row.code}).`);
         return;
       }
       nutrients.push({
@@ -205,6 +206,7 @@ export class ModerationNutritionPageComponent {
       : (food.nutrients ?? []).map((row) => ({
           id: row.code,
           code: row.code,
+          name: row.name,
           nameEn: row.nameEn,
           nameVi: row.nameVi,
           unit: row.unit,
@@ -217,6 +219,7 @@ export class ModerationNutritionPageComponent {
         const hit = existing.get(item.code);
         return {
           code: item.code,
+          name: item.name,
           nameVi: item.nameVi,
           nameEn: item.nameEn,
           unit: item.unit,

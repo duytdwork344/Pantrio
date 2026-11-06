@@ -27,7 +27,7 @@
         <li>
           <div>
             <a [routerLink]="['/studio/recipes', r.slug]" class="title">{{ r.title }}</a>
-            <p class="meta">{{ r.difficulty }} · {{ r.servings }} servings</p>
+            <p class="meta">{{ 'difficulty.' + r.difficulty | transloco }} · {{ r.servings }} servings</p>
           </div>
           <div class="actions">
             <a [routerLink]="['/studio/recipes', r.slug]">Sửa</a>

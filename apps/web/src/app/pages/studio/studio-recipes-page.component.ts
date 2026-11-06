@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -6,7 +7,7 @@ import type { RecipeSummary } from '../../core/models';
 
 @Component({
   selector: 'app-studio-recipes-page',
-  imports: [RouterLink],
+  imports: [RouterLink, TranslocoPipe],
   templateUrl: './studio-recipes-page.component.html',
   styleUrl: './studio-recipes-page.component.scss',
 })

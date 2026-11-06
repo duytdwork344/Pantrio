@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import {
   Component,
   ElementRef,
@@ -28,7 +29,7 @@ const PROFILE_CODES = new Set([
 
 @Component({
   selector: 'app-recipe-detail-page',
-  imports: [RouterLink],
+  imports: [RouterLink, TranslocoPipe],
   templateUrl: './recipe-detail-page.component.html',
   styleUrl: './recipe-detail-page.component.scss',
 })

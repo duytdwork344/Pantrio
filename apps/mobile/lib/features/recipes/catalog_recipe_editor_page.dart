@@ -160,10 +160,7 @@ class _CatalogRecipeEditorPageState extends State<CatalogRecipeEditorPage> {
       return;
     }
     try {
-      final hits = await context.read<AuthSession>().api.searchFoods(
-            q: q,
-            locale: 'vi',
-          );
+      final hits = await context.read<AuthSession>().api.searchFoods(q: q);
       if (mounted) setState(() => _foodHits = hits);
     } on ApiException {
       if (mounted) setState(() => _foodHits = const []);

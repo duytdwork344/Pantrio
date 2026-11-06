@@ -12,6 +12,7 @@
     "db:migrate": "pnpm --filter @pantrio/api exec prisma migrate dev",
     "db:seed": "pnpm --filter @pantrio/api db:seed",
     "db:studio": "pnpm --filter @pantrio/api exec prisma studio",
+    "i18n:check": "node scripts/i18n-check.mjs",
     "openapi:export": "pnpm --filter @pantrio/api openapi:export",
     "openapi:generate": "pnpm --filter @pantrio/api-client generate",
     "docker:up": "docker compose -f infra/compose.yml up -d",

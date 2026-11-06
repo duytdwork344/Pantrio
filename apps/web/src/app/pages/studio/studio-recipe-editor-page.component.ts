@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -28,7 +29,7 @@ const UNITS = ['g', 'kg', 'ml', 'l', 'pcs'] as const;
 
 @Component({
   selector: 'app-studio-recipe-editor-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslocoPipe],
   templateUrl: './studio-recipe-editor-page.component.html',
   styleUrl: './studio-recipe-editor-page.component.scss',
 })

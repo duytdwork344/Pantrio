@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Pantrio",
+    "tagline": "What's in your kitchen, what can you cook?"
+  },
+  "nav": {
+    "discover": "Discover",
+    "articles": "Articles",
+    "saved": "Saved",
+    "studio": "Studio",
+    "moderation": "Moderation",
+    "nutrition": "Nutrition",
+    "login": "Sign in",
+    "logout": "Sign out"
+  },
+  "language": {
+    "label": "Language",
+    "switchTo": "Change language"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "seeAll": "See all"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display name",
+    "loginTitle": "Sign in",
+    "registerTitle": "Create account",
+    "submitLogin": "Sign in",
+    "submitRegister": "Sign up",
+    "loginFailed": "Could not sign in",
+    "registerFailed": "Could not sign up"
+  },
+  "difficulty": {
+    "EASY": "Easy",
+    "MEDIUM": "Medium",
+    "HARD": "Hard"
+  },
+  "storage": {
+    "PANTRY": "Pantry",
+    "FRIDGE": "Fridge",
+    "FREEZER": "Freezer",
+    "OTHER": "Other"
+  },
+  "unit": {
+    "g": "g",
+    "kg": "kg",
+    "ml": "ml",
+    "l": "l",
+    "pcs": "pcs"
+  },
+  "errors": {
+    "UNKNOWN": "Something went wrong. Please try again.",
+    "BAD_REQUEST": "The request is not valid.",
+    "UNAUTHORIZED": "Please sign in to continue.",
+    "FORBIDDEN": "You don't have permission to do this.",
+    "NOT_FOUND": "Not found.",
+    "CONFLICT": "The data changed or already exists. Please reload.",
+    "PAYLOAD_TOO_LARGE": "The file is too large.",
+    "TOO_MANY_REQUESTS": "Too many requests. Please try again later.",
+    "INTERNAL_ERROR": "The server ran into a problem. Please try again later.",
+    "VALIDATION_FAILED": "Some fields are not valid.",
+    "AUTH_EMAIL_TAKEN": "This email is already registered.",
+    "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
+    "USER_NOT_FOUND": "Account not found.",
+    "LOCALE_NOT_SUPPORTED": "This language is not supported yet."
+  }
+}

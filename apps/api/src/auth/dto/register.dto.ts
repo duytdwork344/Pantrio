@@ -1,5 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SUPPORTED_LOCALES } from '@pantrio/shared';
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'cook@pantrio.app' })
@@ -15,4 +22,12 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   password!: string;
+
+  @ApiPropertyOptional({
+    enum: SUPPORTED_LOCALES,
+    description: 'Preferred locale; omit to follow Accept-Language',
+  })
+  @IsOptional()
+  @IsIn(SUPPORTED_LOCALES)
+  locale?: string;
 }

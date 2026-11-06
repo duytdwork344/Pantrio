@@ -3,6 +3,8 @@ export type UserProfile = {
   email: string;
   displayName: string;
   avatarUrl?: string | null;
+  /** Preferred locale; null = follow browser / Accept-Language. */
+  locale?: string | null;
   createdAt: string;
   roles: string[];
   permissions: string[];
@@ -67,7 +69,11 @@ export type NutrientContribution = {
 
 export type NutrientAmount = {
   code: string;
+  /** Name in the active locale. */
+  name: string;
+  /** @deprecated use `name` */
   nameEn: string;
+  /** @deprecated use `name` */
   nameVi: string;
   unit: string;
   group: string;
@@ -170,7 +176,11 @@ export type FoodHit = {
 export type NutrientCatalogItem = {
   id: string;
   code: string;
+  /** Name in the active locale. */
+  name: string;
+  /** @deprecated use `name` */
   nameEn: string;
+  /** @deprecated use `name` */
   nameVi: string;
   unit: string;
   group: string;
@@ -179,7 +189,11 @@ export type NutrientCatalogItem = {
 
 export type FoodNutrientValue = {
   code: string;
+  /** Name in the active locale. */
+  name: string;
+  /** @deprecated use `name` */
   nameEn: string;
+  /** @deprecated use `name` */
   nameVi: string;
   unit: string;
   group: string;
